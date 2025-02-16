@@ -5,7 +5,7 @@ customizable windows. It aims to be highly efficient with memory and CPU.
 
 "Skada" is Swedish for "Damage".
 
-# **Note: I had a tiny break, a decade, but recently started playing Season of Discovery, and decided to see if I could make this old addon of mine work again. It may not work correctly yet.**
+**Note:** I had a tiny break, a decade, but recently started playing Season of Discovery, and decided to see if I could make this old addon of mine work again. It may not work correctly yet.**
 
 ## Usage
 
