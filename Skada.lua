@@ -72,19 +72,19 @@ local RAID_FLAGS = bit.bor(COMBATLOG_OBJECT_AFFILIATION_MINE, COMBATLOG_OBJECT_A
 
 -- Returns the group type (i.e., "party" or "raid") and the size of the group.
 function Skada:GetGroupTypeAndCount()
-	local type
+	local groupType
 	local count = GetNumGroupMembers()
+	
+	-- Modern API detection with Classic Era support
 	if IsInRaid() then
-		type = "raid"
-	elseif IsInGroup() then
-		type = "party"
-		-- To make the counts similar between 4.3 and 5.0, we need
-		-- to subtract one because GetNumPartyMembers() does not
-		-- include the player while GetNumGroupMembers() does.
-		count = count - 1
+		groupType = "raid"
+	elseif IsInGroup() then  -- Works in both Retail and Classic
+		groupType = "party"
+		-- Maintain Classic-era behavior where count includes player
+		count = count > 0 and count - 1 or 0
 	end
-
-	return type, count
+	
+	return groupType, count
 end
 
 do
@@ -1215,41 +1215,45 @@ end
 
 function Skada:Reset()
 	self:Wipe()
-
-	pets, players = {}, {}
+	
+	-- Clear existing tables instead of creating new ones
+	if pets then wipe(pets) end
+	if players then wipe(players) end
+	
 	self:CheckGroup()
 
 	if self.current ~= nil then
 		wipe(self.current)
-		self.current = createSet(L["Current"])
+		self.current = nil
 	end
+
 	if self.total ~= nil then
 		wipe(self.total)
-		self.total = createSet(L["Total"])
-		self.char.total = self.total
+		self.total = nil
 	end
-	self.last = nil
 
-	-- Delete sets that are not marked as persistent.
-	for i = #self.char.sets, 1, -1 do
-		if not self.char.sets[i].keep then
-			wipe(tremove(self.char.sets, i))
+	if self.last ~= nil then
+		wipe(self.last)
+		self.last = nil
+	end
+
+	deathcounter = 0
+	startingmembers = 0
+
+	-- Reset all windows
+	for i, win in ipairs(windows) do
+		win:Reset()
+	end
+
+	-- Let the modes know
+	for i, mode in ipairs(modes) do
+		if mode.OnReset then
+			mode:OnReset()
 		end
 	end
 
-	-- Don't leave windows pointing to deleted sets
-	for _, win in ipairs(windows) do
-		if win.selectedset ~= "total" then
-			win.selectedset = "current"
-			win.changed = true
-		end
-	end
-
-	dataobj.text = "n/a"
-	self:UpdateDisplay(true)
-	self:Print(L["All data has been reset."])
-	if not InCombatLockdown() then -- ticket 377: avoid timeout errors in combat because GC can run too long
-		collectgarbage("collect")
+	if self.db.profile.reset.instance then
+		Skada:StartCombat()
 	end
 end
 
@@ -2985,16 +2989,16 @@ function Skada:OnEnable()
 	self:ScheduleTimer("MemoryCheck", 3)
 end
 
+function Skada:AddLoadableModule(name, description, func)
+	if not self.moduleList then self.moduleList = {} end
+	self.moduleList[#self.moduleList+1] = func
+	self:AddLoadableModuleCheckbox(name, L[name], description and L[description])
+end
+
 function Skada:MemoryCheck()
 	UpdateAddOnMemoryUsage()
 	local mem = GetAddOnMemoryUsage("Skada")
 	if mem > 30000 then
 		self:Print(L["Memory usage is high. You may want to reset Skada, and enable one of the automatic reset options."])
 	end
-end
-
-function Skada:AddLoadableModule(name, description, func)
-	if not self.moduleList then self.moduleList = {} end
-	self.moduleList[#self.moduleList+1] = func
-	self:AddLoadableModuleCheckbox(name, L[name], description and L[description])
 end
