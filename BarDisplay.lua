@@ -198,6 +198,11 @@ end
 local function BarIconEnter(icon)
 	local bar = icon.bar
 	local win = bar.win
+	if bar.spellid and win and win.bargroup then
+		Skada:SetTooltipPosition(GameTooltip, win.bargroup);
+		GameTooltip:SetHyperlink("spell:"..bar.spellid);
+		GameTooltip:Show();
+	end
 	if bar.link and win and win.bargroup then
 		Skada:SetTooltipPosition(GameTooltip, win.bargroup);
 		GameTooltip:SetHyperlink(bar.link);
@@ -310,12 +315,12 @@ function mod:Update(win)
 
 						bar.link = nil
 						if data.spellid then
-							local spell = data.spellid
-							bar.link = GetSpellLink(spell)
+							-- bar.link = C_Spell.GetSpellLink(data.spellid)
+							bar.spellid = data.spellid
 						elseif data.hyperlink then
 							bar.link = data.hyperlink
 						end
-						if bar.link then
+						if bar.link or bar.spellid then
 							bar.iconFrame.bar = bar
 							bar.iconFrame:EnableMouse(true)
 							bar.iconFrame:SetScript("OnEnter", BarIconEnter)

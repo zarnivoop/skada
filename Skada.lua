@@ -2361,6 +2361,7 @@ end
 
 do
 	local function GetPetOwner(guid)
+		if not C_TooltipInfo then return end
 		local data = C_TooltipInfo.GetHyperlink("unit:" .. guid)
 		if not data then return end
 		for _, line in next, data.lines do
