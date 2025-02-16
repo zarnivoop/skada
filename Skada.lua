@@ -18,11 +18,49 @@ local dataobj = LibStub("LibDataBroker-1.1"):NewDataObject("Skada", {
 	text = "n/a"
 })
 
+InterfaceOptions_AddCategory = InterfaceOptions_AddCategory
+if not InterfaceOptions_AddCategory then
+    InterfaceOptions_AddCategory = function(frame, addOn, position)
+        frame.OnCommit = frame.okay;
+        frame.OnDefault = frame.default;
+        frame.OnRefresh = frame.refresh;
+
+        if frame.parent then
+            local category = Settings.GetCategory(frame.parent);
+            local subcategory, layout = Settings.RegisterCanvasLayoutSubcategory(category, frame, frame.name, frame.name);
+            subcategory.ID = frame.name;
+
+            return subcategory, category;
+        else
+            local category, layout = Settings.RegisterCanvasLayoutCategory(frame, frame.name, frame.name);
+            category.ID = frame.name;
+            Settings.RegisterAddOnCategory(category);
+            return category;
+        end
+    end
+end
+
+function Skada:GetSpellIcon(spellId)
+	local info = C_Spell.GetSpellInfo(spellId)
+	if info then
+		return info.iconID
+	end
+	return nil
+end
+
+function Skada:GetGameVersion()
+	local version = floor((floor(select(4, GetBuildInfo()))/10000))
+
+	return version
+end
+
 local popup, cleuFrame
 
 -- Used for automatic stop on wipe option
 local deathcounter = 0
 local startingmembers = 0
+
+-- Aliases
 
 -- Aliases
 local tsort, tinsert, tremove = table.sort, table.insert, table.remove
@@ -2322,7 +2360,7 @@ do
 		local data = C_TooltipInfo.GetHyperlink("unit:" .. guid)
 		if not data then return end
 		for _, line in next, data.lines do
-			TooltipUtil.SurfaceArgs(line)
+			-- TooltipUtil.SurfaceArgs(line)
 			if line.type == 16 and line.guid then -- Enum.TooltipDataLineType.UnitOwner
 				return line.guid
 			end

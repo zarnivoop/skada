@@ -343,8 +343,7 @@ Skada:AddLoadableModule("Damage", nil, function(Skada, L)
 					win.dataset[nr] = d
 					d.label = spellname
 					d.id = spellname
-					local _, _, icon = GetSpellInfo(spell.id)
-					d.icon = icon
+					d.icon = Skada:GetSpellIcon(spell.id)
 					d.spellid = spell.id
 					d.value = spell.damage
 					if spell.school then

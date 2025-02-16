@@ -127,11 +127,10 @@ Skada:AddLoadableModule("TotalHealing", nil, function(Skada, L)
 					Skada:FormatNumber(srh), self.metadata.columns.Healing,
 					string.format("%02.1f%%", srh / (player.healing+player.overhealing) * 100), self.metadata.columns.Percent
 				)
-				local _, _, icon = GetSpellInfo(spell.id)
-				d.icon = icon
+				d.icon = Skada:GetSpellIcon(spell.id)
 				d.spellid = spell.id
 
-				if spell.healing > max then
+				if srh > max then
 					max = srh
 				end
 
@@ -144,7 +143,7 @@ Skada:AddLoadableModule("TotalHealing", nil, function(Skada, L)
 	end
 
 	function mod:OnEnable()
-		mod.metadata = {click1 = thspellsmod, showspots = true, columns = {Healing = true, Total = true, Percent = false}, icon = "Interface\\Icons\\Ability_priest_angelicbulwark"}
+		mod.metadata = {click1 = thspellsmod, showspots = true, columns = {Healing = true, Total = true, Percent = false}, icon = "Interface\\Icons\\Spell_holy_greaterheal"}
 		thspellsmod.metadata = {tooltip = thspell_tooltip, columns = {Healing = true, Percent = true}}
 
 		Skada:AddMode(self, L["Healing"])

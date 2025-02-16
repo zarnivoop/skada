@@ -86,7 +86,7 @@ Skada:AddLoadableModule("Dispels", nil, function(Skada, L)
 	end
 
 	function mod:OnEnable()
-		mod.metadata = {showspots = true, icon = "Interface\\Icons\\Ability_priest_focusedwill"}
+		mod.metadata = {showspots = true, icon = "Interface\\Icons\\Spell_holy_dispelmagic"}
 
 		Skada:RegisterForCL(SpellDispel, 'SPELL_STOLEN', {src_is_interesting = true})
 		Skada:RegisterForCL(SpellDispel, 'SPELL_DISPEL', {src_is_interesting = true})

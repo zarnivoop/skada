@@ -7,18 +7,18 @@ Skada.resetoptions = {[1] = L["No"], [2] = L["Yes"], [3] = L["Ask"]}
 Skada.windowdefaults = {
 	name = "Skada",
 
-	barspacing = 0,
-	bartexture = "BantoBar",
-	barfont = "Accidental Presidency",
-	barfontflags = "",
-	barfontsize = 13,
-	barheight = 18,
-	barwidth = 240,
-	barorientation = 1,
+	barspacing=0,
+	bartexture="BantoBar",
+	barfont="Expressway",
+	barfontflags="",
+	barfontsize=10,
+	barheight=16,
+	barwidth=240,
+	barorientation=1,
 	barcolor = {r = 0.3, g = 0.3, b = 0.8, a=1},
 	barbgcolor = {r = 0.3, g = 0.3, b = 0.3, a = 0.6},
-	barslocked = false,
-	clickthrough = false,
+	barslocked=false,
+	clickthrough=false,
 
 	spellschoolcolors = true,
 	classcolorbars = true,
@@ -29,14 +29,14 @@ Skada.windowdefaults = {
 
 	buttons = {menu = true, reset = true, report = true, mode = true, segment = true},
 
-	title = {textcolor = {r = 0.9, g = 0.9, b = 0.9, a = 1}, height = 20, font="Accidental Presidency", fontsize=13, texture="Armory", bordercolor = {r=0,g=0,b=0,a=1}, bordertexture="None", borderthickness=2, color = {r=0.3,g=0.3,b=0.3,a=1}, fontflags = ""},
+	title = {textcolor = {r = 0.9, g = 0.9, b = 0.9, a = 1}, height = 18, font="Expressway", barfontsize=10, fontsize=10, texture="Armory", bordercolor = {r=0,g=0,b=0,a=1}, bordertexture="None", borderthickness=2, color = {r=0.3,g=0.3,b=0.3,a=1}, fontflags = ""},
 	background = {
-		height = 200,
-		texture = "Solid",
+		height=200,
+		texture="Solid",
 		bordercolor = {r=0,g=0,b=0,a=1},
-		bordertexture = "Blizzard Party",
-		borderthickness = 1,
-		color = {r=0,g=0,b=0,a=0.4},
+		bordertexture="Blizzard Party",
+		borderthickness=1,
+		color = {r=0,g=0,b=0,a=0.8},
 		tile = false,
 		tilesize = 0,
 	},
@@ -59,7 +59,7 @@ Skada.windowdefaults = {
 	display = "bar",
 	snapto = true,
 	version = 1,
-	smoothing = false,
+	smoothing = true,
 
 	-- Inline exclusive
 	isonnewline = false,

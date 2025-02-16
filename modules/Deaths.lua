@@ -94,7 +94,7 @@ Skada:AddLoadableModule("Deaths", nil, function(Skada, L)
 		local player = Skada:get_player(set, playerid, playername)
 
 		local spellid = death_spell
-		local spellname = string.format(L["%s dies"], GetSpellInfo(20711))
+		local spellname = string.format(L["%s dies"], C_Spell.GetSpellName(20711))
 
 		-- Add log entry to to previous death.
 		if player and player.deaths and player.deaths[1] then
@@ -260,7 +260,7 @@ Skada:AddLoadableModule("Deaths", nil, function(Skada, L)
 				d.id = player.id
 				d.value = #player.deaths
 				if spellid then
-					d.label = player.name .. ": " .. (spellname or GetSpellInfo(spellid))
+					d.label = player.name .. ": " .. (spellname or C_Spell.GetSpellName(spellid))
 				else
 					d.label = player.name
 				end
@@ -317,7 +317,7 @@ Skada:AddLoadableModule("Deaths", nil, function(Skada, L)
 
 						d.id = nr
 						local spellid = log.spellid or 88163 -- "Attack" spell
-						local spellname = log.spellname or GetSpellInfo(spellid)
+						local spellname = log.spellname or C_Spell.GetSpellName(spellid)
 						local rspellname
 						if spellid == death_spell then
 							rspellname = spellname -- nicely formatted death message
@@ -337,8 +337,7 @@ Skada:AddLoadableModule("Deaths", nil, function(Skada, L)
 						d.reportlabel = label..rspellname
 						d.ts = log.ts
 						d.value = log.hp or 0
-						local _, _, icon = GetSpellInfo(spellid)
-						d.icon = icon
+						d.icon = Skada:GetSpellIcon(spellid)
 						d.spellid = spellid
 
 						local amt = ""
@@ -385,7 +384,7 @@ Skada:AddLoadableModule("Deaths", nil, function(Skada, L)
 	end
 
 	function mod:OnEnable()
-		mod.metadata = {ordersort = true, click1 = deathlog, columns = {Deaths = true, Timestamp = true}, icon = "Interface\\Icons\\Ability_warlock_cremation"}
+		mod.metadata = {ordersort = true, click1 = deathlog, columns = {Deaths = true, Timestamp = true}, icon = "Interface\\Icons\\Spell_shadow_deathanddecay"}
 		deathlog.metadata = {ordersort = true, columns = {Change = true, Health = false, Percent = true, Absorb = true}}
 
 		Skada:RegisterForCL(UnitDied, 'UNIT_DIED', {dst_is_interesting_nopets = true})

@@ -134,8 +134,7 @@ Skada:AddLoadableModule("DamageTaken", nil, function(Skada, L)
 			d.value = spell.damage
 			d.valuetext = Skada:FormatNumber(spell.damage)..(" (%02.1f%%)"):format(spell.damage / set.damagetaken * 100)
 			d.id = name
-			local _, _, icon = GetSpellInfo(spell.id)
-			d.icon = icon
+			d.icon = Skada:GetSpellIcon(spell.id)
 			if spell.school then
 				d.spellschool = spell.school
 			end
@@ -236,8 +235,7 @@ Skada:AddLoadableModule("DamageTaken", nil, function(Skada, L)
 
 				d.label = spellname
 				d.value = spell.damage
-				local _, _, icon = GetSpellInfo(spell.id)
-				d.icon = icon
+				d.icon = Skada:GetSpellIcon(spell.id)
 				d.id = spellname
 				d.spellid = spell.id
 				d.valuetext = Skada:FormatNumber(spell.damage)..(" (%02.1f%%)"):format(spell.damage / player.damagetaken * 100)

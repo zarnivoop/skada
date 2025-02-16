@@ -154,21 +154,18 @@ Skada:AddLoadableModule("Power", nil, function(Skada, L)
 		if player then
 
 			for spellid, amount in pairs(player.power[self.power].spells) do
-
-				local name, rank, icon, cost, isFunnel, powerType, castTime, minRange, maxRange = GetSpellInfo(spellid)
-
 				local d = win.dataset[nr] or {}
 				win.dataset[nr] = d
 
 				d.id = spellid
-				d.label = name
+				d.label = C_Spell.GetSpellName(spellid)
 				d.value = amount
 				if self.power == MANA then
 					d.valuetext = Skada:FormatNumber(amount)..(" (%02.1f%%)"):format(amount / player.power[self.power].amount * 100)
 				else
 					d.valuetext = amount..(" (%02.1f%%)"):format(amount / player.power[self.power].amount * 100)
 				end
-				d.icon = icon
+				d.icon = Skada:GetSpellIcon(spellid)
 				d.spellid = spellid
 
 				if amount > max then
@@ -183,7 +180,7 @@ Skada:AddLoadableModule("Power", nil, function(Skada, L)
 		win.metadata.maxvalue = max
 	end
 
-	local manamod = basemod:Create(MANA, L["Mana gained"], L["Mana gain spell list"], "Interface\\Icons\\Inv_misc_ancient_mana")
+	local manamod = basemod:Create(MANA, L["Mana gained"], L["Mana gain spell list"], "Interface\\Icons\\Spell_magic_managain")
 	local energymod = basemod:Create(ENERGY, L["Energy gained"], L["Energy gain sources"], "Interface\\Icons\\Ability_rogue_sprint")
 	local runicmod = basemod:Create(RUNIC, L["Runic power gained"], L["Runic power gain sources"], "Interface\\Icons\\Ability_deathknight_runicimpowerment")
 	local ragemod = basemod:Create(RAGE, L["Rage gained"], L["Rage gain sources"], "Interface\\Icons\\Ability_warrior_rampage")
@@ -197,7 +194,12 @@ Skada:AddLoadableModule("Power", nil, function(Skada, L)
 		Skada:AddMode(manamod, L["Power gains"])
 		Skada:AddMode(energymod, L["Power gains"])
 		Skada:AddMode(ragemod, L["Power gains"])
-		Skada:AddMode(runicmod, L["Power gains"])
+
+		-- Wrath
+		if Skada:GetGameVersion() >= 3 then
+			Skada:AddMode(runicmod, L["Power gains"])
+		end
+
 		Skada:AddMode(holymod, L["Power gains"])
 		Skada:AddMode(focusmod, L["Power gains"])
 	end

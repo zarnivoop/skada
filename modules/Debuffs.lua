@@ -153,8 +153,7 @@ Skada:AddLoadableModule("Debuffs", nil, function(Skada, L)
 					d.label = spellname
 					d.spellid = spell.id
 
-					local _, _, icon = GetSpellInfo(spell.id)
-					d.icon = icon
+					d.icon = Skada:GetSpellIcon(spell.id)
 
 					if spell.school then
 						d.spellschool = spell.school
@@ -290,8 +289,7 @@ Skada:AddLoadableModule("Debuffs", nil, function(Skada, L)
 						d.id = spell.name
 						d.value = uptime
 						d.label = spell.name
-						local _, _, icon = GetSpellInfo(spell.id)
-						d.icon = icon
+						d.icon = Skada:GetSpellIcon(spell.id)
 						d.spellid = spell.id
 						d.valuetext = ("%02.1f%%"):format(uptime / maxtime * 100)
 

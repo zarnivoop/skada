@@ -36,6 +36,7 @@ locale\ruRU.lua
 locale\zhCN.lua
 locale\zhTW.lua
 
+Tweaks.lua
 Skada.lua
 Menus.lua
 Options.lua

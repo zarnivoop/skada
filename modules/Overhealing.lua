@@ -89,8 +89,7 @@ Skada:AddLoadableModule("Overhealing", nil, function(Skada, L)
 					Skada:FormatNumber(spell.overhealing), self.metadata.columns.Healing,
 					string.format("%02.1f%%", spell.overhealing / player.overhealing * 100), self.metadata.columns.Percent
 				)
-				local _, _, icon = GetSpellInfo(spell.id)
-				d.icon = icon
+				d.icon = Skada:GetSpellIcon(spell.id)
 				d.spellid = spell.id
 
 				if spell.overhealing > max then

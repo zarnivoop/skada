@@ -392,8 +392,7 @@ Skada:AddLoadableModule("Healing", nil, function(Skada, L)
 					Skada:FormatNumber(spell.healing), self.metadata.columns.Healing,
 					string.format("%02.1f%%", spell.healing / player.healing * 100), self.metadata.columns.Percent
 				)
-				local _, _, icon = GetSpellInfo(spell.id)
-				d.icon = icon
+				d.icon = Skada:GetSpellIcon(spell.id)
 				d.spellid = spell.id
 
 				if spell.healing > max then
@@ -449,10 +448,10 @@ Skada:AddLoadableModule("Healing", nil, function(Skada, L)
 	end
 
 	function mod:OnEnable()
-		mod.metadata = {showspots = true, click1 = spellsmod, click2 = healedmod, columns = {Healing = true, HPS = true, Percent = true}, icon = "Interface\\Icons\\Ability_priest_flashoflight"}
+		mod.metadata = {showspots = true, click1 = spellsmod, click2 = healedmod, columns = {Healing = true, HPS = true, Percent = true}, icon = "Interface\\Icons\\Spell_holy_flashheal"}
 		spellsmod.metadata = {tooltip = spell_tooltip, columns = {Healing = true, Percent = true}}
 		healedmod.metadata = {showspots = true, columns = {Healing = true, Percent = true}}
-		healingtaken.metadata = {showspots = true, columns = {Healing = true, HPS = true, Percent = true}, icon = "Interface\\Icons\\Ability_priest_cascade"}
+		healingtaken.metadata = {showspots = true, columns = {Healing = true, HPS = true, Percent = true}, icon = "Interface\\Icons\\Achievement_bg_tophealer_eos"}
 
 		-- handlers for Healing spells
 		Skada:RegisterForCL(SpellHeal, 'SPELL_HEAL', {src_is_interesting = true})
