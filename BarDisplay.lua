@@ -300,7 +300,7 @@ function mod:Update(win)
 			end
 
 			if bar then
-				bar:SetValue(data.value)
+				bar:SetValue(data.value or 0)
 				bar:SetMaxValue(win.metadata.maxvalue or 1) -- MUST come after SetValue
 			else
 				-- Initialization of bars.
@@ -332,7 +332,7 @@ function mod:Update(win)
 					bar:SetScript("OnLeave", nil)
 					bar:SetScript("OnMouseDown", BarClickIgnore)
 				end
-				bar:SetValue(data.value)
+				bar:SetValue(data.value or 0)
 
 				bar.link = nil
 				bar.spellid = nil

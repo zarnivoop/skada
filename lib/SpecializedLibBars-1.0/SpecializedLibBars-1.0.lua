@@ -1076,13 +1076,14 @@ do
 
 		self.callbacks = self.callbacks or CallbackHandler:New(self)
 		self:SetScript("OnSizeChanged", self.OnSizeChanged)
-		self.texture = self.texture or self:CreateTexture(nil, "ARTWORK")
-
 		self.bgtexture = self.bgtexture or self:CreateTexture(nil, "BACKGROUND")
 		self.bgtexture:SetAllPoints()
 		self.bgtexture:SetVertexColor(0.3, 0.3, 0.3, 0.6)
 
-		self.icon = self.icon or self:CreateTexture(nil, "OVERLAY")
+		self.texture = self.texture or self:CreateTexture(nil, "ARTWORK")
+		self.texture:SetTexture("Interface\\Addons\\Skada\\statusbar\\Armory")
+
+		self.icon = self.icon or self:CreateTexture(nil, "ARTWORK", nil, 1)
 		self.icon:SetPoint("TOPLEFT", self, "TOPLEFT", 0, 0)
 		self:SetIcon(icon or DEFAULT_ICON)
 		if icon then
@@ -1093,12 +1094,15 @@ do
 		-- Lame frame solely used for handling mouse input on icon.
 		self.iconFrame = self.iconFrame or CreateFrame("Frame", nil, self)
 		self.iconFrame:SetAllPoints(self.icon)
+		self.iconFrame:SetFrameLevel(1)
 
 		self.label = self.label or self:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
 		self.label:SetWordWrap(false)
 		self.label:SetText(text)
 		self.label:ClearAllPoints()
 		self.label:SetPoint("LEFT", self, "LEFT", (self.showIcon and self.thickness or 0) + 6, 0)
+		self.label:SetJustifyH("LEFT")
+		self.label:SetJustifyV("MIDDLE")
 		self:ShowLabel()
 
 		local f, s, m = self.label:GetFont()
@@ -1165,8 +1169,12 @@ function barPrototype:OnBarReleased()
 	self:Hide()
 	local f, s, m = ChatFontNormal:GetFont()
 	self.label:SetFont(f, s or 10, m)
+	self.label:ClearAllPoints()
+	self.label:SetJustifyH("LEFT")
+	self.label:SetJustifyV("MIDDLE")
 	for i = 1, 3 do
 		self.columns[i]:SetFont(f, s or 10, m)
+		self.columns[i]:ClearAllPoints()
 	end
 
 	-- Cancel all registered callbacks. CBH doesn't seem to provide a method to do this.
@@ -1546,19 +1554,18 @@ end
 function barPrototype:SetValue(val)
 	-- assert(val ~= nil, "Value cannot be nil!")
 	self.value = val or 0
-	if not self.maxValue or val > self.maxValue then
-		self.maxValue = val or 0.000001
+	if not self.maxValue or self.value > self.maxValue then
+		self.maxValue = self.value
 	end
 	local ownerGroup = self.ownerGroup
-	local displayMax = ownerGroup and ownerGroup.displayMax or self.displayMax or 0.000001
+	local displayMax = ownerGroup and ownerGroup.displayMax or self.displayMax
 	if displayMax then
-		displayMax = min(displayMax, self.maxValue or 0.000001)
+		displayMax = min(displayMax, self.maxValue)
 	else
-		displayMax = self.maxValue or 0.000001
+		displayMax = self.maxValue
 	end
 	local amt = min(1, self.value / max(displayMax, 0.000001))
 	local dist = (ownerGroup and ownerGroup:GetLength()) or self.length
-	dist = max(0.0001, dist)
 	amt = max(amt, 0.000001)
 
 	if ownerGroup and ownerGroup.smoothing and self.lastamount then
@@ -1577,17 +1584,17 @@ end
 
 function barPrototype:SetTextureValue(amt, dist)
 	dist = max(0.0001, dist)
-	local t, o = self.texture, self.orientation
-	t:SetValue(amt * dist)
+	self.texture:SetValue(amt * dist)
 
-	if o == 1 then
-		t:SetTexCoord(0, amt, 0, 1)
-	elseif o == 2 then
-		t:SetTexCoord(1 - amt, 1, 1, 1, 1 - amt, 0, 1, 0)
-	elseif o == 3 then
-		t:SetTexCoord(1 - amt, 1, 0, 1)
-	elseif o == 4 then
-		t:SetTexCoord(0, 1, amt, 1, 0, 0, amt, 0)
+	local o = self.orientation
+	if o == lib.LEFT_TO_RIGHT then
+		self.texture:SetTexCoord(0, amt, 0, 1)
+	elseif o == lib.BOTTOM_TO_TOP then
+		self.texture:SetTexCoord(1 - amt, 1, 1, 1, 1 - amt, 0, 1, 0)
+	elseif o == lib.RIGHT_TO_LEFT then
+		self.texture:SetTexCoord(1 - amt, 1, 0, 1)
+	elseif o == lib.TOP_TO_BOTTOM then
+		self.texture:SetTexCoord(0, 1, amt, 1, 0, 0, amt, 0)
 	end
 end
 

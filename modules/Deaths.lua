@@ -260,7 +260,7 @@ Skada:AddLoadableModule("Deaths", nil, function(Skada, L)
 				d.id = player.id
 				d.value = #player.deaths
 				if spellid then
-					d.label = player.name .. ": " .. (spellname or C_Spell.GetSpellName(spellid))
+					d.label = player.name .. ": " .. (spellname or C_Spell.GetSpellName(spellid) or "Melee")
 				else
 					d.label = player.name
 				end
@@ -317,7 +317,7 @@ Skada:AddLoadableModule("Deaths", nil, function(Skada, L)
 
 						d.id = nr
 						local spellid = log.spellid or 88163 -- "Attack" spell
-						local spellname = log.spellname or C_Spell.GetSpellName(spellid)
+						local spellname = log.spellname or C_Spell.GetSpellName(spellid) or "Melee"
 						local rspellname
 						if spellid == death_spell then
 							rspellname = spellname -- nicely formatted death message
@@ -333,7 +333,7 @@ Skada:AddLoadableModule("Deaths", nil, function(Skada, L)
 						if log.srcname then
 							label = label..log.srcname..L["'s "]
 						end
-						d.label =       label..spellname
+						d.label = label..spellname
 						d.reportlabel = label..rspellname
 						d.ts = log.ts
 						d.value = log.hp or 0
