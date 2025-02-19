@@ -247,7 +247,7 @@ Skada:AddLoadableModule("Damage", nil, function(Skada, L)
 				win.dataset[nr] = d
 				d.label = player.name
 
-				d.valuetext = Skada:FormatValueText(
+				Skada:FormatValueText(d,
 					Skada:FormatNumber(player.damage), self.metadata.columns.Damage,
 					Skada:FormatNumber(dps), self.metadata.columns.DPS,
 					string.format("%02.1f%%", player.damage / set.damage * 100), self.metadata.columns.Percent
@@ -350,7 +350,7 @@ Skada:AddLoadableModule("Damage", nil, function(Skada, L)
 						d.spellschool = spell.school
 					end
 
-					d.valuetext = Skada:FormatValueText(
+					Skada:FormatValueText(d,
 						Skada:FormatNumber(spell.damage), self.metadata.columns.Damage,
 						string.format("%02.1f%%", spell.damage / player.damage * 100), self.metadata.columns.Percent
 					)
@@ -388,7 +388,7 @@ Skada:AddLoadableModule("Damage", nil, function(Skada, L)
 					d.label = mob
 					d.id = mob
 					d.value = amount
-					d.valuetext = Skada:FormatValueText(
+					Skada:FormatValueText(d,
 						Skada:FormatNumber(amount), self.metadata.columns.Damage,
 						string.format("%02.1f%%", amount / player.damage * 100), self.metadata.columns.Percent
 					)
@@ -412,7 +412,7 @@ Skada:AddLoadableModule("Damage", nil, function(Skada, L)
 		d.value = value
 		d.label = title
 		d.id = title
-		d.valuetext = Skada:FormatValueText(
+		Skada:FormatValueText(d,
 			value, mod.metadata.columns.Damage,
 			string.format("%02.1f%%", value / spellmod.totalhits * 100), mod.metadata.columns.Percent
 		)
@@ -512,10 +512,9 @@ Skada:AddLoadableModule("Damage", nil, function(Skada, L)
 		end
 	end
 
-
 	-- DPS-only view
-	function dpsmod:GetSetSummary(set)
-		return Skada:FormatNumber(getRaidDPS(set))
+	function dpsmod:FormatSetSummary(datasetItem, set)
+		Skada:FormatValueText(datasetItem, Skada:FormatNumber(getRaidDPS(set)), true)
 	end
 
 	function dpsmod:Update(win, set)
@@ -602,8 +601,9 @@ Skada:AddLoadableModule("Damage", nil, function(Skada, L)
 		GameTooltip:AddDoubleLine(L["DPS"], Skada:FormatNumber(getRaidDPS(set)), 1,1,1)
 	end
 
-	function mod:GetSetSummary(set)
-		return Skada:FormatValueText(
+	function mod:FormatSetSummary(datasetItem,set)
+		Skada:FormatValueText(
+			datasetItem,
 			Skada:FormatNumber(set.damage), self.metadata.columns.Damage,
 			Skada:FormatNumber(getRaidDPS(set)), self.metadata.columns.DPS
 		)

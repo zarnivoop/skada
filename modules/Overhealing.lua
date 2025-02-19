@@ -29,8 +29,8 @@ Skada:AddLoadableModule("Overhealing", nil, function(Skada, L)
 		end
 	end
 
-	function mod:GetSetSummary(set)
-		return Skada:FormatNumber(set.overhealing)
+	function mod:FormatSetSummary(datasetItem,set)
+		Skada:FormatValueText(datasetItem, Skada:FormatNumber(set.overhealing), true)
 	end
 
 	function mod:Update(win, set)
@@ -47,7 +47,7 @@ Skada:AddLoadableModule("Overhealing", nil, function(Skada, L)
 				d.value = player.overhealing
 				d.label = player.name
 
-				d.valuetext = Skada:FormatValueText(
+				Skada:FormatValueText(d,
 					Skada:FormatNumber(player.overhealing), self.metadata.columns.Overheal,
 					string.format("%02.1f%%", player.overhealing / math.max(1, player.healing) * 100), self.metadata.columns.Percent
 				)
@@ -85,7 +85,7 @@ Skada:AddLoadableModule("Overhealing", nil, function(Skada, L)
 				d.id = spell.name -- ticket 362: this needs to be spellname because spellid is not unique with pets that mirror abilities (DK DRW)
 				d.label = spell.name
 				d.value = spell.overhealing
-				d.valuetext = Skada:FormatValueText(
+				Skada:FormatValueText(d,
 					Skada:FormatNumber(spell.overhealing), self.metadata.columns.Healing,
 					string.format("%02.1f%%", spell.overhealing / player.overhealing * 100), self.metadata.columns.Percent
 				)

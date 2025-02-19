@@ -206,8 +206,8 @@ Skada:AddLoadableModule("Friendly Fire", "Shows damage done on players by friend
 				end
 		end
 
-		function mod:GetSetSummary(set)
-				return Skada:FormatNumber(set.ffdamagedone)
+		function mod:FormatSetSummary(datasetItem,set)
+				Skada:FormatValueText(datasetItem, set.ffdamagedone, true)
 		end
 
 end)

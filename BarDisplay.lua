@@ -307,26 +307,20 @@ function mod:Update(win)
 				bar = mod:CreateBar(win, barid, barlabel, data.value, win.metadata.maxvalue or 1, data.icon, false)
 				bar.id = barid
 				bar.text = barlabel
-								bar.fixed = false
+				bar.fixed = false
+				
 				if not data.ignore then
 
-					if data.icon then
+					if data.icon ~= nil then
 						bar:ShowIcon()
 
-						bar.link = nil
-						if data.spellid then
-							-- bar.link = C_Spell.GetSpellLink(data.spellid)
-							bar.spellid = data.spellid
-						elseif data.hyperlink then
-							bar.link = data.hyperlink
-						end
-						if bar.link or bar.spellid then
-							bar.iconFrame.bar = bar
-							bar.iconFrame:EnableMouse(true)
-							bar.iconFrame:SetScript("OnEnter", BarIconEnter)
-							bar.iconFrame:SetScript("OnLeave", HideGameTooltip)
-							bar.iconFrame:SetScript("OnMouseDown", BarIconMouseDown)
-						end
+						bar.iconFrame.bar = bar
+						bar.iconFrame:EnableMouse(true)
+						bar.iconFrame:SetScript("OnEnter", BarIconEnter)
+						bar.iconFrame:SetScript("OnLeave", HideGameTooltip)
+						bar.iconFrame:SetScript("OnMouseDown", BarIconMouseDown)
+					else
+						bar:HideIcon()
 					end
 
 					bar:EnableMouse(true)
@@ -339,6 +333,14 @@ function mod:Update(win)
 					bar:SetScript("OnMouseDown", BarClickIgnore)
 				end
 				bar:SetValue(data.value)
+
+				bar.link = nil
+				bar.spellid = nil
+				if data.spellid then
+					bar.spellid = data.spellid
+				elseif data.hyperlink then
+					bar.link = data.hyperlink
+				end				
 
 				if not data.class and (win.db.classicons or win.db.classcolorbars or win.db.classcolortext) then
 					bar.missingclass = true
@@ -408,7 +410,22 @@ function mod:Update(win)
 			else
 				bar:SetLabel(data.label)
 			end
-			bar:SetTimerLabel(data.valuetext)
+
+			if data.valuetext then
+				-- No columns
+				bar:SetColumnText(1, data.valuetext)
+			else
+				-- Up to 3 columns
+				if data.valueText1 then
+					bar:SetColumnText(3, data.valueText1)
+				end
+				if data.valueText2 then
+					bar:SetColumnText(2, data.valueText2)
+				end
+				if data.valueText3 then
+					bar:SetColumnText(1, data.valueText3)
+				end
+			end
 
 			if win.metadata.wipestale then
 				bar.checked = true

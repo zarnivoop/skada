@@ -2063,7 +2063,7 @@ function Skada:UpdateDisplay(force)
 					end
 
 					-- Add a total bar using the mode summaries optionally.
-					if self.db.profile.showtotals and win.selectedmode.GetSetSummary then
+					if self.db.profile.showtotals and win.selectedmode.FormatSetSummary then
 						local total = 0
 						local existing = nil
 						for i, data in ipairs(win.dataset) do
@@ -2077,7 +2077,7 @@ function Skada:UpdateDisplay(force)
 						total = total + 1
 
 						local d = existing or {}
-						d.valuetext = win.selectedmode:GetSetSummary(set)
+						win.selectedmode:FormatSetSummary(d, set)
 						d.value = total
 						d.label = L["Total"]
 						d.icon = dataobj.icon
@@ -2104,8 +2104,8 @@ function Skada:UpdateDisplay(force)
 					d.id = mode:GetName()
 					d.label = mode:GetName()
 					d.value = 1
-					if set and mode.GetSetSummary ~= nil then
-						d.valuetext = mode:GetSetSummary(set)
+					if set and mode.FormatSetSummary ~= nil then
+						mode:FormatSetSummary(d, set)
 					end
 					if mode.metadata and mode.metadata.icon then
 						d.icon = mode.metadata.icon
@@ -2204,7 +2204,7 @@ function Skada:FormatNumber(number)
 				return ("%02.3fB"):format(number / 1000000000)
 			elseif number > 1000000 then
 				return ("%02.2fM"):format(number / 1000000)
-			elseif number > 9999 then
+			elseif number > 999 then
 				return ("%02.1fK"):format(number / 1000)
 			end
 		end
@@ -2454,26 +2454,20 @@ function Skada:SetTooltipPosition(tooltip, frame)
 end
 
 -- Format value text in a standardized way. Up to 3 value and boolean (show/don't show) combinations are accepted.
--- Values are rendered from left to right.
--- Idea: "compile" a function on the fly instead and store in mode for re-use.
-function Skada:FormatValueText(...)
+-- Values are set on the datasetItem from left to right.
+function Skada:FormatValueText(datasetItem, ...)
 	local value1, bool1, value2, bool2, value3, bool3 = ...
 
-	-- This construction is a little silly.
-	if bool1 and bool2 and bool3 then
-		return value1.." ("..value2..", "..value3..")"
-	elseif bool1 and bool2 then
-		return value1.." ("..value2..")"
-	elseif bool1 and bool3 then
-		return value1.." ("..value3..")"
-	elseif bool2 and bool3 then
-		return value2.." ("..value3..")"
-	elseif bool2 then
-		return value2
-	elseif bool1 then
-		return value1
-	elseif bool3 then
-		return value3
+	if bool1 then
+		datasetItem.valueText1 = value1
+	end
+
+	if bool2 then
+		datasetItem.valueText2 = value2
+	end
+
+	if bool3 then
+		datasetItem.valueText3 = value3
 	end
 end
 
@@ -2520,7 +2514,7 @@ function Skada:AddSubviewToTooltip(tooltip, win, mode, id, label)
 
 	-- Show title and data if we have data.
 	if #ttwin.dataset > 0 then
-		tooltip:AddLine(mode.title or mode:GetName(), 1,1,1)
+		tooltip:AddLine(mode.title or mode:GetName(), NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
 
 		-- Display the top X, default 3, rows.
 		local nr = 0

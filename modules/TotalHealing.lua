@@ -23,8 +23,8 @@ Skada:AddLoadableModule("TotalHealing", nil, function(Skada, L)
 	function mod:AddSetAttributes(set)
 	end
 
-	function mod:GetSetSummary(set)
-		return Skada:FormatNumber(set.healing + set.overhealing)
+	function mod:FormatSetSummary(datasetItem,set)
+		Skada:FormatValueText(datasetItem, Skada:FormatNumber(set.healing + set.overhealing), true)
 	end
 
 	local function sort_by_healing(a, b)
@@ -62,7 +62,7 @@ Skada:AddLoadableModule("TotalHealing", nil, function(Skada, L)
 				d.value = player.healing
 				d.label = player.name
 				-- d.valuetext = Skada:FormatNumber(player.healing).." / "..Skada:FormatNumber(player.overhealing)
-				d.valuetext = Skada:FormatValueText(
+				Skada:FormatValueText(d,
 					Skada:FormatNumber(player.healing), self.metadata.columns.Healing,
 					Skada:FormatNumber(player.healing + player.overhealing), self.metadata.columns.Total,
 					percentformatted, self.metadata.columns.Percent
@@ -123,11 +123,10 @@ Skada:AddLoadableModule("TotalHealing", nil, function(Skada, L)
 				d.id = spell.name
 				d.label = spell.name
 				d.value = srh
-				d.valuetext = Skada:FormatValueText(
+				Skada:FormatValueText(d,
 					Skada:FormatNumber(srh), self.metadata.columns.Healing,
 					string.format("%02.1f%%", srh / (player.healing+player.overhealing) * 100), self.metadata.columns.Percent
 				)
-				d.icon = Skada:GetSpellIcon(spell.id)
 				d.spellid = spell.id
 
 				if srh > max then

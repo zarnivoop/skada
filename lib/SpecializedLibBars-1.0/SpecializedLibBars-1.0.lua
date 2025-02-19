@@ -429,6 +429,437 @@ do
 			self:GetParent():StopMovingOrSizing()
 			local endX = self:GetParent():GetLeft()
 			local endY = self:GetParent():GetTop()
+			-- LibBars-1.0 by Antiarc, all glory to him, ripped into pieces for Skada.
+local MAJOR = "SpecializedLibBars-1.0"
+local MINOR = 900002
+
+local lib, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
+if not lib then return end -- No Upgrade needed.
+
+local CallbackHandler = LibStub:GetLibrary("CallbackHandler-1.0")
+
+local GetTime = _G.GetTime
+local sin, cos, rad = _G.math.sin, _G.math.cos, _G.math.rad
+local abs, min, max, floor = _G.math.abs, _G.math.min, _G.math.max, _G.math.floor
+local table_sort, tinsert, tremove, tconcat = _G.table.sort, tinsert, tremove, _G.table.concat
+local next, pairs, assert, error, type, xpcall = next, pairs, assert, error, type, xpcall
+
+--[[
+	xpcall safecall implementation
+]]
+local function errorhandler(err)
+	return geterrorhandler()(err)
+end
+
+local function CreateDispatcher(argCount)
+	local code = [[
+    local xpcall, eh = ...
+    local method, ARGS
+    local function call() return method(ARGS) end
+
+    local function dispatch(func, ...)
+      method = func
+      if not method then return end
+      ARGS = ...
+      return xpcall(call, eh)
+    end
+
+    return dispatch
+  ]]
+
+	local ARGS = {}
+	for i = 1, argCount do ARGS[i] = "arg"..i end
+	code = code:gsub("ARGS", tconcat(ARGS, ", "))
+	return assert(loadstring(code, "safecall Dispatcher["..argCount.."]"))(xpcall, errorhandler)
+end
+
+local Dispatchers = setmetatable({}, {__index=function(self, argCount)
+	local dispatcher = CreateDispatcher(argCount)
+	rawset(self, argCount, dispatcher)
+	return dispatcher
+end})
+Dispatchers[0] = function(func)
+	return xpcall(func, errorhandler)
+end
+
+local function safecall(func, ...)
+	-- we check to see if the func is passed is actually a function here and don't error when it isn't
+	-- this safecall is used for optional functions like OnInitialize OnEnable etc. When they are not
+	-- present execution should continue without hinderance
+	if type(func) == "function" then
+		return Dispatchers[select('#', ...)](func, ...)
+	end
+end
+
+local dummyFrame, barFrameMT, barPrototype, barPrototype_mt, barListPrototype
+local barListPrototype_mt
+
+lib.LEFT_TO_RIGHT = 1
+lib.BOTTOM_TO_TOP = 2
+lib.RIGHT_TO_LEFT = 3
+lib.TOP_TO_BOTTOM = 4
+
+lib.dummyFrame = lib.dummyFrame or CreateFrame("Frame")
+lib.barFrameMT = lib.barFrameMT or {__index = lib.dummyFrame}
+lib.barPrototype = lib.barPrototype or setmetatable({}, lib.barFrameMT)
+lib.barPrototype_mt = lib.barPrototype_mt or {__index = lib.barPrototype}
+lib.barListPrototype = lib.barListPrototype or setmetatable({}, lib.barFrameMT)
+lib.barListPrototype_mt = lib.barListPrototype_mt or {__index = lib.barListPrototype}
+
+dummyFrame = lib.dummyFrame
+barFrameMT = lib.barFrameMT
+barPrototype = lib.barPrototype
+barPrototype_mt = lib.barPrototype_mt
+barListPrototype = lib.barListPrototype
+barListPrototype_mt = lib.barListPrototype_mt
+
+barPrototype.prototype = barPrototype
+barPrototype.metatable = barPrototype_mt
+barPrototype.super = dummyFrame
+
+barListPrototype.prototype = barListPrototype
+barListPrototype.metatable = barListPrototype_mt
+barListPrototype.super = dummyFrame
+
+lib.bars = lib.bars or {}
+lib.barLists = lib.barLists or {}
+lib.recycledBars = lib.recycledBars or {}
+lib.embeds = lib.embeds or {}
+local bars = lib.bars
+local barLists = lib.barLists
+local recycledBars = lib.recycledBars
+
+local frame_defaults = {
+	bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+	edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+	inset = 4,
+	edgeSize = 8,
+	tile = true,
+	insets = {left = 2, right = 2, top = 2, bottom = 2}
+}
+
+do
+	local mixins = { "NewCounterBar", "NewBarFromPrototype", "GetBar", "GetBars", "HasBar", "IterateBars", "NewBarGroup", "ReleaseBar", "GetBarGroup", "GetBarGroups" }
+	function lib:Embed(target)
+		for k, v in pairs( mixins ) do
+			target[v] = self[v]
+		end
+		lib.embeds[target] = true
+		return target
+	end
+end
+
+local ComputeGradient
+do
+	local new, del
+	do
+		local list = lib.garbageList or setmetatable({}, {__mode='k'})
+		lib.garbageList = list
+		-- new is always called with the exact same arguments, no need to
+		-- iterate over a vararg
+		function new(a1, a2, a3, a4, a5)
+			local t = next(list)
+			if t then
+				list[t] = nil
+				t[1] = a1
+				t[2] = a2
+				t[3] = a3
+				t[4] = a4
+				t[5] = a5
+			else
+				t = {a1, a2, a3, a4, a5}
+			end
+			return t
+		end
+
+		-- del is called over the same tables produced from new, no need for
+		-- fancy stuff
+		function del(t)
+			t[1] = nil
+			t[2] = nil
+			t[3] = nil
+			t[4] = nil
+			t[5] = nil
+			t[''] = true
+			t[''] = nil
+			list[t] = true
+			return nil
+		end
+	end
+
+	local function sort_colors(a, b)
+		return a[1] < b[1]
+	end
+
+	local colors = {}
+	local function getColor(point)
+		local lowerBound = colors[1]
+		local upperBound = colors[#colors]
+		local lowerBoundIndex, upperBoundIndex = 0, 1
+		for i = 1, #colors do
+			if colors[i][1] >= point then
+				if i > 1 then
+					lowerBound = colors[i-1]
+					lowerBoundIndex = colors[i-1][1]
+				end
+				upperBound = colors[i]
+				upperBoundIndex = colors[i][1]
+				break
+			end
+		end
+		--local pct = (point - lowerBoundIndex) / (upperBoundIndex - lowerBoundIndex)
+		local diff = (upperBoundIndex - lowerBoundIndex)
+		local pct = 1
+		if diff ~= 0 then
+			pct = (point - lowerBoundIndex) / diff
+		end
+		local r = lowerBound[2] + ((upperBound[2] - lowerBound[2]) * pct)
+		local g = lowerBound[3] + ((upperBound[3] - lowerBound[3]) * pct)
+		local b = lowerBound[4] + ((upperBound[4] - lowerBound[4]) * pct)
+		local a = lowerBound[5] + ((upperBound[5] - lowerBound[5]) * pct)
+		return r, g, b, a
+	end
+
+	function ComputeGradient(self)
+		self.gradMap = self.gradMap or {}
+		if not self.colors then return end
+		if #self.colors == 0 then
+			for k in pairs(self.gradMap) do
+				self.gradMap[k] = nil
+			end
+			return
+		end
+
+		for i = 1, #colors do
+			del(tremove(colors))
+		end
+		for i = 1, #self.colors, 5 do
+			tinsert(colors, new(self.colors[i], self.colors[i+1], self.colors[i+2], self.colors[i+3], self.colors[i+4]))
+		end
+		table_sort(colors, sort_colors)
+
+		for i = 0, 200 do
+			local r, g, b, a = getColor(i / 200)
+			self.gradMap[(i*4)] = r
+			self.gradMap[(i*4)+1] = g
+			self.gradMap[(i*4)+2] = b
+			self.gradMap[(i*4)+3] = a
+		end
+	end
+end
+
+function lib:GetBar(name)
+	return bars[self] and bars[self][name]
+end
+
+function lib:GetBars(name)
+	return bars[self]
+end
+
+function lib:HasAnyBar()
+	return not not (bars[self] and next(bars[self]))
+end
+
+do
+	local function NOOP() end
+	function lib:IterateBars()
+		if bars[self] then
+			return pairs(bars[self])
+		else
+			return NOOP
+		end
+	end
+end
+
+-- Convenient method to create a new, empty bar prototype
+function lib:NewBarPrototype(super)
+	assert(super == nil or (type(super) == "table" and type(super.metatable) == "table"),
+		"!NewBarPrototype: super must either be nil or a valid prototype")
+	super = super or barPrototype
+	local prototype = setmetatable({}, super.metatable)
+	prototype.prototype = prototype
+	prototype.super = super
+	prototype.metatable = { __index = prototype }
+	return prototype
+end
+
+--[[ Individual bars ]]--
+
+function lib:NewBarFromPrototype(prototype, name, ...)
+	assert(self ~= lib, "You may only call :NewBar as an embedded function")
+	assert(type(prototype) == "table" and type(prototype.metatable) == "table", "Invalid bar prototype")
+	bars[self] = bars[self] or {}
+	local bar = bars[self][name]
+	local isNew = false
+	if not bar then
+		isNew = true
+		bar = tremove(recycledBars)
+		if not bar then
+			bar = CreateFrame("Frame")
+		else
+			bar:Show()
+		end
+	end
+	bar = setmetatable(bar, prototype.metatable)
+	bar.name = name
+	bar:Create(...)
+	bar:SetFont(self.font, self.fontSize, self.fontFlags)
+
+	bars[self][name] = bar
+
+	return bar, isNew
+end
+
+function lib:NewCounterBar(name, text, value, maxVal, icon, orientation, length, thickness)
+	return self:NewBarFromPrototype(barPrototype, name, text, value, maxVal, icon, orientation, length, thickness)
+end
+
+function lib:ReleaseBar(name)
+	if not bars[self] then return end
+
+	local bar
+	if type(name) == "string" then
+		bar = bars[self][name]
+	elseif type(name) == "table" then
+		if name.name and bars[self][name.name] == name then
+			bar = name
+		end
+	end
+
+	if bar then
+		bar:SetScript("OnEnter", nil)
+		bar:SetScript("OnLeave", nil)
+		bar:OnBarReleased()
+		bars[self][bar.name] = nil
+		tinsert(recycledBars, bar)
+	end
+end
+
+---[[ Bar Groups ]]---
+function barListPrototype:AddButton(title, description, normaltex, highlighttex, clickfunc)
+	-- Create button frame.
+	local btn = CreateFrame("Button", nil, self.button)
+	btn.title = title
+	btn:SetFrameLevel(5)
+	btn:ClearAllPoints()
+	btn:SetHeight(12)
+	btn:SetWidth(12)
+	btn:SetNormalTexture(normaltex)
+	btn:SetHighlightTexture(highlighttex)
+	btn:SetAlpha(0.25)
+	btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+	btn:SetScript("OnClick", clickfunc)
+	btn:SetScript("OnEnter",
+		function(this)
+			GameTooltip_SetDefaultAnchor(GameTooltip, this)
+			GameTooltip:SetText(title)
+			GameTooltip:AddLine(description, 1, 1, 1, true)
+			GameTooltip:Show()
+		end)
+	btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+	btn:Show()
+
+	-- Add to our list of buttons.
+	tinsert(self.buttons, btn)
+
+	self:AdjustButtons()
+end
+
+function barListPrototype:SetSmoothing(smoothing)
+	self.smoothing = smoothing
+
+	if smoothing then
+		self:SetScript("OnUpdate", function()
+
+			if bars[self] then
+				for k, v in pairs(bars[self]) do
+					if v.targetamount and v:IsShown() then
+
+						local amt
+						if v.targetamount > v.lastamount then
+							amt = min(((v.targetamount - v.lastamount) / 10) + v.lastamount, v.targetamount)
+						else
+							amt = max(v.lastamount - ((v.lastamount - v.targetamount) / 10), v.targetamount)
+						end
+						v.lastamount = amt
+						if amt == v.targetamount then
+							v.targetamount = nil
+						end
+						v:SetTextureValue(amt, v.targetdist)
+
+					end
+				end
+			end
+
+		end)
+
+	else
+		self:SetScript("OnUpdate", nil)
+	end
+end
+
+function barListPrototype:SetButtonsOpacity(alpha)
+	for i, btn in ipairs(self.buttons) do
+		btn:SetAlpha(alpha)
+	end
+end
+
+function barListPrototype:AdjustButtons()
+	local nr = 0
+	local lastbtn = nil
+	for i, btn in ipairs(self.buttons) do
+		btn:ClearAllPoints()
+
+		if btn:IsShown() then
+			if nr == 0 then
+				btn:SetPoint("TOPRIGHT", self.button, "TOPRIGHT", -5, 0 - (max(self.button:GetHeight() - btn:GetHeight(), 0) / 2))
+			else
+				btn:SetPoint("TOPRIGHT", lastbtn, "TOPLEFT", 0, 0)
+			end
+			lastbtn = btn
+			nr = nr + 1
+		end
+	end
+	if lastbtn then
+		self.button:GetFontString():SetPoint("RIGHT", lastbtn, "LEFT")
+	else
+		self.button:GetFontString():SetPoint("RIGHT", self.button, "RIGHT")
+	end
+end
+
+function barListPrototype:SetBarBackgroundColor(r, g, b, a)
+	self.barbackgroundcolor = {r,g,b,a}
+	for i, bar in pairs(self:GetBars()) do
+		bar.bgtexture:SetVertexColor(unpack(self.barbackgroundcolor))
+	end
+end
+
+function barListPrototype:ShowButton(title, visible)
+	for i, b in ipairs(self.buttons) do
+		if b.title == title then
+			if visible then
+				b:Show()
+			else
+				b:Hide()
+			end
+		end
+	end
+	self:AdjustButtons()
+end
+
+do
+	local function move(self)
+		if not self:GetParent().locked then
+			self.startX = self:GetParent():GetLeft()
+			self.startY = self:GetParent():GetTop()
+			self:GetParent():StartMoving()
+		end
+	end
+	local function stopMove(self)
+		if not self:GetParent().locked then
+			self:GetParent():StopMovingOrSizing()
+			local endX = self:GetParent():GetLeft()
+			local endY = self:GetParent():GetTop()
 			if self.startX ~= endX or self.startY ~= endY then
 				self:GetParent().callbacks:Fire("AnchorMoved", self:GetParent(), endX, endY)
 			end
@@ -1105,14 +1536,20 @@ do
 		local f, s, m = self.label:GetFont()
 		self.label:SetFont(f, s or 10, m)
 
-		self.timerLabel = self.timerLabel or self:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
-		self:SetTimerLabel("")
-		self.timerLabel:ClearAllPoints()
-		self.timerLabel:SetPoint("RIGHT", self, "RIGHT", -6, 0)
-		self:HideTimerLabel()
+		-- Create 3 columns instead of timerLabel
+		self.columns = self.columns or {}
+		for i = 1, 3 do
+			self.columns[i] = self.columns[i] or self:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
+			self.columns[i]:SetWordWrap(false)
+			self.columns[i]:SetText("")
+			self.columns[i]:ClearAllPoints()
+			local f, s, m = self.columns[i]:GetFont()
+			self.columns[i]:SetFont(f, s or 10, m)
+			self.columns[i]:Hide()
+		end
 
-		local f, s, m = self.timerLabel:GetFont()
-		self.timerLabel:SetFont(f, s or 10, m)
+		-- Keep timerLabel for backwards compatibility, map it to last column
+		self.timerLabel = self.columns[3]
 
 		self:SetScale(1)
 		self:SetAlpha(1)
@@ -1160,7 +1597,9 @@ function barPrototype:OnBarReleased()
 	self:Hide()
 	local f, s, m = ChatFontNormal:GetFont()
 	self.label:SetFont(f, s or 10, m)
-	self.timerLabel:SetFont(f, s or 10, m)
+	for i = 1, 3 do
+		self.columns[i]:SetFont(f, s or 10, m)
+	end
 
 	-- Cancel all registered callbacks. CBH doesn't seem to provide a method to do this.
 	if self.callbacks.insertQueue then
@@ -1194,9 +1633,11 @@ function barPrototype:SetFont(newFont, newSize, newFlags)
 	font, size, flags = t:GetFont()
 	t:SetFont(newFont or font, newSize or size, newFlags or flags)
 
-	t = self.timerLabel
-	font, size, flags = t:GetFont()
-	t:SetFont(newFont or font, newSize or size, newFlags or flags)
+	for i = 1, 3 do
+		t = self.columns[i]
+		font, size, flags = t:GetFont()
+		t:SetFont(newFont or font, newSize or size, newFlags or flags)
+	end
 end
 
 function barPrototype:SetIconWithCoord(icon, coord)
@@ -1266,25 +1707,23 @@ function barPrototype:IsLabelShown()
 end
 
 function barPrototype:SetTimerLabel(text)
-	self.timerLabel:SetText(text)
+	self:SetColumnText(3, text)
 end
 
 function barPrototype:GetTimerLabel(text)
-	return self.timerLabel:GetText(text)
+	return self:GetColumnText(3)
 end
 
 function barPrototype:ShowTimerLabel()
-	self.showTimerLabel = true
-	self.timerLabel:Show()
+	self:ShowColumn(3)
 end
 
 function barPrototype:HideTimerLabel()
-	self.showTimerLabel = false
-	self.timerLabel:Hide()
+	self:HideColumn(3)
 end
 
 function barPrototype:IsValueLabelShown()
-	return self.showTimerLabel
+	return self:IsColumnShown(3)
 end
 
 function barPrototype:SetTexture(texture)
@@ -1334,115 +1773,166 @@ function barPrototype:UnsetAllColors()
 	end
 end
 
-do
-	function barPrototype:UpdateOrientationLayout()
-		local o = self.orientation
-		local t
-		if o == lib.LEFT_TO_RIGHT then
-			self.icon:ClearAllPoints()
-			self.icon:SetPoint("RIGHT", self, "LEFT", 0, 0)
-
-			t = self.texture
-			t.SetValue = t.SetWidth
-			t:ClearAllPoints()
-			t:SetPoint("TOPLEFT", self, "TOPLEFT")
-			t:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT")
-			-- t:SetTexCoord(0, 1, 0, 1)
-
-			t = self.timerLabel
-			t:ClearAllPoints()
-			t:SetPoint("RIGHT", self, "RIGHT", -6, 0)
-			t:SetJustifyH("RIGHT")
-			t:SetJustifyV("MIDDLE")
-
-			t = self.label
-			t:ClearAllPoints()
-			t:SetPoint("LEFT", self, "LEFT", 6, 0)
-			t:SetPoint("RIGHT", self.timerLabel, "LEFT", 0, 0)
-			t:SetJustifyH("LEFT")
-			t:SetJustifyV("MIDDLE")
-
-			self.bgtexture:SetTexCoord(0, 1, 0, 1)
-		elseif o == lib.BOTTOM_TO_TOP then
-			self.icon:ClearAllPoints()
-			self.icon:SetPoint("TOP", self, "BOTTOM", 0, 0)
-
-			t = self.texture
-			t.SetValue = t.SetHeight
-			t:ClearAllPoints()
-			t:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT")
-			t:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT")
-			-- t:SetTexCoord(0, 1, 1, 1, 0, 0, 1, 0)
-
-			t = self.timerLabel
-			t:ClearAllPoints()
-			t:SetPoint("TOPLEFT", self, "TOPLEFT", 3, -3)
-			t:SetPoint("TOPRIGHT", self, "TOPRIGHT", -3, -3)
-			t:SetJustifyH("CENTER")
-			t:SetJustifyV("TOP")
-
-			t = self.label
-			t:ClearAllPoints()
-			t:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -3, 3)
-			t:SetPoint("TOPLEFT", self.Label, "BOTTOMLEFT", 0, 0)
-			t:SetJustifyH("CENTER")
-			t:SetJustifyV("BOTTOM")
-
-			self.bgtexture:SetTexCoord(0, 1, 1, 1, 0, 0, 1, 0)
-		elseif o == lib.RIGHT_TO_LEFT then
-			self.icon:ClearAllPoints()
-			self.icon:SetPoint("LEFT", self, "RIGHT", 0, 0)
-
-			t = self.texture
-			t.SetValue = t.SetWidth
-			t:ClearAllPoints()
-			t:SetPoint("TOPRIGHT", self, "TOPRIGHT")
-			t:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT")
-			-- t:SetTexCoord(0, 1, 0, 1)
-
-			t = self.timerLabel
-			t:ClearAllPoints()
-			t:SetPoint("LEFT", self, "LEFT", 6, 0)
-			t:SetJustifyH("LEFT")
-			t:SetJustifyV("MIDDLE")
-
-			t = self.label
-			t:ClearAllPoints()
-			t:SetPoint("RIGHT", self, "RIGHT", -6, 0)
-			t:SetPoint("LEFT", self.timerLabel, "RIGHT", 0, 0)
-			t:SetJustifyH("RIGHT")
-			t:SetJustifyV("MIDDLE")
-
-			self.bgtexture:SetTexCoord(0, 1, 0, 1)
-		elseif o == lib.TOP_TO_BOTTOM then
-			self.icon:ClearAllPoints()
-			self.icon:SetPoint("BOTTOM", self, "TOP", 0, 0)
-
-			t = self.texture
-			t.SetValue = t.SetHeight
-			t:ClearAllPoints()
-			t:SetPoint("TOPLEFT", self, "TOPLEFT")
-			t:SetPoint("TOPRIGHT", self, "TOPRIGHT")
-			-- t:SetTexCoord(0, 1, 1, 1, 0, 0, 1, 0)
-
-			t = self.timerLabel
-			t:ClearAllPoints()
-			t:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT", 3, 3)
-			t:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -3, 3)
-			t:SetJustifyH("CENTER")
-			t:SetJustifyV("BOTTOM")
-
-			t = self.label
-			t:ClearAllPoints()
-			t:SetPoint("TOPLEFT", self, "TOPLEFT", 3, -3)
-			t:SetPoint("BOTTOMRIGHT", self.timerLabel, "TOPRIGHT", 0, 0)
-			t:SetJustifyH("CENTER")
-			t:SetJustifyV("TOP")
-
-			self.bgtexture:SetTexCoord(0, 1, 1, 1, 0, 0, 1, 0)
-		end
-		self:SetValue(self.value or 0)
+function barPrototype:SetColumnText(column, text)
+	if not self.columns or column < 1 or column > 3 then return end
+	self.columns[column]:SetText(text)
+	if text and text ~= "" then
+		self.columns[column]:Show()
+	else
+		self.columns[column]:Hide()
 	end
+end
+
+function barPrototype:GetColumnText(column)
+	if not self.columns or column < 1 or column > 3 then return "" end
+	return self.columns[column]:GetText()
+end
+
+function barPrototype:ShowColumn(column)
+	if self.columns[column] then
+		self.columns[column]:Show()
+	end
+end
+
+function barPrototype:HideColumn(column)
+	if self.columns[column] then
+		self.columns[column]:Hide()
+	end
+end
+
+function barPrototype:IsColumnShown(column)
+	return self.columns[column] and self.columns[column]:IsVisible()
+end
+
+function barPrototype:UpdateOrientationLayout()
+	local o = self.orientation
+	local t
+	if o == lib.LEFT_TO_RIGHT then
+		self.icon:ClearAllPoints()
+		self.icon:SetPoint("RIGHT", self, "LEFT", 0, 0)
+
+		t = self.texture
+		t.SetValue = t.SetWidth
+		t:ClearAllPoints()
+		t:SetPoint("TOPLEFT", self, "TOPLEFT")
+		t:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT")
+
+		t = self.label
+		t:ClearAllPoints()
+		t:SetPoint("LEFT", self, "LEFT", 6, 0)
+		t:SetJustifyH("LEFT")
+		t:SetJustifyV("MIDDLE")
+
+		-- Position columns from right to left
+		local lastPoint = self
+		for i = 3, 1, -1 do
+			t = self.columns[i]
+			t:ClearAllPoints()
+			t:SetPoint("RIGHT", lastPoint, "RIGHT", i == 3 and -6 or -40, 0)
+			t:SetJustifyH("RIGHT")
+			t:SetJustifyV("MIDDLE")
+			lastPoint = t
+		end
+
+		-- Set label width to fill remaining space
+		self.label:SetPoint("RIGHT", self.columns[1], "LEFT", -6, 0)
+
+		self.bgtexture:SetTexCoord(0, 1, 0, 1)
+	elseif o == lib.BOTTOM_TO_TOP then
+		self.icon:ClearAllPoints()
+		self.icon:SetPoint("TOP", self, "BOTTOM", 0, 0)
+
+		t = self.texture
+		t.SetValue = t.SetHeight
+		t:ClearAllPoints()
+		t:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT")
+		t:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT")
+
+		t = self.label
+		t:ClearAllPoints()
+		t:SetPoint("BOTTOM", self, "BOTTOM", 0, 6)
+		t:SetJustifyH("CENTER")
+		t:SetJustifyV("BOTTOM")
+
+		-- Position columns from top to bottom
+		local lastPoint = self
+		for i = 3, 1, -1 do
+			t = self.columns[i]
+			t:ClearAllPoints()
+			t:SetPoint("TOP", lastPoint, "TOP", 0, i == 3 and -6 or -48)
+			t:SetJustifyH("CENTER")
+			t:SetJustifyV("TOP")
+			lastPoint = t
+		end
+
+		-- Set label height to fill remaining space
+		self.label:SetPoint("TOP", self.columns[1], "BOTTOM", 0, -6)
+
+		self.bgtexture:SetTexCoord(0, 1, 1, 1, 0, 0, 1, 0)
+	elseif o == lib.RIGHT_TO_LEFT then
+		self.icon:ClearAllPoints()
+		self.icon:SetPoint("LEFT", self, "RIGHT", 0, 0)
+
+		t = self.texture
+		t.SetValue = t.SetWidth
+		t:ClearAllPoints()
+		t:SetPoint("TOPRIGHT", self, "TOPRIGHT")
+		t:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT")
+
+		t = self.label
+		t:ClearAllPoints()
+		t:SetPoint("RIGHT", self, "RIGHT", -6, 0)
+		t:SetJustifyH("RIGHT")
+		t:SetJustifyV("MIDDLE")
+
+		-- Position columns from left to right
+		local lastPoint = self
+		for i = 3, 1, -1 do
+			t = self.columns[i]
+			t:ClearAllPoints()
+			t:SetPoint("LEFT", lastPoint, "LEFT", i == 3 and 6 or 48, 0)
+			t:SetJustifyH("LEFT")
+			t:SetJustifyV("MIDDLE")
+			lastPoint = t
+		end
+
+		-- Set label width to fill remaining space
+		self.label:SetPoint("LEFT", self.columns[1], "RIGHT", 6, 0)
+
+		self.bgtexture:SetTexCoord(0, 1, 0, 1)
+	elseif o == lib.TOP_TO_BOTTOM then
+		self.icon:ClearAllPoints()
+		self.icon:SetPoint("BOTTOM", self, "TOP", 0, 0)
+
+		t = self.texture
+		t.SetValue = t.SetHeight
+		t:ClearAllPoints()
+		t:SetPoint("TOPLEFT", self, "TOPLEFT")
+		t:SetPoint("TOPRIGHT", self, "TOPRIGHT")
+
+		t = self.label
+		t:ClearAllPoints()
+		t:SetPoint("TOP", self, "TOP", 0, -6)
+		t:SetJustifyH("CENTER")
+		t:SetJustifyV("TOP")
+
+		-- Position columns from bottom to top
+		local lastPoint = self
+		for i = 3, 1, -1 do
+			t = self.columns[i]
+			t:ClearAllPoints()
+			t:SetPoint("BOTTOM", lastPoint, "BOTTOM", 0, i == 3 and 6 or 48)
+			t:SetJustifyH("CENTER")
+			t:SetJustifyV("BOTTOM")
+			lastPoint = t
+		end
+
+		-- Set label height to fill remaining space
+		self.label:SetPoint("BOTTOM", self.columns[1], "TOP", 0, 6)
+
+		self.bgtexture:SetTexCoord(0, 1, 1, 1, 0, 0, 1, 0)
+	end
+	self:SetValue(self.value)
 end
 
 function barPrototype:GetLength()
@@ -1487,19 +1977,19 @@ function barPrototype:GetOrientation()
 end
 
 function barPrototype:SetValue(val)
-	assert(val ~= nil, "Value cannot be nil!")
-	self.value = val
+	-- assert(val ~= nil, "Value cannot be nil!")
+	self.value = val or 0
 	if not self.maxValue or val > self.maxValue then
-		self.maxValue = val
+		self.maxValue = val or 0.000001
 	end
 	local ownerGroup = self.ownerGroup
-	local displayMax = ownerGroup and ownerGroup.displayMax or self.displayMax
+	local displayMax = ownerGroup and ownerGroup.displayMax or self.displayMax or 0.000001
 	if displayMax then
-		displayMax = min(displayMax, self.maxValue)
+		displayMax = min(displayMax, self.maxValue or 0.000001)
 	else
-		displayMax = self.maxValue
+		displayMax = self.maxValue or 0.000001
 	end
-	local amt = min(1, val / max(displayMax, 0.000001))
+	local amt = min(1, self.value / max(displayMax, 0.000001))
 	local dist = (ownerGroup and ownerGroup:GetLength()) or self.length
 	amt = max(amt, 0.000001)
 

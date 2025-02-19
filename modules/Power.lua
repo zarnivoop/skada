@@ -128,8 +128,8 @@ Skada:AddLoadableModule("Power", nil, function(Skada, L)
 	function basemod:AddToTooltip(set, tooltip)
 	end
 
-	function basemod:GetSetSummary(set)
-		return Skada:FormatNumber(set.power[self.power] or 0)
+	function basemod:FormatSetSummary(datasetItem, set)
+		Skada:FormatValueText(datasetItem, set.power[self.power] or 0, true)
 	end
 
 	function playermod:GetName()

@@ -108,8 +108,8 @@ Skada:AddLoadableModule("CC", nil, function(Skada, L)
 		GameTooltip:AddDoubleLine(L["CC breaks"], set.ccbreaks, 1, 1, 1)
 	end
 
-	function mod:GetSetSummary(set)
-		return set.ccbreaks
+	function mod:FormatSetSummary(datasetItem, set)
+		return Skada:FormatValueText(datasetItem, set.ccbreaks, true)
 	end
 
 	-- Called by Skada when a new player is added to a set.

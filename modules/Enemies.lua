@@ -375,20 +375,20 @@ Skada:AddLoadableModule("Enemies", nil, function(Skada, L)
 		Skada:RemoveMode(self)
 	end
 
-	function done:GetSetSummary(set)
-		return Skada:FormatNumber(set.mobdone)
+	function done:FormatSetSummary(datasetItem,set)
+		Skada:FormatValueText(datasetItem, Skada:FormatNumber(set.mobdone), true)
 	end
 
-	function taken:GetSetSummary(set)
-		return Skada:FormatNumber(set.mobtaken)
+	function taken:FormatSetSummary(datasetItem,set)
+		Skada:FormatValueText(datasetItem, Skada:FormatNumber(set.mobtaken), true)
 	end
 
-	function hdone:GetSetSummary(set)
-		return Skada:FormatNumber(set.mobhdone)
+	function hdone:FormatSetSummary(datasetItem,set)
+		Skada:FormatValueText(datasetItem, Skada:FormatNumber(set.mobhdone), true)
 	end
 
-	function htaken:GetSetSummary(set)
-		return Skada:FormatNumber(set.mobhdone)
+	function htaken:FormatSetSummary(datasetItem,set)
+		Skada:FormatValueText(datasetItem, Skada:FormatNumber(set.mobhtaken), true)
 	end
 
 	-- Called by Skada when a new set is created.

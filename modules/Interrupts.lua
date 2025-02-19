@@ -17,8 +17,8 @@ Skada:AddLoadableModule("Interrupts", nil, function(Skada, L)
 		GameTooltip:AddDoubleLine(L["Interrupts"], set.interrupts, 1,1,1)
 	end
 
-	function mod:GetSetSummary(set)
-		return set.interrupts
+	function mod:FormatSetSummary(datasetItem,set)
+		Skada:FormatValueText(datasetItem, set.interrupts, true)
 	end
 
 	-- Called by Skada when a new player is added to a set.

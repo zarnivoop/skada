@@ -290,11 +290,12 @@ Skada:AddLoadableModule("Healing", nil, function(Skada, L)
 				d.label = player.name
 				d.value = totalhealing
 
-				d.valuetext = Skada:FormatValueText(
+				Skada:FormatValueText(d,
 					Skada:FormatNumber(totalhealing), self.metadata.columns.Healing,
 					Skada:FormatNumber(getHPSByValue(set, player, totalhealing)), self.metadata.columns.HPS,
 					string.format("%02.1f%%", totalhealing / set.healing * 100), self.metadata.columns.Percent
 				)
+
 				d.class = player.class
 				d.role = player.role
 
@@ -324,11 +325,12 @@ Skada:AddLoadableModule("Healing", nil, function(Skada, L)
 				d.label = player.name
 				d.value = player.healing
 
-				d.valuetext = Skada:FormatValueText(
+				Skada:FormatValueText(d,
 					Skada:FormatNumber(player.healing), self.metadata.columns.Healing,
 					Skada:FormatNumber(getHPS(set, player)), self.metadata.columns.HPS,
 					string.format("%02.1f%%", player.healing / set.healing * 100), self.metadata.columns.Percent
 				)
+
 				d.class = player.class
 				d.role = player.role
 
@@ -346,7 +348,7 @@ Skada:AddLoadableModule("Healing", nil, function(Skada, L)
 	local function spell_tooltip(win, id, label, tooltip)
 		local player = Skada:find_player(win:get_selected_set(), spellsmod.playerid)
 		if player then
-			local spell = player. healingspells[label]
+			local spell = player.healingspells[label]
 			if spell then
 				tooltip:AddLine(player.name.." - "..label)
 				if spell.max and spell.min then
@@ -388,7 +390,7 @@ Skada:AddLoadableModule("Healing", nil, function(Skada, L)
 				d.id = spell.name -- ticket 362: this needs to be spellname because spellid is not unique with pets that mirror abilities (DK DRW)
 				d.label = spell.name
 				d.value = spell.healing
-				d.valuetext = Skada:FormatValueText(
+				Skada:FormatValueText(d,
 					Skada:FormatNumber(spell.healing), self.metadata.columns.Healing,
 					string.format("%02.1f%%", spell.healing / player.healing * 100), self.metadata.columns.Percent
 				)
@@ -430,7 +432,7 @@ Skada:AddLoadableModule("Healing", nil, function(Skada, L)
 					d.value = heal.amount
 					d.class = heal.class
 					d.role = player.role
-					d.valuetext = Skada:FormatValueText(
+					Skada:FormatValueText(d,
 						Skada:FormatNumber(heal.amount), self.metadata.columns.Healing,
 						string.format("%02.1f%%", heal.amount / player.healing * 100), self.metadata.columns.Percent
 					)
@@ -496,8 +498,9 @@ Skada:AddLoadableModule("Healing", nil, function(Skada, L)
 		GameTooltip:AddDoubleLine(L["HPS"], ("%02.1f"):format(raidhps), 1,1,1)
 	end
 
-	function mod:GetSetSummary(set)
-		return Skada:FormatValueText(
+	function mod:FormatSetSummary(datasetItem,set)
+		Skada:FormatValueText(
+			datasetItem,
 			Skada:FormatNumber(set.healing), self.metadata.columns.Healing,
 			Skada:FormatNumber(getRaidHPS(set)), self.metadata.columns.HPS
 		)

@@ -195,7 +195,7 @@ Skada:AddLoadableModule("DamageTaken", nil, function(Skada, L)
 				d.label = player.name
 				d.value = player.damagetaken
 
-				d.valuetext = Skada:FormatValueText(
+				Skada:FormatValueText(d,
 					Skada:FormatNumber(player.damagetaken), self.metadata.columns.Damage,
 					string.format("%02.1f", dtps), self.metadata.columns.DTPS,
 					string.format("%02.1f%%", player.damagetaken / set.damagetaken * 100), self.metadata.columns.Percent
@@ -330,7 +330,7 @@ Skada:AddLoadableModule("DamageTaken", nil, function(Skada, L)
 		end
 	end
 
-	function mod:GetSetSummary(set)
-		return Skada:FormatNumber(set.damagetaken)
+	function mod:FormatSetSummary(datasetItem,set)
+		Skada:FormatValueText(datasetItem, Skada:FormatNumber(set.damagetaken), true)
 	end
 end)

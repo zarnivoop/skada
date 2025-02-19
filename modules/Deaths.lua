@@ -226,7 +226,7 @@ Skada:AddLoadableModule("Deaths", nil, function(Skada, L)
 				local labeldeath
 				if set == Skada.total then
 					d.order = #player.deaths
-					d.valuetext = Skada:FormatValueText(
+					Skada:FormatValueText(d,
 						tostring(#player.deaths), self.metadata.columns.Deaths
 						)
 					labeldeath = player.deaths[1] -- last death in segment
@@ -236,7 +236,7 @@ Skada:AddLoadableModule("Deaths", nil, function(Skada, L)
 						deathts = math.min(deathts or death.ts, death.ts)
 					end
 					d.order = deathts
-					d.valuetext = Skada:FormatValueText(
+					Skada:FormatValueText(d,
 						tostring(#player.deaths), self.metadata.columns.Deaths,
 						date("%H:%M:%S", deathts), self.metadata.columns.Timestamp
 						)
@@ -337,7 +337,6 @@ Skada:AddLoadableModule("Deaths", nil, function(Skada, L)
 						d.reportlabel = label..rspellname
 						d.ts = log.ts
 						d.value = log.hp or 0
-						d.icon = Skada:GetSpellIcon(spellid)
 						d.spellid = spellid
 
 						local amt = ""
@@ -359,7 +358,7 @@ Skada:AddLoadableModule("Deaths", nil, function(Skada, L)
 						if log.ts >= death.ts then
 							d.valuetext = ""
 						else
-							d.valuetext = Skada:FormatValueText(
+							Skada:FormatValueText(d,
 								amt, #amt > 0,
 								Skada:FormatNumber(log.hp or 0), self.metadata.columns.Health,
 								string.format("%02.1f%%", (log.hp or 1) / (maxhp or 1) * 100), self.metadata.columns.Percent
@@ -428,8 +427,8 @@ Skada:AddLoadableModule("Deaths", nil, function(Skada, L)
 		GameTooltip:AddDoubleLine(L["Deaths"], set.deaths, 1,1,1)
 	end
 
-	function mod:GetSetSummary(set)
-		return set.deaths
+	function mod:FormatSetSummary(datasetItem,set)
+		Skada:FormatValueText(datasetItem, set.deaths, true)
 	end
 
 	-- Called by Skada when a new player is added to a set.

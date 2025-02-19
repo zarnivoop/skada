@@ -123,7 +123,7 @@ Skada:AddLoadableModule("Dispels", nil, function(Skada, L)
 		end
 	end
 
-	function mod:GetSetSummary(set)
-		return set.dispells
+	function mod:FormatSetSummary(datasetItem, set)
+		Skada:FormatValueText(datasetItem, set.dispells, true)
 	end
 end)

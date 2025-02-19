@@ -279,7 +279,7 @@ Skada:AddLoadableModule("Threat", nil, function(Skada, L)
 							end
 						end
 
-						data.valuetext = Skada:FormatValueText(
+						Skada:FormatValueText(d,
 							format_threatvalue(data.threat), self.metadata.columns.Threat,
 							getTPS(data.threat), self.metadata.columns.TPS,
 							string.format("%02.1f%%", percent), self.metadata.columns.Percent
