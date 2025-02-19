@@ -1025,9 +1025,9 @@ do
 			-- Silly hack to fix icon positions. I should just rewrite the whole thing, really. WTB energy.
 			if showIcon and lastBar == self then
 				if orientation == 1 then
-					x1 = thickness
+					x1 = 0
 				else
-					x2 = -thickness
+					x2 = 0
 				end
 			end
 
@@ -1083,7 +1083,7 @@ do
 		self.bgtexture:SetVertexColor(0.3, 0.3, 0.3, 0.6)
 
 		self.icon = self.icon or self:CreateTexture(nil, "OVERLAY")
-		self.icon:SetPoint("LEFT", self, "LEFT", 0, 0)
+		self.icon:SetPoint("TOPLEFT", self, "TOPLEFT", 0, 0)
 		self:SetIcon(icon or DEFAULT_ICON)
 		if icon then
 			self:ShowIcon()
@@ -1098,7 +1098,7 @@ do
 		self.label:SetWordWrap(false)
 		self.label:SetText(text)
 		self.label:ClearAllPoints()
-		self.label:SetPoint("LEFT", self, "LEFT", 3, 0)
+		self.label:SetPoint("LEFT", self, "LEFT", (self.showIcon and self.thickness or 0) + 6, 0)
 		self:ShowLabel()
 
 		local f, s, m = self.label:GetFont()
@@ -1377,7 +1377,7 @@ function barPrototype:UpdateOrientationLayout()
 	local t
 	if o == lib.LEFT_TO_RIGHT then
 		self.icon:ClearAllPoints()
-		self.icon:SetPoint("RIGHT", self, "LEFT", 0, 0)
+		self.icon:SetPoint("TOPLEFT", self, "TOPLEFT", 0, 0)
 
 		t = self.texture
 		t.SetValue = t.SetWidth
@@ -1387,7 +1387,7 @@ function barPrototype:UpdateOrientationLayout()
 
 		t = self.label
 		t:ClearAllPoints()
-		t:SetPoint("LEFT", self, "LEFT", 6, 0)
+		t:SetPoint("LEFT", self, "LEFT", (self.showIcon and self.thickness or 0) + 6, 0)
 		t:SetJustifyH("LEFT")
 		t:SetJustifyV("MIDDLE")
 
@@ -1408,7 +1408,7 @@ function barPrototype:UpdateOrientationLayout()
 		self.bgtexture:SetTexCoord(0, 1, 0, 1)
 	elseif o == lib.BOTTOM_TO_TOP then
 		self.icon:ClearAllPoints()
-		self.icon:SetPoint("TOP", self, "BOTTOM", 0, 0)
+		self.icon:SetPoint("TOP", self, "TOP", 0, 0)
 
 		t = self.texture
 		t.SetValue = t.SetHeight
@@ -1439,7 +1439,7 @@ function barPrototype:UpdateOrientationLayout()
 		self.bgtexture:SetTexCoord(0, 1, 1, 1, 0, 0, 1, 0)
 	elseif o == lib.RIGHT_TO_LEFT then
 		self.icon:ClearAllPoints()
-		self.icon:SetPoint("LEFT", self, "RIGHT", 0, 0)
+		self.icon:SetPoint("TOPRIGHT", self, "TOPRIGHT", 0, 0)
 
 		t = self.texture
 		t.SetValue = t.SetWidth
@@ -1449,7 +1449,7 @@ function barPrototype:UpdateOrientationLayout()
 
 		t = self.label
 		t:ClearAllPoints()
-		t:SetPoint("RIGHT", self, "RIGHT", -6, 0)
+		t:SetPoint("RIGHT", self, "RIGHT", (self.showIcon and -self.thickness or 0) - 6, 0)
 		t:SetJustifyH("RIGHT")
 		t:SetJustifyV("MIDDLE")
 
@@ -1470,7 +1470,7 @@ function barPrototype:UpdateOrientationLayout()
 		self.bgtexture:SetTexCoord(0, 1, 0, 1)
 	elseif o == lib.TOP_TO_BOTTOM then
 		self.icon:ClearAllPoints()
-		self.icon:SetPoint("BOTTOM", self, "TOP", 0, 0)
+		self.icon:SetPoint("TOP", self, "TOP", 0, 0)
 
 		t = self.texture
 		t.SetValue = t.SetHeight
@@ -1558,6 +1558,7 @@ function barPrototype:SetValue(val)
 	end
 	local amt = min(1, self.value / max(displayMax, 0.000001))
 	local dist = (ownerGroup and ownerGroup:GetLength()) or self.length
+	dist = max(0.0001, dist)
 	amt = max(amt, 0.000001)
 
 	if ownerGroup and ownerGroup.smoothing and self.lastamount then
