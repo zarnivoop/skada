@@ -39,7 +39,11 @@ local function formatLabel(win, data)
 end
 
 local function formatValue(win, data)
-	return data.valuetext
+	if data.valuetext then
+		return data.valuetext
+	else
+		return data.valueText1
+	end
 end
 
 local function clickHandler(win, frame, button)
@@ -97,7 +101,8 @@ local ttactive = false
 function mod:Create(win, isnew)
 	-- Optional internal frame
 	if not win.frame then
-		win.frame = CreateFrame("Frame", win.db.name.."BrokerFrame", UIParent)
+		local winName = win.db.name.."BrokerFrame"
+		win.frame = CreateFrame("Frame", winName, UIParent, "BackdropTemplate")
 		win.frame:SetHeight(win.db.height or 30)
 		win.frame:SetWidth(win.db.width or 200)
 		win.frame:SetPoint("CENTER", 0, 0)
@@ -112,7 +117,7 @@ function mod:Create(win, isnew)
 			libwindow.RestorePosition(win.frame)
 		end
 
-		local title = win.frame:CreateFontString("frameTitle", 6)
+		local title = win.frame:CreateFontString("frameTitle", "OVERLAY", "ChatFontNormal")
 		title:SetPoint("CENTER", 0, 0)
 		win.frame.title = title
 
