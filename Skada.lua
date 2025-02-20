@@ -2535,7 +2535,12 @@ function Skada:AddSubviewToTooltip(tooltip, win, mode, id, label)
 				if mode.metadata and mode.metadata.showspots then
 					label = nr..". "..label
 				end
-				tooltip:AddDoubleLine(label, data.valuetext, color.r, color.g, color.b)
+
+				if data.labeltext then
+					tooltip:AddDoubleLine(label, data.valuetext, color.r, color.g, color.b)
+				else
+					tooltip:AddDoubleLine(label, data.valueText1, color.r, color.g, color.b)
+				end
 			end
 		end
 
