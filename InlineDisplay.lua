@@ -19,35 +19,6 @@ mod.name = name
 mod.description = L["Inline display is a horizontal window style."]
 Skada:AddDisplaySystem("inline", mod)
 
-local function serial(val, name, skipnewlines, depth)
-	skipnewlines = skipnewlines or false
-	depth = depth or 0
-
-	local tmp = string.rep("·", depth)
-
-	if name then tmp = tmp .. name .. " = " end
-
-	if type(val) == "table" then
-		tmp = tmp .. "{" .. (not skipnewlines and "\n" or "")
-
-		for k, v in pairs(val) do
-			tmp =  tmp .. serial(v, k, skipnewlines, depth + 1) .. "," .. (not skipnewlines and "\n" or "")
-		end
-
-		tmp = tmp .. string.rep(" ", depth) .. "}"
-	elseif type(val) == "number" then
-		tmp = tmp .. tostring(val)
-	elseif type(val) == "string" then
-		tmp = tmp .. string.format("%q", val)
-	elseif type(val) == "boolean" then
-		tmp = tmp .. (val and "true" or "false")
-	else
-		tmp = tmp .. "\"[inserializeable datatype:" .. type(val) .. "]\""
-	end
-
-	return tmp
-end
-
 function mod:OnInitialize()
 
 end
@@ -142,11 +113,25 @@ function mod:Create(window, isnew)
 	end)
 
 	local titlebg = CreateFrame("Frame", "InlineTitleBackground", window.frame)
-	local title = window.frame:CreateFontString("frameTitle", 6)
+	local title = window.frame:CreateFontString("frameTitle", "OVERLAY", "ChatFontNormal")
 	title:SetTextColor(self:GetFontColor(window.db))
 	--window.frame.fstitle:SetTextColor(255,255,255,1)
 	title:SetFont(self:GetFont(window.db))
 	title:SetText(window.metadata.title or "Skada")
+
+	-- Truncate title if it overlaps the bar container
+	local maxWidth = window.frame:GetWidth() - 50  -- adjust margin as needed
+	local origText = title:GetText()
+	if title:GetStringWidth() > maxWidth then
+		local len = string.len(origText)
+		local truncated = origText
+		while title:GetStringWidth() > maxWidth and len > 0 do
+			len = len - 1
+			truncated = string.sub(origText, 1, len) .. "..."
+			title:SetText(truncated)
+		end
+	end
+
 	title:SetWordWrap(false)
 	title:SetJustifyH("LEFT")
 	title:SetPoint("LEFT", leftmargin, -1)
@@ -166,6 +151,14 @@ function mod:Create(window, isnew)
 		end
 	end)
 
+	-- Create a container for bars to avoid overlap with the title
+	if not window.frame.barsHolder then
+		local titleHeight = title:GetHeight() or 23
+		window.frame.barsHolder = CreateFrame("Frame", nil, window.frame)
+		window.frame.barsHolder:SetPoint("TOPLEFT", window.frame, "TOPLEFT", 0, -titleHeight - 5)
+		window.frame.barsHolder:SetPoint("BOTTOMRIGHT", window.frame, "BOTTOMRIGHT", 0, 0)
+	end
+
 	local skadamenubuttonbackdrop = {
 		-- bgFile = "Interface\\Buttons\\UI-OptionsButton",
 		-- edgeFile = "Interface\\Buttons\\UI-OptionsButton",
@@ -182,12 +175,12 @@ function mod:Create(window, isnew)
 		}
 	}
 
-	local menu = CreateFrame("Button", "InlineFrameMenuButton", window.frame)
+	local menu = CreateFrame("Button", "InlineFrameMenuButton", window.frame, "BackdropTemplate")
 	menu:ClearAllPoints()
 	menu:SetWidth(12)
 	menu:SetHeight(12)
 	menu:SetNormalTexture("Interface\\Buttons\\UI-OptionsButton")
-	menu:SetHighlightTexture("Interface\\Buttons\\UI-OptionsButton", 1.0)
+	menu:SetHighlightTexture("Interface\\Buttons\\UI-OptionsButton", "ADD")
 	menu:SetAlpha(0.5)
 	menu:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 	menu:SetBackdropColor(window.db.title.textcolor.r,window.db.title.textcolor.g,window.db.title.textcolor.b,window.db.title.textcolor.a)
@@ -235,8 +228,8 @@ function barlibrary:CreateBar(uuid, win)
 	bar.value = 0
 	bar.win = win
 
-	bar.bg = CreateFrame("Frame", "bg"..bar.uuid, win.frame)
-	bar.label = bar.bg:CreateFontString("label"..bar.uuid)
+	bar.bg = CreateFrame("Frame", "bg"..bar.uuid, win.frame.barsHolder or win.frame)
+	bar.label = bar.bg:CreateFontString("label"..bar.uuid, "OVERLAY", "ChatFontNormal")
 	bar.label:SetFont(mod:GetFont(win.db))
 	bar.label:SetTextColor(mod:GetFontColor(win.db))
 	bar.label:SetJustifyH("LEFT")
