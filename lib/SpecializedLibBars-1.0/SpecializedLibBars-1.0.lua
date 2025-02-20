@@ -1270,7 +1270,12 @@ barPrototype.GetText = barPrototype.GetLabel -- for API compatibility
 
 function barPrototype:ShowLabel()
 	self.showLabel = true
-	self.label:Show()
+	if self.label then
+		self.label:ClearAllPoints()
+		local offset = ((self.showIcon and self.icon and self.icon:IsShown()) and self.thickness or 0) + 6
+		self.label:SetPoint("LEFT", self, "LEFT", offset, 0)
+		self.label:Show()
+	end
 end
 
 function barPrototype:HideLabel()
