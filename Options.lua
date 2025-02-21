@@ -196,6 +196,7 @@ Skada.options = {
 
 				display = {
 					type="select",
+					style = "radio",
 					name=L["Display system"],
 					desc=L["Choose the system to be used for displaying data in this window."],
 					values=function()
