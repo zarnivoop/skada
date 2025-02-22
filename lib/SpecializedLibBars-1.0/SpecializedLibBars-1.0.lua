@@ -1089,18 +1089,19 @@ do
 		if icon then
 			self:ShowIcon()
 		end
-		self.icon:SetTexCoord(0.07,0.93,0.07,0.93)
+		self.icon:SetTexCoord(0.1, 0.9, 0.1, 0.9)
+		self.icon:SetAlpha(0.85)
 
-		-- Lame frame solely used for handling mouse input on icon.
+		-- Frame for mouse input on icon
 		self.iconFrame = self.iconFrame or CreateFrame("Frame", nil, self)
 		self.iconFrame:SetAllPoints(self.icon)
-		self.iconFrame:SetFrameLevel(1)
+		self.iconFrame:SetFrameLevel(self:GetFrameLevel() + 2)
 
 		self.label = self.label or self:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
 		self.label:SetWordWrap(false)
 		self.label:SetText(text)
 		self.label:ClearAllPoints()
-		self.label:SetPoint("LEFT", self, "LEFT", (self.showIcon and self.thickness or 0) + 6, 0)
+		self.label:SetPoint("LEFT", self, "LEFT", ((self.showIcon and self.icon:IsShown()) and self.thickness or 0) + 6, 0)
 		self.label:SetJustifyH("LEFT")
 		self.label:SetJustifyV("MIDDLE")
 		self:ShowLabel()
@@ -1272,8 +1273,7 @@ function barPrototype:ShowLabel()
 	self.showLabel = true
 	if self.label then
 		self.label:ClearAllPoints()
-		local offset = ((self.showIcon and self.icon and self.icon:IsShown()) and self.thickness or 0) + 6
-		self.label:SetPoint("LEFT", self, "LEFT", offset, 0)
+		self.label:SetPoint("LEFT", self, "LEFT", ((self.showIcon and self.icon:IsShown()) and self.thickness or 0) + 6, 0)
 		self.label:Show()
 	end
 end
@@ -1400,7 +1400,7 @@ function barPrototype:UpdateOrientationLayout()
 
 		t = self.label
 		t:ClearAllPoints()
-		t:SetPoint("LEFT", self, "LEFT", (self.showIcon and self.thickness or 0) + 6, 0)
+		t:SetPoint("LEFT", self, "LEFT", ((self.showIcon and self.icon:IsShown()) and self.thickness or 0) + 6, 0)
 		t:SetJustifyH("LEFT")
 		t:SetJustifyV("MIDDLE")
 
@@ -1462,7 +1462,7 @@ function barPrototype:UpdateOrientationLayout()
 
 		t = self.label
 		t:ClearAllPoints()
-		t:SetPoint("RIGHT", self, "RIGHT", (self.showIcon and -self.thickness or 0) - 6, 0)
+		t:SetPoint("RIGHT", self, "RIGHT", ((self.showIcon and self.icon:IsShown()) and -self.thickness or 0) - 6, 0)
 		t:SetJustifyH("RIGHT")
 		t:SetJustifyV("MIDDLE")
 
