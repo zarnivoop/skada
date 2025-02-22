@@ -2926,12 +2926,6 @@ function Skada:OnInitialize()
 	self.db.RegisterCallback(self, "OnProfileReset", "ReloadSettings")
 	self.db.RegisterCallback(self, "OnDatabaseShutdown", "ClearAllIndexes")
 
-	-- Migrate old settings.
-	if self.db.profile.barmax then
-		self:Print("Migrating old settings somewhat gracefully. This should only happen once.")
-		self.db.profile.barmax = nil
-		self.db.profile.background.height = 200
-	end
 	if self.db.profile.total then
 		self.db.profile.current = nil
 		self.db.profile.total = nil
