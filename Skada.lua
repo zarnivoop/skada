@@ -1448,7 +1448,7 @@ function Skada:EndSegment()
 				for _, set in ipairs(self.char.sets) do
 					if set.name == setname and max == 0 then
 						max = 1
-					else
+					elseif set.name then
 						local n,c = set.name:match("^(.-)%s*%((%d+)%)$")
 						if n == setname then max = math.max(max,tonumber(c) or 0) end
 					end

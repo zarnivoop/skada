@@ -328,11 +328,6 @@ Skada:AddLoadableModule("Debuffs", nil, function(Skada, L)
 		detailupdatefunc("BUFF", win, set, self.playerid)
 	end
 
-	-- Detail view of a player.
-	function buffspells:Update(win, set)
-		detailupdatefunc("BUFF", win, set, self.playerid)
-	end
-
 	function buffoverview:Update(win, set)
 		spellupdate("BUFF", win, set)
 	end
@@ -413,11 +408,11 @@ Skada:AddLoadableModule("Debuffs", nil, function(Skada, L)
 	-- Called by Skada when a new set is created.
 	function mod:AddSetAttributes(set)
 		set.auras = {}
+		set.players = set.players or {}
 
-		-- Account for old Total segments
 		for i, player in ipairs(set.players) do
-			if player.auras ~= nil then
-				for spellname, spell in pairs(player.auras) do
+			if player.auras then
+				for _, spell in pairs(player.auras) do
 					if spell.active > 0 then
 						spell.active = 0
 						spell.started = nil
