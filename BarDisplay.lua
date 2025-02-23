@@ -413,7 +413,7 @@ function mod:Update(win)
 
 			if data.valuetext then
 				-- No columns
-				bar:SetColumnText(1, data.valuetext)
+				bar:SetColumnText(3, data.valuetext)
 			else
 				-- Up to 3 columns
 				if data.valueText1 then
