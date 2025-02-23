@@ -4,7 +4,7 @@ Skada:AddLoadableModule("Power", nil, function(Skada, L)
 
 	local mod = Skada:NewModule("Power")
 	local PowerTypes = Enum.PowerType
-	local GetSpellInfo = C_Spell.GetSpellInfo
+	local GetSpellName = C_Spell.GetSpellName
 	local GetSpellIcon = Skada.GetSpellIcon
 	local FormatNumber = Skada.FormatNumber
 	local GetPowerTypeInfo = GetPowerTypeInfo
@@ -38,14 +38,14 @@ Skada:AddLoadableModule("Power", nil, function(Skada, L)
 		if not player then return end
 
 		-- Initialize power tracking if needed
-		if not player.power then
+		if not player.power or not player.power.total then
 			player.power = {
 				total = {},    -- Total gains by power type
 				spells = {},   -- Spells by power type
 				types = {}     -- Set of active power types
 			}
 		end
-		if not set.power then
+		if not set.power or not set.power.total then
 			set.power = {
 				total = {},
 				types = {}
@@ -107,6 +107,10 @@ Skada:AddLoadableModule("Power", nil, function(Skada, L)
 		return L["Power gains"]
 	end
 
+	function playermod:GetName()
+		return L["Power"]
+	end
+
 	function powermod:Update(win, set)
 		-- Handle old data structure
 		if not set or not set.power or not set.power.total then return end
@@ -139,7 +143,7 @@ Skada:AddLoadableModule("Power", nil, function(Skada, L)
 					d.id = player.id
 					d.label = player.name
 					d.value = total
-					d.valuetext = FormatNumber(total)
+					Skada:FormatValueText(d, Skada:FormatNumber(total), true)
 					d.class = player.class
 					d.role = player.role
 
@@ -200,12 +204,14 @@ Skada:AddLoadableModule("Power", nil, function(Skada, L)
 				local d = win.dataset[nr] or {}
 				win.dataset[nr] = d
 
+				print(spellid, total)
+
 				d.id = spellid
 				d.spellid = spellid
-				d.label = GetSpellInfo(spellid)
+				d.label = GetSpellName(spellid)
 				d.value = total
-				d.valuetext = FormatNumber(total)
-				d.icon = GetSpellIcon(spellid)
+				Skada:FormatValueText(d, Skada:FormatNumber(total), true)
+				d.icon = Skada:GetSpellIcon(spellid)
 
 				if total > max then
 					max = total
@@ -223,10 +229,10 @@ Skada:AddLoadableModule("Power", nil, function(Skada, L)
 
 					d.id = spellid
 					d.spellid = spellid
-					d.label = GetSpellInfo(spellid)
+					d.label = GetSpellName(spellid)
 					d.value = amount
-					d.valuetext = FormatNumber(amount)
-					d.icon = GetSpellIcon(spellid)
+					Skada:FormatValueText(d, Skada:FormatNumber(amount), true)
+					d.icon = Skada:GetSpellIcon(spellid)
 
 					if amount > max then
 						max = amount
@@ -263,7 +269,8 @@ Skada:AddLoadableModule("Power", nil, function(Skada, L)
 		}
 		playerdetail.metadata = {
 			showspots = false,
-			icon = "Interface\\Icons\\Spell_magic_managain"
+			icon = "Interface\\Icons\\Spell_magic_managain",
+			name = L["Power"]
 		}
 
 		-- Add mode to Skada
