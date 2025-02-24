@@ -490,11 +490,33 @@ function mod:AnchorMoved(cbk, group, x, y)
 end
 
 function mod:WindowResized(cbk, group)
-	libwindow.SavePosition(group)
+	-- Save current position
+	local top = group:GetTop()
+	local left = group:GetLeft()
 
-	-- Also save size.
-	group.win.db.background.height = group:GetHeight()
+	-- Calculate height based on number of bars
+	local height = group:GetHeight()
+	local barHeight = group.win.db.barheight
+	local barSpacing = group.win.db.barspacing
+	local totalBarHeight = barHeight + barSpacing
+	local numBars = math.floor((height + barSpacing + (totalBarHeight/2)) / totalBarHeight)
+	local snappedHeight = (numBars * totalBarHeight) - barSpacing
+
+	-- Set the snapped height while maintaining position
+	group:ClearAllPoints()
+	group:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
+	group:SetHeight(snappedHeight)
+
+	-- Save position and size
+	libwindow.SavePosition(group)
+	group.win.db.background.height = snappedHeight
 	group.win.db.barwidth = group:GetWidth()
+
+	-- Update all bars
+	local bars = group:GetBars()
+	for _, bar in pairs(bars) do
+		BarResize(bar)
+	end
 end
 
 function mod:Show(win)
