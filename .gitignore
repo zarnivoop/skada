@@ -1,2 +1,13 @@
 lib/*
 !lib/SpecializedLibBars-1.0/
+
+# Release files
+release.sh
+.release/
+.env
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*~
