@@ -308,7 +308,7 @@ function mod:Update(win)
 				bar.id = barid
 				bar.text = barlabel
 				bar.fixed = false
-				
+
 				if not data.ignore then
 
 					if data.icon ~= nil then
@@ -340,7 +340,7 @@ function mod:Update(win)
 					bar.spellid = data.spellid
 				elseif data.hyperlink then
 					bar.link = data.hyperlink
-				end				
+				end
 
 				if not data.class and (win.db.classicons or win.db.classcolorbars or win.db.classcolortext) then
 					bar.missingclass = true

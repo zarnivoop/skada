@@ -4,6 +4,7 @@ codes = true
 exclude_files = {
 	".luacheckrc",
 	"lib",
+	".release",
 }
 ignore = {
 	"11./SLASH_.*", -- Setting an undefined (Slash handler) global variable
@@ -115,6 +116,8 @@ globals = {
 	"table",
 	"tremove",
 	"wipe",
+	"floor",
+	"ceil",
 
 	-- Strings
 	"ABSORB",
@@ -132,4 +135,9 @@ globals = {
 	"COMBATLOG_OBJECT_TYPE_GUARDIAN",
 	"COMBATLOG_OBJECT_TYPE_PET",
 	"UNKNOWN",
+	"Enum",
+	"C_Spell",
+	"GetPowerTypeInfo",
+	"Settings",
+	"NORMAL_FONT_COLOR"
 }

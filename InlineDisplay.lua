@@ -256,15 +256,15 @@ function barlibrary:CreateBar(uuid, win)
 	return bar
 end
 
-function barlibrary:Deposit (_bar)
+function barlibrary:Deposit(bar)
 	--strip the bar of variables
-	_bar.inuse = false
-	_bar.bg:Hide()
-	_bar.value = 0
-	_bar.label:Hide()
+	bar.inuse = false
+	bar.bg:Hide()
+	bar.value = 0
+	bar.label:Hide()
 	--place it at the front of the queue
-	table.insert(barlibrary.bars, 1, _bar)
-	--print("Depositing bar.uuid", _bar.uuid)
+	table.insert(barlibrary.bars, 1, bar)
+	--print("Depositing bar.uuid", bar.uuid)
 end
 
 function barlibrary:Withdraw (win)--TODO: also pass parent and assign parent
@@ -297,12 +297,12 @@ function barlibrary:Withdraw (win)--TODO: also pass parent and assign parent
 	return table.remove(barlibrary.bars, 1)
 end
 
-function mod:RecycleBar(_bar)
-	_bar.value = 0
+function mod:RecycleBar(bar)
+	bar.value = 0
 	--hide stuff
-	_bar.label:Hide()
-	_bar.bg:Hide()
-	barlibrary:Deposit(_bar)
+	bar.label:Hide()
+	bar.bg:Hide()
+	barlibrary:Deposit(bar)
 end
 
 function mod:GetBar(win)

@@ -120,7 +120,7 @@ Skada:AddLoadableModule("Power", nil, function(Skada, L)
 	end
 
 	function powermod:AddSetAttributes(set)
-		if not set or not set.power then 
+		if not set or not set.power then
 			set.power = {
 				total = {},
 				types = {}
@@ -139,27 +139,21 @@ Skada:AddLoadableModule("Power", nil, function(Skada, L)
 	end
 
 	function powermod:Update(win, set)
-		-- Handle old data structure
 		if not set or not set.power or not set.power.total then return end
 
 		local nr = 1
 		local max = 0
 
-		-- Get selected power type from window
 		local powerType = win.metadata.powerType or -1
 
 		for i, player in ipairs(set.players) do
-			-- Skip if player has old or invalid power data structure
 			if player and player.power and player.power.total then
 				local total = 0
-				
 				if powerType == -1 then
-					-- Sum all power types
 					for ptype, amount in pairs(player.power.total) do
 						total = total + amount
 					end
 				else
-					-- Show specific power type
 					total = player.power.total[powerType] or 0
 				end
 
@@ -187,12 +181,10 @@ Skada:AddLoadableModule("Power", nil, function(Skada, L)
 	end
 
 	function powermod:AddToTooltip(win, set, tooltip)
-		-- Handle old data structure
 		if not set or not set.power or not set.power.total then return end
 
 		local total = 0
 		local powerType = win.metadata.powerType or -1
-		
 		if powerType == -1 then
 			for ptype, amount in pairs(set.power.total) do
 				tooltip:AddLine(GetPowerTypeName(ptype), FormatNumber(amount))
@@ -213,17 +205,12 @@ Skada:AddLoadableModule("Power", nil, function(Skada, L)
 		local powerType = win.metadata.powerType or -1
 
 		if powerType == -1 then
-			-- Show all power types summed by spell
 			local spellTotals = {}
-			
-			-- Sum up totals for each spell across all power types
 			for ptype, spells in pairs(player.power.spells) do
 				for spellid, amount in pairs(spells) do
 					spellTotals[spellid] = (spellTotals[spellid] or 0) + amount
 				end
 			end
-
-			-- Display totals
 			for spellid, total in pairs(spellTotals) do
 				local d = win.dataset[nr] or {}
 				win.dataset[nr] = d
@@ -242,7 +229,6 @@ Skada:AddLoadableModule("Power", nil, function(Skada, L)
 				nr = nr + 1
 			end
 		else
-			-- Show spells for specific power type
 			if player.power.spells[powerType] then
 				for spellid, amount in pairs(player.power.spells[powerType]) do
 					local d = win.dataset[nr] or {}
@@ -268,18 +254,14 @@ Skada:AddLoadableModule("Power", nil, function(Skada, L)
 	end
 
 	function mod:OnEnable()
-		-- Register combat log events
 		Skada:RegisterForCL(SpellEnergize, 'SPELL_ENERGIZE', {src_is_interesting = true})
 
-		-- Create the power gains mode.
 		local powergains = {}
 		setmetatable(powergains, powermod_mt)
 
-		-- Create the player detail mode
 		local playerdetail = {}
 		setmetatable(playerdetail, playermod_mt)
 
-		-- Link them together
 		powergains.metadata = {
 			showspots = true,
 			click1 = playerdetail,
@@ -291,7 +273,6 @@ Skada:AddLoadableModule("Power", nil, function(Skada, L)
 			name = L["Power"]
 		}
 
-		-- Add mode to Skada
 		Skada:AddMode(powergains)
 	end
 end)

@@ -78,7 +78,7 @@ Skada:AddLoadableModule("Threat", nil, function(Skada, L)
 	end
 
 	-- Check if we should warn the player about threat
-	local function check_threat_warning(self, data)
+	local function check_threat_warning(self, data, maxvalue)
 		if not data or time() - last_warn <= 2 then return end
 
 		if data.label == UnitName("player") then
@@ -86,7 +86,7 @@ Skada:AddLoadableModule("Threat", nil, function(Skada, L)
 			local percent = data.value
 			if Skada.db.profile.modules.threatraw then
 				-- Convert raw threat to percentage for warning check
-				percent = (data.value / win.metadata.maxvalue) * 100
+				percent = (data.value / maxvalue) * 100
 			end
 
 			if percent >= treshold and
@@ -157,7 +157,7 @@ Skada:AddLoadableModule("Threat", nil, function(Skada, L)
 						format("%.1f%%", percent),
 						self.metadata.columns.Percent
 					)
-					check_threat_warning(self, data)
+					check_threat_warning(self, data, win.metadata.maxvalue)
 				else
 					data.id = nil
 				end

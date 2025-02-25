@@ -58,7 +58,7 @@ Skada:AddLoadableModule("CC", nil, function(Skada, L)
 
 			-- Optional announce
 			local inInstance, instanceType = IsInInstance()
-			if Skada.db.profile.modules.ccannounce and IsInRaid() and UnitInRaid(srcName) and not (instanceType == "pvp") then
+			if Skada.db.profile.modules.ccannounce and IsInRaid() and UnitInRaid(srcName) and instanceType ~= "pvp" then
 
 				-- Ignore main tanks?
 				if Skada.db.profile.modules.ccignoremaintanks then

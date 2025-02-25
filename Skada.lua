@@ -74,7 +74,7 @@ local RAID_FLAGS = bit.bor(COMBATLOG_OBJECT_AFFILIATION_MINE, COMBATLOG_OBJECT_A
 function Skada:GetGroupTypeAndCount()
 	local groupType
 	local count = GetNumGroupMembers()
-	
+
 	-- Modern API detection with Classic Era support
 	if IsInRaid() then
 		groupType = "raid"
@@ -83,7 +83,7 @@ function Skada:GetGroupTypeAndCount()
 		-- Maintain Classic-era behavior where count includes player
 		count = count > 0 and count - 1 or 0
 	end
-	
+
 	return groupType, count
 end
 
@@ -1215,11 +1215,11 @@ end
 
 function Skada:Reset()
 	self:Wipe()
-	
+
 	-- Clear existing tables instead of creating new ones
 	if pets then wipe(pets) end
 	if players then wipe(players) end
-	
+
 	self:CheckGroup()
 
 	if self.current ~= nil then
