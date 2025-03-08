@@ -1237,6 +1237,15 @@ function Skada:Reset()
 		self.last = nil
 	end
 
+	-- Delete non-persistent sets
+	for i = #self.char.sets, 1, -1 do
+		local set = self.char.sets[i]
+		if not set.keep then -- have a non-persistent set (possibly un-kept since last reset)
+			self:UpdateWindowsForDeletedSet(set, i)
+			wipe(tremove(self.char.sets, i))
+		end
+	end
+
 	deathcounter = 0
 	startingmembers = 0
 
@@ -1257,29 +1266,31 @@ function Skada:Reset()
 	end
 end
 
+function Skada:UpdateWindowsForDeletedSet(set, setIndex)
+	if set == self.last then
+		self.last = nil
+	end
+
+	-- Don't leave windows pointing to deleted sets
+	for _, win in ipairs(windows) do
+		if win.selectedset == setIndex or win:get_selected_set() == set then
+			win.selectedset = "current"
+			win.changed = true
+		elseif (tonumber(win.selectedset) or 0) > setIndex then
+			win.selectedset = win.selectedset - 1
+			win.changed = true
+		end
+	end
+end
+
 -- Delete a set.
 function Skada:DeleteSet(set)
 	if not set then return end
 
-
 	for i, s in ipairs(self.char.sets) do
 		if s == set then
 			wipe(tremove(self.char.sets, i))
-
-			if set == self.last then
-				self.last = nil
-			end
-
-			-- Don't leave windows pointing to deleted sets
-			for _, win in ipairs(windows) do
-				if win.selectedset == i or win:get_selected_set() == set then
-					win.selectedset = "current"
-					win.changed = true
-				elseif (tonumber(win.selectedset) or 0) > i then
-					win.selectedset = win.selectedset - 1
-					win.changed = true
-				end
-			end
+			self:UpdateWindowsForDeletedSet(set, i)
 			break
 		end
 	end
