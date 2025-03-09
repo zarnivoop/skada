@@ -1,8 +1,8 @@
 local _, Skada = ...
 Skada.versions = {
 	{
-		id = "1.9.9",
-		title = "Skada 1.9.9",
+		id = "1.10.0",
+		title = "Skada 1.10.0",
 		message = "A ton of small fixes and improvements to bring the addon to a more up to date state.",
 		changes = {
 			"Value columns reworked into something more readable",
