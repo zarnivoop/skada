@@ -22,7 +22,7 @@ Skada.versions = {
 	{
 		id = "1.6.7",
 		title = "Skada 1.6.7",
-		message = "Added new overview modes:",
+		message = "Added new overview modes",
 		changes = {
 			"Buffs overview mode showing spells used",
 			"Debuffs overview mode showing spells used",
@@ -32,7 +32,7 @@ Skada.versions = {
 	{
 		id = "1.6.4",
 		title = "Skada 1.6.4",
-		message = "Quality of life improvements:",
+		message = "Quality of life improvements",
 		changes = {
 			"Added a new update frequency option",
 			"Added a new notification system (LibNotify) to display version information unobtrusively"
@@ -40,8 +40,8 @@ Skada.versions = {
 	},
 	{
 		id = "1.6.3",
-		title = "Roundup of recent changes",
-		message = "Recent changes:",
+		title = "Skada 1.6.3",
+		message = "Roundup of recent changes",
 		changes = {
 			"Added a Smooth Bars option, for smoothly animated bar changes. Note that this does come at a performance cost.",
 			"Mode list is now sorted by how often you use the modes.",
