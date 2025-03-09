@@ -16,7 +16,7 @@ externals:
   lib/LibWindow-1.1: https://repos.wowace.com/wow/libwindow-1-1/trunk/LibWindow-1.1
   lib/AceGUI-3.0-SharedMediaWidgets: https://repos.wowace.com/wow/ace-gui-3-0-shared-media-widgets/trunk
   lib/LibBossIDs-1.0: https://repos.wowace.com/wow/libbossids-1-0/trunk
-  lib/LibNotify-1.0: https://repos.wowace.com/wow/libnotify-1-0/trunk
+  <!-- lib/LibNotify-1.0: https://repos.wowace.com/wow/libnotify-1-0/trunk -->
 
 ignore:
   - README.md

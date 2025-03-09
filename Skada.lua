@@ -2989,9 +2989,6 @@ function Skada:OnEnable()
 	-- Instead of listening for callbacks on SharedMedia we simply wait a few seconds and then re-apply settings
 	-- to catch any missing media. Lame? Yes.
 	self:ScheduleTimer("ApplySettings", 2)
-
-	-- Memory usage warning
-	self:ScheduleTimer("MemoryCheck", 3)
 end
 
 function Skada:AddLoadableModule(name, description, func)
@@ -3000,10 +2997,10 @@ function Skada:AddLoadableModule(name, description, func)
 	self:AddLoadableModuleCheckbox(name, L[name], description and L[description])
 end
 
-function Skada:MemoryCheck()
-	UpdateAddOnMemoryUsage()
-	local mem = GetAddOnMemoryUsage("Skada")
-	if mem > 30000 then
-		self:Print(L["Memory usage is high. You may want to reset Skada, and enable one of the automatic reset options."])
-	end
+function Skada:ShowVersionHistory()
+    -- Check if we have any version entries
+    if not self.versions or #self.versions == 0 then return end
+    
+    -- Show all versions directly using the notify library
+	self:ShowDetailedNotification(self.versions)
 end

@@ -335,3 +335,9 @@ L["Outlined monochrome"] = "Monocromo con contorno"
 L["Death log"] = "Registro de muertes"
 L["Show death log"] = "Mostrar registro de muertes"
 L["Time relative to fight start."] = "Tiempo relativo al inicio del combate"
+
+-- Version History
+L["Version History"] = "Historial de versiones"
+L["View the version history of Skada."] = "Ver el historial de versiones de Skada."
+L["Show Version History"] = "Mostrar historial de versiones"
+L["Display the version history using the notification system."] = "Mostrar el historial de versiones usando el sistema de notificaciones."

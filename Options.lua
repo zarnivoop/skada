@@ -184,34 +184,7 @@ Skada.options = {
 			type = "group",
 			name = L["Windows"],
 			order=1,
-			args = {
-
-				create = {
-					type="input",
-					name=L["Create window"],
-					desc=L["Enter the name for the new window."],
-					set=function(self, val) if val and val ~= "" then Skada:CreateWindow(val, nil, newdisplay) end end,
-					order=1,
-				},
-
-				display = {
-					type="select",
-					style = "radio",
-					name=L["Display system"],
-					desc=L["Choose the system to be used for displaying data in this window."],
-					values=function()
-						local list = {}
-						for name, display in pairs(Skada.displays) do
-							list[name] = display.name
-						end
-						return list
-					end,
-					get=function() return newdisplay end,
-					set=function(i, display) newdisplay = display end,
-					order=2,
-				},
-
-			},
+			args = {}
 		},
 
 		resetoptions = {
@@ -555,6 +528,89 @@ Skada.options = {
 					order=99,
 				},
 			},
+		},
+		version_history = {
+			type = "group",
+			name = L["Version History"],
+			order = 7,
+			args = {
+				description = {
+					type = "description",
+					name = L["View the version history of Skada."],
+					width = "full",
+					order = 1,
+				},
+				show_button = {
+					type = "execute",
+					name = L["Show Version History"],
+					desc = L["Display the version history using the notification system."],
+					func = function() Skada:ShowVersionHistory() end,
+					width = "full",
+					order = 2,
+				}
+			}
 		}
 	}
 }
+
+local function create_window_button(display_key)
+	return {
+		type = "input",
+		name = L["Enter the name for the window."],
+		width="double",
+		set = function(self, val) 
+			if val and val ~= "" then 
+				Skada:CreateWindow(val, nil, display_key) 
+			end 
+		end,
+		order = 2,
+	}
+end
+
+local function update_create_windows()
+	local args = Skada.options.args.windows.args
+	
+	-- Remove any existing window creation buttons
+	for k in pairs(args) do
+		if k:match("^create_") or k == "display_types" then
+			args[k] = nil
+		end
+	end
+
+	for name, display in pairs(Skada.displays) do
+		-- Create a group for each display type
+		local display_group = {
+			type = "group",
+			name = display.name,
+			order = 0.5,
+			inline = true,
+			args = {
+				-- Add description for this display type
+				desc = {
+					type = "description",
+					name = display.description,
+					width = "full",
+					order = 1,
+				},
+				create = create_window_button(name)
+			}
+		}
+		
+		-- Add the group to the options
+		args["create_"..name] = display_group
+	end
+end
+
+-- Hook into AddDisplaySystem to update window creation buttons when displays are registered
+local original_add_display = Skada.AddDisplaySystem
+Skada.AddDisplaySystem = function(self, key, mod)
+	original_add_display(self, key, mod)
+	update_create_windows()
+end
+
+-- Initialize the window creation buttons when options are loaded
+local original_setup = Skada.OptionsSetup
+Skada.OptionsSetup = function()
+	original_setup()
+	update_create_windows()
+end

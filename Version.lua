@@ -1,23 +1,53 @@
 local _, Skada = ...
 Skada.versions = {
 	{
+		id = "1.9.9",
+		title = "Skada 1.9.9",
+		message = "A ton of small fixes and improvements to bring the addon to a more up to date state.",
+		changes = {
+			"Value columns reworked into something more readable",
+			"Bar display windows now snap to nearest size",
+			"Power Gains modes reworked into one mode",
+			"A new particle display type (experimental)"
+		}
+	},
+	{
 		id = "1.8.0",
 		title = "Skada 1.8.0",
-		message = "<br/>Updated for 9.0!<br/><br/>Pets without a unit will be properly associated with their owner."
+		message = "Updated for 9.0!",
+		changes = {
+			"Pets without a unit will be properly associated with their owner"
+		}
 	},
 	{
 		id = "1.6.7",
 		title = "Skada 1.6.7",
-		message = "Added new Buffs and Debuffs overview modes, showing spells used. Clicking a spell shows the corresponding players.<br/>"
+		message = "Added new overview modes:",
+		changes = {
+			"Buffs overview mode showing spells used",
+			"Debuffs overview mode showing spells used",
+			"Clicking a spell shows the corresponding players"
+		}
 	},
 	{
 		id = "1.6.4",
 		title = "Skada 1.6.4",
-		message = "Added a new update frequency option.<br/>Added a new notification system (LibNotify) to display version information unobtrusively."
+		message = "Quality of life improvements:",
+		changes = {
+			"Added a new update frequency option",
+			"Added a new notification system (LibNotify) to display version information unobtrusively"
+		}
 	},
 	{
 		id = "1.6.3",
 		title = "Roundup of recent changes",
-		message = "Added a Smooth Bars option, for smoothly animated bar changes. Note that this does come at a performance cost.<br/>Mode list is now sorted by how often you use the modes.<br/>Added spell school color and tooltip info.<br/>Doubled default update frequency.<br/>Fixed a compatibility issue for RealUI users."
+		message = "Recent changes:",
+		changes = {
+			"Added a Smooth Bars option, for smoothly animated bar changes. Note that this does come at a performance cost.",
+			"Mode list is now sorted by how often you use the modes.",
+			"Added spell school color and tooltip info.",
+			"Doubled default update frequency.",
+			"Fixed a compatibility issue for RealUI users."
+		}
 	}
 }

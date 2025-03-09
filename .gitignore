@@ -1,5 +1,6 @@
 lib/*
 !lib/SpecializedLibBars-1.0/
+!lib/LibNotify-1.0/
 
 # Release files
 release.sh

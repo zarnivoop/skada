@@ -518,3 +518,51 @@ L["List of damaging spells"] = true
 L["spells"] = true
 L["targets"] = true
 L["Shows damage done on players by friendly players."] = true
+
+L["Pain gain sources"] = true
+L["Soul Shards gain sources"] = true
+
+-- Particle Display
+L["Particle Display"] = true
+L["Options for the particle display."] = true
+L["Particle display settings."] = true
+L["Particle Density"] = true
+L["Adjusts the number of particles shown."] = true
+L["Particle Speed"] = true
+L["Adjusts the speed of the particles."] = true
+L["Particle Size"] = true
+L["Adjusts the size of the particles."] = true
+L["Particle Spacing"] = true
+L["Adjusts the spacing between particles."] = true
+L["Visual Effects"] = true
+L["Spell Effects"] = true
+L["Show spell effects on particles."] = true
+L["Critical Effects"] = true
+L["Show critical hit effects on particles."] = true
+L["Fade Particles"] = true
+L["Fade particles as they reach the end of their path."] = true
+L["Color Options"] = true
+L["Use Class Colors"] = true
+L["Color particles based on player class."] = true
+L["Custom Color"] = true
+L["Set a custom color for particles when not using class colors."] = true
+L["Particle Texture"] = true
+L["Select a texture for the particles."] = true
+
+-- Window Creation
+L["Create Windows"] = true
+L["Create bar window"] = true
+L["Create inline window"] = true
+L["Create broker window"] = true
+L["Create particle window"] = true
+L["Enter the name for the new window with the selected display system."] = true
+L["Display Settings"] = true
+
+-- Dynamic window creation
+L["Create %s window"] = true
+L["Enter the name for the new %s display window."] = true
+
+L["Version History"] = true
+L["View the version history of Skada."] = true
+L["Show Version History"] = true
+L["Display the version history using the notification system."] = true
