@@ -347,7 +347,9 @@ end
 function Window:destroy()
 	self.dataset = nil
 
-	self.display:Destroy(self)
+	if self.display and self.display.Destroy then
+		self.display:Destroy(self)
+	end
 
 	local name = self.db.name or Skada.windowdefaults.name
 	Skada.options.args.windows.args[name] = nil -- remove from options
@@ -383,7 +385,9 @@ function Window:UpdateDisplay()
 	end
 
 	-- Display it.
-	self.display:Update(self)
+	if self.display and self.display.Update then
+		self.display:Update(self)
+	end
 	self:set_mode_title()
 end
 
@@ -421,7 +425,9 @@ function Window:Wipe()
 	self:Reset()
 
 	-- Clear display.
-	self.display:Wipe(self)
+	if self.display and self.display.Wipe then
+		self.display:Wipe(self)
+	end
 
 	if self.child then
 		self.child:Wipe()
@@ -549,7 +555,9 @@ function Window:set_mode_title()
 		name = name.."  |cFFFF0000"..L["DISABLED"].."|r"
 	end
 	self.metadata.title = name
-	self.display:SetTitle(self, name)
+	if self.display and self.display.SetTitle then
+		self.display:SetTitle(self, name)
+	end
 end
 
 local function sort_modes()
@@ -616,7 +624,9 @@ function Window:DisplayModes(settime)
 	self.metadata.maxvalue = 1
 	self.metadata.sortfunc = function(a,b) return a.name < b.name end
 
-	self.display:SetTitle(self, self.metadata.title)
+	if self.display and self.display.SetTitle then
+		self.display:SetTitle(self, self.metadata.title)
+	end
 	self.changed = true
 
 	if self.child then
@@ -646,7 +656,9 @@ function Window:DisplaySets()
 	self.selectedset = nil
 
 	self.metadata.title = L["Skada: Fights"]
-	self.display:SetTitle(self, self.metadata.title)
+	if self.display and self.display.SetTitle then
+		self.display:SetTitle(self, self.metadata.title)
+	end
 
 	self.metadata.click = click_on_set
 	self.metadata.maxvalue = 1
@@ -1329,7 +1341,9 @@ end
 -- Applies settings to things like the bar window.
 function Skada:ApplySettings()
 	for i, win in ipairs(windows) do
-		win.display:ApplySettings(win)
+		if win.display and win.display.ApplySettings then
+			win.display:ApplySettings(win)
+		end
 	end
 
 	-- Don't show window if we are solo, option.
@@ -2102,7 +2116,9 @@ function Skada:UpdateDisplay(force)
 				end
 
 				-- Let window display the data.
-				win:UpdateDisplay()
+				if win.display and win.display.Update then
+					win.display:Update(win)
+				end
 
 			elseif win.selectedset then
 				local set = win:get_selected_set()
@@ -2132,7 +2148,9 @@ function Skada:UpdateDisplay(force)
 				end
 
 				-- Let window display the data.
-				win:UpdateDisplay()
+				if win.display and win.display.Update then
+					win.display:Update(win)
+				end
 			else
 				-- View available sets.
 				local nr = 1
@@ -2182,7 +2200,9 @@ function Skada:UpdateDisplay(force)
 				win.metadata.ordersort = true
 
 				-- Let window display the data.
-				win:UpdateDisplay()
+				if win.display and win.display.Update then
+					win.display:Update(win)
+				end
 			end
 
 		end
@@ -2469,6 +2489,7 @@ end
 function Skada:FormatValueText(datasetItem, ...)
 	local value1, bool1, value2, bool2, value3, bool3 = ...
 
+	if not datasetItem then return end
 	if bool1 then
 		datasetItem.valueText1 = value1
 	end

@@ -29,7 +29,18 @@ local leftclick = "Left-click for details."
 local rightclick = "Right-click to dismiss."
 
 -- Forward declarations
-local popNotifications
+local showNotification, showDetailedPopup
+
+-- Function to pop notifications from the queue and show them
+local function popNotifications()
+    if frame and frame:IsShown() then
+        -- Already showing a notification
+        return
+    end
+    
+    -- Show the next notification
+    showNotification()
+end
 
 local locale = GetLocale()
 if locale == "ruRU" then
@@ -104,8 +115,136 @@ local mixins = {"Notify", "NotifyOnce", "SetNotifyStorage", "SetNotifyIcon", "Sh
 -- Initialize storage for notifications
 lib.storage = lib.storage or {}
 
+-- Function to show the notification frame with the current notification
+showNotification = function()
+    -- If there's no notification in the queue, don't show anything
+    if #queue == 0 then return false end
+    
+    -- Get the first notification in the queue
+    local note = queue[1]
+    
+    -- Create the frame if it doesn't exist
+    if not frame then
+        frame = CreateFrame("Frame", nil, UIParent, BackdropTemplateMixin and "BackdropTemplate")
+        frame:SetSize(300, 100)
+        frame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -20, 20)
+        frame:SetFrameStrata("DIALOG")
+        frame:SetBackdrop({
+            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+            edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+            tile = true,
+            tileSize = 32,
+            edgeSize = 32,
+            insets = { left = 11, right = 12, top = 12, bottom = 11 }
+        })
+        frame:SetBackdropColor(0, 0, 0, 1)
+        
+        -- Create an icon
+        local iconTexture = frame:CreateTexture(nil, "ARTWORK")
+        iconTexture:SetSize(50, 50)
+        iconTexture:SetPoint("TOPLEFT", frame, "TOPLEFT", 15, -15)
+        frame.icon = iconTexture
+        
+        -- Create title text
+        local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        title:SetPoint("TOPLEFT", iconTexture, "TOPRIGHT", 10, 0)
+        title:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -10, 0)
+        title:SetJustifyH("LEFT")
+        frame.title = title
+        
+        -- Create description text with proper wrapping
+        local desc = frame:CreateFontString(nil, "OVERLAY", "GameFontWhite")
+        desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -5)
+        desc:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -10, 0)
+        desc:SetJustifyH("LEFT")
+        desc:SetWordWrap(true)
+        frame.desc = desc
+        
+        -- Create click instructions text
+        local click = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        click:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 15, 15)
+        click:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -15, 15)
+        click:SetJustifyH("CENTER")
+        frame.click = click
+        
+        -- Make the frame clickable
+        frame:EnableMouse(true)
+        frame:SetScript("OnMouseDown", function(self, button)
+            if button == "LeftButton" then
+                -- Show detailed popup if available
+                local note = queue[1]
+                if note and note.detailed then
+                    -- Remove the notification from the queue
+                    tremove(queue, 1)
+                    frame:Hide()
+                    
+                    -- Show the detailed popup
+                    showDetailedPopup(note.detailed)
+                end
+            elseif button == "RightButton" then
+                -- Dismiss the notification
+                tremove(queue, 1)
+                frame:Hide()
+                
+                -- Show the next notification if available
+                popNotifications()
+            end
+        end)
+    end
+    
+    -- Set the icon if available
+    if note.icon then
+        frame.icon:SetTexture(note.icon)
+        frame.icon:Show()
+    else
+        frame.icon:Hide()
+    end
+    
+    -- Set the title
+    if note.title then
+        frame.title:SetText(note.title)
+    else
+        frame.title:SetText(note.id or "")
+    end
+    
+    -- Set the description
+    if note.message then
+        frame.desc:SetText(note.message)
+    else
+        frame.desc:SetText("")
+    end
+    
+    -- Set the click instructions
+    if note.detailed then
+        if locale == "ruRU" then
+            frame.click:SetText(leftclick .. " " .. rightclick)
+        else
+            frame.click:SetText(leftclick .. " " .. rightclick)
+        end
+    else
+        frame.click:SetText(rightclick)
+    end
+    
+    -- Adjust the frame height based on content
+    local titleHeight = frame.title:GetStringHeight()
+    local descHeight = frame.desc:GetStringHeight()
+    local clickHeight = frame.click:GetStringHeight()
+    local totalHeight = 30 + titleHeight + descHeight + clickHeight + 15
+    
+    -- Ensure minimum height
+    totalHeight = math.max(totalHeight, 100)
+    
+    frame:SetHeight(totalHeight)
+    
+    -- Show the frame
+    frame:Show()
+    
+    -- Return true to indicate success
+    return true
+end
+
 -- Function to show the detailed popup
-local function showDetailedPopup(notificationData)
+showDetailedPopup = function(notificationData)
     -- Create the message frame if it doesn't exist
     if not messageFrame then
         messageFrame = CreateFrame("Frame", nil, UIParent, BackdropTemplateMixin and "BackdropTemplate")
@@ -242,145 +381,6 @@ local function showDetailedPopup(notificationData)
     
     -- Show the message frame
     messageFrame:Show()
-end
-
--- Function to show the notification frame with the current notification
-local function showNotification()
-    -- If there's no notification in the queue, don't show anything
-    if #queue == 0 then return false end
-    
-    -- Get the first notification in the queue
-    local note = queue[1]
-    
-    -- Create the frame if it doesn't exist
-    if not frame then
-        frame = CreateFrame("Frame", nil, UIParent, BackdropTemplateMixin and "BackdropTemplate")
-        frame:SetSize(300, 100)
-        frame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -20, 20)
-        frame:SetFrameStrata("DIALOG")
-        frame:SetBackdrop({
-            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
-            edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-            tile = true,
-            tileSize = 32,
-            edgeSize = 32,
-            insets = { left = 11, right = 12, top = 12, bottom = 11 }
-        })
-        frame:SetBackdropColor(0, 0, 0, 1)
-        
-        -- Create an icon
-        local iconTexture = frame:CreateTexture(nil, "ARTWORK")
-        iconTexture:SetSize(50, 50)
-        iconTexture:SetPoint("TOPLEFT", frame, "TOPLEFT", 15, -15)
-        frame.icon = iconTexture
-        
-        -- Create title text
-        local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-        title:SetPoint("TOPLEFT", iconTexture, "TOPRIGHT", 10, 0)
-        title:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -10, 0)
-        title:SetJustifyH("LEFT")
-        frame.title = title
-        
-        -- Create description text with proper wrapping
-        local desc = frame:CreateFontString(nil, "OVERLAY", "GameFontWhite")
-        desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -5)
-        desc:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -10, 0)
-        desc:SetJustifyH("LEFT")
-        desc:SetWordWrap(true)
-        frame.desc = desc
-        
-        -- Create click instructions text
-        local click = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        click:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 15, 15)
-        click:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -15, 15)
-        click:SetJustifyH("CENTER")
-        frame.click = click
-        
-        -- Make the frame clickable
-        frame:EnableMouse(true)
-        frame:SetScript("OnMouseDown", function(self, button)
-            if button == "LeftButton" then
-                -- Show detailed popup if available
-                local note = queue[1]
-                if note and note.detailed then
-                    -- Remove the notification from the queue
-                    tremove(queue, 1)
-                    frame:Hide()
-                    
-                    -- Show the detailed popup
-                    showDetailedPopup(note.detailed)
-                end
-            elseif button == "RightButton" then
-                -- Dismiss the notification
-                tremove(queue, 1)
-                frame:Hide()
-                
-                -- Show the next notification if available
-                popNotifications()
-            end
-        end)
-    end
-    
-    -- Set the icon if available
-    if note.icon then
-        frame.icon:SetTexture(note.icon)
-        frame.icon:Show()
-    else
-        frame.icon:Hide()
-    end
-    
-    -- Set the title
-    if note.title then
-        frame.title:SetText(note.title)
-    else
-        frame.title:SetText(note.id or "")
-    end
-    
-    -- Set the description
-    if note.message then
-        frame.desc:SetText(note.message)
-    else
-        frame.desc:SetText("")
-    end
-    
-    -- Set the click instructions
-    if note.detailed then
-        if locale == "ruRU" then
-            frame.click:SetText(leftclick .. " " .. rightclick)
-        else
-            frame.click:SetText(leftclick .. " " .. rightclick)
-        end
-    else
-        frame.click:SetText(rightclick)
-    end
-    
-    -- Adjust the frame height based on content
-    local titleHeight = frame.title:GetStringHeight()
-    local descHeight = frame.desc:GetStringHeight()
-    local clickHeight = frame.click:GetStringHeight()
-    local totalHeight = 30 + titleHeight + descHeight + clickHeight + 15
-    
-    -- Ensure minimum height
-    totalHeight = math.max(totalHeight, 100)
-    
-    frame:SetHeight(totalHeight)
-    
-    -- Show the frame
-    frame:Show()
-    
-    -- Return true to indicate success
-    return true
-end
-
--- Function to pop notifications from the queue and show them
-local function popNotifications()
-    if frame and frame:IsShown() then
-        -- Already showing a notification
-        return
-    end
-    
-    -- Show the next notification
-    showNotification()
 end
 
 local function add_notifications(self, once, ...)
@@ -550,3 +550,73 @@ end
 for target,_ in pairs(lib.mixinTargets) do
   lib:Embed(target)
 end
+
+local locale = GetLocale()
+if locale == "ruRU" then
+    leftclick = "щелкните левой кнопкой для подробностей."
+    rightclick = "Нажмите право увольнять."
+    defaultfont = [[Fonts\FRIZQT___CYR.TTF]]
+end
+if locale == "zhCN" then
+    leftclick = "点击左边了解详情。"
+    rightclick = "点击右键即可关闭。"
+    defaultfont = [[Fonts\ARKai_T.ttf]]
+end
+if locale == "zhTW" then
+    leftclick = "點擊左邊了解詳情。"
+    rightclick = "點擊右鍵即可關閉。"
+    defaultfont = [[Fonts\ARKai_T.ttf]]
+end
+if locale == "deDE" then
+    leftclick = "Klicken Sie für Details links."
+    rightclick = "Klicken Sie rechts, um zu entlassen."
+end
+if locale == "frFR" then
+    leftclick = "Cliquez pour plus de détails."
+    rightclick = "Cliquez à droite pour fermer."
+end
+if locale == "itIT" then
+    leftclick = "Clicca per vedere i dettagli."
+    rightclick = "Fare clic destro per chiudere."
+end
+
+if locale == "esES" then
+    leftclick = "Haz click para ver los detalles."
+    rightclick = "Haga clic derecho para cerrar."
+end
+
+lib.data = {
+    icon = "Interface\\Icons\\Inv_misc_book_02",
+    popup = {
+        size = {
+            width = 450,
+            height = 400
+        },
+        backdrop = {
+            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
+            edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+            tile = true, 
+            tileSize = 32, 
+            edgeSize = 32,
+            insets = {left = 11, right = 12, top = 12, bottom = 11}
+        }
+    },
+    frame = {
+        size = {
+            width = 350,
+            height = 100
+        },
+        backdrop = {
+            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
+            edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+            tile = true, 
+            tileSize = 16, 
+            edgeSize = 16,
+            insets = {left = 4, right = 4, top = 4, bottom = 4}
+        },
+        timeout = 0  -- Set to 0 to disable auto-hiding
+    }
+}
+
+lib.mixinTargets = lib.mixinTargets or {}
+local mixins = {"Notify", "NotifyOnce", "SetNotifyStorage", "SetNotifyIcon", "ShowDetailedNotification"}

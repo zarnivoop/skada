@@ -7,8 +7,7 @@ Skada.versions = {
 		changes = {
 			"Value columns reworked into something more readable",
 			"Bar display windows now snap to nearest size",
-			"Power Gains modes reworked into one mode",
-			"A new particle display type (experimental)"
+			"Power Gains modes reworked into one mode"
 		}
 	},
 	{

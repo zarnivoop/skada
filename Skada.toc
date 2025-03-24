@@ -43,7 +43,6 @@ Options.lua
 BarDisplay.lua
 InlineDisplay.lua
 BrokerDisplay.lua
-ParticleDisplay.lua
 Version.lua
 
 modules.xml
