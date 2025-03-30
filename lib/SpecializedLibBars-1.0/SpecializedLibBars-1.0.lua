@@ -1563,11 +1563,6 @@ function barPrototype:SetOrientation(orientation)
 	self.orientation = orientation
 	self:UpdateOrientationLayout()
 	self:SetThickness(self.thickness)
-	
-	-- Explicitly update label position when orientation changes
-	if self.showLabel and self.label then
-		self:ShowLabel()
-	end
 end
 
 function barPrototype:GetOrientation()
