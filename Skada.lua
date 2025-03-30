@@ -450,7 +450,6 @@ function Window:DisplayMode(mode)
 	self:Wipe()
 
 	self.selectedplayer = nil
-	self.selectedspell = nil
 	self.selectedmode = mode
 
 	self.metadata = wipe(self.metadata or {})
@@ -2240,7 +2239,11 @@ function Skada:FormatNumber(number)
 	if number then
 		if self.db.profile.numberformat == 1 then
 			if number > 1000000000 then
-				return ("%02.3fB"):format(number / 1000000000)
+				return ("%02.0fB"):format(number / 1000000000)
+			elseif number > 100000000 then
+				return ("%02.0fM"):format(number / 1000000)
+			elseif number > 10000000 then
+				return ("%02.1fM"):format(number / 1000000)
 			elseif number > 1000000 then
 				return ("%02.2fM"):format(number / 1000000)
 			elseif number > 999 then
@@ -2498,6 +2501,10 @@ function Skada:FormatValueText(datasetItem, ...)
 	local value1, bool1, value2, bool2, value3, bool3 = ...
 
 	if not datasetItem then return end
+	-- Backward compatibility
+	if type(datasetItem) == "string" then
+		return datasetItem
+	end
 	if bool1 then
 		datasetItem.valueText1 = value1
 	end
@@ -3032,3 +3039,4 @@ function Skada:ShowVersionHistory()
 	-- Show all versions directly using the notify library
 	self:ShowDetailedNotification(self.versions)
 end
+
