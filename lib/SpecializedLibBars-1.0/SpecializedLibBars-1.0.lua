@@ -1273,7 +1273,18 @@ function barPrototype:ShowLabel()
 	self.showLabel = true
 	if self.label then
 		self.label:ClearAllPoints()
-		self.label:SetPoint("LEFT", self, "LEFT", ((self.showIcon and self.icon:IsShown()) and self.thickness or 0) + 6, 0)
+		
+		-- Position label based on orientation
+		if self.orientation == lib.RIGHT_TO_LEFT then
+			-- For right-to-left bars, label goes on the right
+			self.label:SetPoint("RIGHT", self, "RIGHT", ((self.showIcon and self.icon:IsShown()) and -(self.thickness or 0) or 0) - 6, 0)
+			self.label:SetJustifyH("RIGHT")
+		else
+			-- For all other orientations (default), label goes on the left
+			self.label:SetPoint("LEFT", self, "LEFT", ((self.showIcon and self.icon:IsShown()) and (self.thickness or 0) or 0) + 6, 0)
+			self.label:SetJustifyH("LEFT")
+		end
+		
 		self.label:Show()
 	end
 end
@@ -1459,26 +1470,28 @@ function barPrototype:UpdateOrientationLayout()
 		t:ClearAllPoints()
 		t:SetPoint("TOPRIGHT", self, "TOPRIGHT")
 		t:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT")
-
-		t = self.label
+		
+		-- Position columns from left to right with spacing matching LEFT_TO_RIGHT
+		-- Column 1 (leftmost column)
+		t = self.columns[1]
 		t:ClearAllPoints()
-		t:SetPoint("RIGHT", self, "RIGHT", ((self.showIcon and self.icon:IsShown()) and -self.thickness or 0) - 6, 0)
-		t:SetJustifyH("RIGHT")
+		t:SetPoint("LEFT", self, "LEFT", 6, 0)
+		t:SetJustifyH("LEFT")
 		t:SetJustifyV("MIDDLE")
-
-		-- Position columns from left to right
-		local lastPoint = self
-		for i = 3, 1, -1 do
-			t = self.columns[i]
-			t:ClearAllPoints()
-			t:SetPoint("LEFT", lastPoint, "LEFT", i == 3 and 6 or 48, 0)
-			t:SetJustifyH("LEFT")
-			t:SetJustifyV("MIDDLE")
-			lastPoint = t
-		end
-
-		-- Set label width to fill remaining space
-		self.label:SetPoint("LEFT", self.columns[1], "RIGHT", 6, 0)
+		
+		-- Column 2 (middle column)
+		t = self.columns[2]
+		t:ClearAllPoints()
+		t:SetPoint("LEFT", self.columns[1], "RIGHT", 6, 0)
+		t:SetJustifyH("LEFT")
+		t:SetJustifyV("MIDDLE")
+		
+		-- Column 3 (rightmost column)
+		t = self.columns[3]
+		t:ClearAllPoints()
+		t:SetPoint("LEFT", self.columns[2], "RIGHT", 6, 0)
+		t:SetJustifyH("LEFT")
+		t:SetJustifyV("MIDDLE")
 
 		self.bgtexture:SetTexCoord(0, 1, 0, 1)
 	elseif o == lib.TOP_TO_BOTTOM then
