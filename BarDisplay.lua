@@ -401,7 +401,7 @@ function mod:Update(win)
 				bar.order = i
 			end
 
-			if win.metadata.showspots and Skada.db.profile.showranks and not data.ignore then
+			if win.metadata.showspots and Skada.db.profile.showranks and not data.ignore and not win.db.hidelinenumbers then
 				if win.db.barorientation == 1 then
 					bar:SetLabel(("%2u. %s"):format(nr, data.label))
 				else
@@ -868,6 +868,18 @@ function mod:AddDisplayOptions(win, options)
 				get=function() return db.spellschoolcolors end,
 				set=function()
 					db.spellschoolcolors = not db.spellschoolcolors
+					Skada:ApplySettings()
+				end,
+			},
+
+			hidelinenumbers = {
+				type="toggle",
+				name=L["Hide line numbers"],
+				desc=L["Hide rank numbers on bars."],
+				order=34,
+				get=function() return db.hidelinenumbers end,
+				set=function()
+					db.hidelinenumbers = not db.hidelinenumbers
 					Skada:ApplySettings()
 				end,
 			},
