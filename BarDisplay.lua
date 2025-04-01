@@ -383,12 +383,22 @@ function mod:Update(win)
 					local color = Skada.classcolors[data.class]
 					if color then
 						bar.label:SetTextColor(color.r, color.g, color.b, color.a or 1)
-						bar.timerLabel:SetTextColor(color.r, color.g, color.b, color.a or 1)
+						-- Apply color to all columns
+						for i = 1, 3 do
+							if bar.columns[i] then
+								bar.columns[i]:SetTextColor(color.r, color.g, color.b, color.a or 1)
+							end
+						end
 					end
 				else
 					-- Default color text.
 					bar.label:SetTextColor(1,1,1,1)
-					bar.timerLabel:SetTextColor(1,1,1,1)
+					-- Apply color to all columns
+					for i = 1, 3 do
+						if bar.columns[i] then
+							bar.columns[i]:SetTextColor(1,1,1,1)
+						end
+					end
 				end
 
 				if Skada.db.profile.showself and data.id and data.id == UnitGUID("player") then

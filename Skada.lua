@@ -2239,13 +2239,15 @@ function Skada:FormatNumber(number)
 	if number then
 		if self.db.profile.numberformat == 1 then
 			if number > 1000000000 then
-				return ("%02.0fB"):format(number / 1000000000)
+				return ("%dB"):format(number / 1000000000)
 			elseif number > 100000000 then
-				return ("%02.0fM"):format(number / 1000000)
+				return ("%dM"):format(number / 1000000)
 			elseif number > 10000000 then
 				return ("%02.1fM"):format(number / 1000000)
 			elseif number > 1000000 then
 				return ("%02.2fM"):format(number / 1000000)
+			elseif number > 100000 then
+				return ("%dK"):format(number / 1000)
 			elseif number > 999 then
 				return ("%02.1fK"):format(number / 1000)
 			end

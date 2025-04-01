@@ -12,6 +12,14 @@ local abs, min, max, floor = _G.math.abs, _G.math.min, _G.math.max, _G.math.floo
 local table_sort, tinsert, tremove, tconcat = _G.table.sort, tinsert, tremove, _G.table.concat
 local next, pairs, assert, error, type, xpcall = next, pairs, assert, error, type, xpcall
 
+lib.COLUMN_MIN_PADDING = 6         -- Minimum padding between columns in pixels
+lib.COLUMN_FONT_SCALE_FACTOR = 2.5 -- Scaling factor for additional padding based on font size
+
+function lib:GetColumnSpacing(fontObject)
+    local _, fontSize = fontObject:GetFont()
+    return self.COLUMN_MIN_PADDING + (fontSize or 10) * self.COLUMN_FONT_SCALE_FACTOR
+end
+
 --[[
 	xpcall safecall implementation
 ]]
@@ -1072,6 +1080,7 @@ do
 
 
 	local DEFAULT_ICON = 134400
+
 	function barPrototype:Create(text, value, maxVal, icon, orientation, length, thickness)
 
 		self.callbacks = self.callbacks or CallbackHandler:New(self)
@@ -1101,7 +1110,7 @@ do
 		self.label:SetWordWrap(false)
 		self.label:SetText(text)
 		self.label:ClearAllPoints()
-		self.label:SetPoint("LEFT", self, "LEFT", ((self.showIcon and self.icon:IsShown()) and self.thickness or 0) + 6, 0)
+		self.label:SetPoint("LEFT", self, "LEFT", ((self.showIcon and self.icon:IsShown()) and self.thickness or 0) + lib.COLUMN_MIN_PADDING, 0)
 		self.label:SetJustifyH("LEFT")
 		self.label:SetJustifyV("MIDDLE")
 		self:ShowLabel()
@@ -1277,11 +1286,11 @@ function barPrototype:ShowLabel()
 		-- Position label based on orientation
 		if self.orientation == lib.RIGHT_TO_LEFT then
 			-- For right-to-left bars, label goes on the right
-			self.label:SetPoint("RIGHT", self, "RIGHT", ((self.showIcon and self.icon:IsShown()) and -(self.thickness or 0) or 0) - 6, 0)
+			self.label:SetPoint("RIGHT", self, "RIGHT", ((self.showIcon and self.icon:IsShown()) and -(self.thickness or 0) or 0) - lib.COLUMN_MIN_PADDING, 0)
 			self.label:SetJustifyH("RIGHT")
 		else
 			-- For all other orientations (default), label goes on the left
-			self.label:SetPoint("LEFT", self, "LEFT", ((self.showIcon and self.icon:IsShown()) and (self.thickness or 0) or 0) + 6, 0)
+			self.label:SetPoint("LEFT", self, "LEFT", ((self.showIcon and self.icon:IsShown()) and (self.thickness or 0) or 0) + lib.COLUMN_MIN_PADDING, 0)
 			self.label:SetJustifyH("LEFT")
 		end
 		
@@ -1411,23 +1420,24 @@ function barPrototype:UpdateOrientationLayout()
 
 		t = self.label
 		t:ClearAllPoints()
-		t:SetPoint("LEFT", self, "LEFT", ((self.showIcon and self.icon:IsShown()) and self.thickness or 0) + 6, 0)
+		t:SetPoint("LEFT", self, "LEFT", ((self.showIcon and self.icon:IsShown()) and self.thickness or 0) + lib.COLUMN_MIN_PADDING, 0)
 		t:SetJustifyH("LEFT")
 		t:SetJustifyV("MIDDLE")
 
-		-- Position columns from right to left
+		-- Position columns from right to left with font-size aware spacing
 		local lastPoint = self
 		for i = 3, 1, -1 do
 			t = self.columns[i]
 			t:ClearAllPoints()
-			t:SetPoint("RIGHT", lastPoint, "RIGHT", i == 3 and -6 or -40, 0)
+			local spacing = i == 3 and lib.COLUMN_MIN_PADDING or lib:GetColumnSpacing(t)
+			t:SetPoint("RIGHT", lastPoint, "RIGHT", -spacing, 0)
 			t:SetJustifyH("RIGHT")
 			t:SetJustifyV("MIDDLE")
 			lastPoint = t
 		end
 
 		-- Set label width to fill remaining space
-		self.label:SetPoint("RIGHT", self.columns[1], "LEFT", -6, 0)
+		self.label:SetPoint("RIGHT", self.columns[1], "LEFT", -lib.COLUMN_MIN_PADDING, 0)
 
 		self.bgtexture:SetTexCoord(0, 1, 0, 1)
 	elseif o == lib.BOTTOM_TO_TOP then
@@ -1442,23 +1452,24 @@ function barPrototype:UpdateOrientationLayout()
 
 		t = self.label
 		t:ClearAllPoints()
-		t:SetPoint("BOTTOM", self, "BOTTOM", 0, 6)
+		t:SetPoint("BOTTOM", self, "BOTTOM", 0, lib.COLUMN_MIN_PADDING)
 		t:SetJustifyH("CENTER")
 		t:SetJustifyV("BOTTOM")
 
-		-- Position columns from top to bottom
+		-- Position columns from top to bottom with font-size aware spacing
 		local lastPoint = self
 		for i = 3, 1, -1 do
 			t = self.columns[i]
 			t:ClearAllPoints()
-			t:SetPoint("TOP", lastPoint, "TOP", 0, i == 3 and -6 or -48)
+			local spacing = i == 3 and lib.COLUMN_MIN_PADDING or lib:GetColumnSpacing(t)
+			t:SetPoint("TOP", lastPoint, "TOP", 0, -spacing)
 			t:SetJustifyH("CENTER")
 			t:SetJustifyV("TOP")
 			lastPoint = t
 		end
 
 		-- Set label height to fill remaining space
-		self.label:SetPoint("TOP", self.columns[1], "BOTTOM", 0, -6)
+		self.label:SetPoint("TOP", self.columns[1], "BOTTOM", 0, -lib.COLUMN_MIN_PADDING)
 
 		self.bgtexture:SetTexCoord(0, 1, 1, 1, 0, 0, 1, 0)
 	elseif o == lib.RIGHT_TO_LEFT then
@@ -1471,32 +1482,34 @@ function barPrototype:UpdateOrientationLayout()
 		t:SetPoint("TOPRIGHT", self, "TOPRIGHT")
 		t:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT")
 		
-		-- Position columns from left to right with spacing matching LEFT_TO_RIGHT
+		-- Position columns from left to right with font-size aware spacing
 		-- Column 1 (leftmost column)
 		t = self.columns[1]
 		t:ClearAllPoints()
-		t:SetPoint("LEFT", self, "LEFT", 6, 0)
+		t:SetPoint("LEFT", self, "LEFT", lib.COLUMN_MIN_PADDING, 0)
 		t:SetJustifyH("LEFT")
 		t:SetJustifyV("MIDDLE")
 		
 		-- Column 2 (middle column)
 		t = self.columns[2]
 		t:ClearAllPoints()
-		t:SetPoint("LEFT", self.columns[1], "RIGHT", 6, 0)
+		local spacing2 = lib:GetColumnSpacing(t)
+		t:SetPoint("LEFT", self.columns[1], "RIGHT", spacing2, 0)
 		t:SetJustifyH("LEFT")
 		t:SetJustifyV("MIDDLE")
 		
 		-- Column 3 (rightmost column)
 		t = self.columns[3]
 		t:ClearAllPoints()
-		t:SetPoint("LEFT", self.columns[2], "RIGHT", 6, 0)
+		local spacing3 = lib:GetColumnSpacing(t)
+		t:SetPoint("LEFT", self.columns[2], "RIGHT", spacing3, 0)
 		t:SetJustifyH("LEFT")
 		t:SetJustifyV("MIDDLE")
 
 		self.bgtexture:SetTexCoord(0, 1, 0, 1)
 	elseif o == lib.TOP_TO_BOTTOM then
 		self.icon:ClearAllPoints()
-		self.icon:SetPoint("TOP", self, "TOP", 0, 0)
+		self.icon:SetPoint("BOTTOM", self, "BOTTOM", 0, 0)
 
 		t = self.texture
 		t.SetValue = t.SetHeight
@@ -1506,25 +1519,26 @@ function barPrototype:UpdateOrientationLayout()
 
 		t = self.label
 		t:ClearAllPoints()
-		t:SetPoint("TOP", self, "TOP", 0, -6)
+		t:SetPoint("TOP", self, "TOP", 0, -lib.COLUMN_MIN_PADDING)
 		t:SetJustifyH("CENTER")
 		t:SetJustifyV("TOP")
 
 		-- Position columns from bottom to top
 		local lastPoint = self
-		for i = 3, 1, -1 do
+		for i = 1, 3 do
 			t = self.columns[i]
 			t:ClearAllPoints()
-			t:SetPoint("BOTTOM", lastPoint, "BOTTOM", 0, i == 3 and 6 or 48)
+			local spacing = i == 1 and lib.COLUMN_MIN_PADDING or lib:GetColumnSpacing(t)
+			t:SetPoint("BOTTOM", lastPoint, "BOTTOM", 0, spacing)
 			t:SetJustifyH("CENTER")
 			t:SetJustifyV("BOTTOM")
 			lastPoint = t
 		end
 
 		-- Set label height to fill remaining space
-		self.label:SetPoint("BOTTOM", self.columns[1], "TOP", 0, 6)
+		self.label:SetPoint("BOTTOM", self.columns[3], "TOP", 0, lib.COLUMN_MIN_PADDING)
 
-		self.bgtexture:SetTexCoord(0, 1, 1, 1, 0, 0, 1, 0)
+		self.bgtexture:SetTexCoord(0, 0, 0, 1, 1, 0, 1, 1)
 	end
 	self:SetValue(self.value)
 end
