@@ -12,9 +12,7 @@ L["Appearance"] = true
 L["A damage meter."] = true
 L["Skada summary"] = true
 
-L["opens the configuration window"] = true
 L["Memory usage is high. You may want to reset Skada, and enable one of the automatic reset options."] = true
-L["resets all data"] = true
 
 L["Current"] = "Current fight"
 L["Total"] = "Total"
@@ -49,13 +47,11 @@ L["Left to right"] = true
 L["Right to left"] = true
 L["Combat mode"] = true
 L["Automatically switch to set 'Current' and this mode when entering combat."] = true
-L["None"] = true
 L["Return after combat"] = true
 L["Return to the previous set and mode after combat ends."] = true
 L["Show minimap button"] = true
 L["Toggles showing the minimap button."] = true
 
-L["reports the active mode"] = true
 L["Skada: %s for %s:"] = "Skada: %s for %s:"
 L["Only keep boss fighs"] = "Only keep boss fights"
 L["Boss fights will be kept with this on, and non-boss fights are discarded."] = true
@@ -285,18 +281,14 @@ L["Crushing"] = true
 L["Absorbed"] = true
 L["Dispels"] = true
 L["Fails"] = true
-L["'s Fails"] = true
 L["HPS"] = "HPS"
 L["Healing"] = true
-L["'s Healing"] = true
 L["Overhealing"] = true
 L["Threat"] = true
 L["Power"] = "Power"
 L["Power gains"] = "Power gains"
 L["Enemies"] = true
 L["Debuffs"] = true
-L["DamageTaken"] = "Damage Taken"
-L["TotalHealing"] = "Total Healing"
 
 L["Announce CC breaking to party"] = true
 L["Ignore Main Tanks"] = true
@@ -313,7 +305,6 @@ L["Percent"] = "Percent"
 L["TPS"] = "TPS"
 
 L["%s dies"] = "%s dies"
-L["Timestamp"] = "Timestamp"
 L["Change"] = "Change"
 L["Health"] = "Health"
 
@@ -368,8 +359,6 @@ L["Buff uptimes"] = "Buff uptimes"
 L["Buff spell list"] = "Buff spell list"
 L["'s Buffs"] = "'s Buffs"
 
-L["Deletes the chosen window."] = "Deletes the chosen window."
-L["Delete window"] = "Delete window"
 L["Window"] = "Window"
 L["Scale"] = "Scale"
 L["Sets the scale of the window."] = "Sets the scale of the window."
@@ -467,7 +456,6 @@ L["Delete theme"] = true
 L["Various tweaks to get around deficiences and problems in the game's combat logs. Carries a small performance penalty."] = true
 L["Adds a set of standard themes to Skada. Custom themes can also be used."] = true
 L["Smart"] = true
-L["Memory usage is high. You may want to reset Skada, and enable one of the automatic reset options."] = true
 
 L["Other"] = true
 
@@ -479,7 +467,6 @@ L["Energy gain sources"] = true
 L["Rage gain sources"] = true
 L["Holy power gain sources"] = true
 L["Runic power gain sources"] = true
-L["Power gains"] = true
 L["Focus gained"] = true
 L["Fury gained"] = true
 L["Pain gained"] = true
@@ -506,7 +493,6 @@ L["Update frequency"] = true
 L["How often windows are updated. Shorter for faster updates. Increases CPU usage."] = true
 
 L["Buffs"] = true
-L["Debuffs"] = true
 
 L["Healing: Personal HPS"] = true
 L["Healing: Raid HPS"] = true
@@ -514,13 +500,8 @@ L["RHPS"] = true
 
 L["Friendly Fire"] = true
 L["List of players damaged"] = true
-L["List of damaging spells"] = true
 L["spells"] = true
-L["targets"] = true
 L["Shows damage done on players by friendly players."] = true
-
-L["Pain gain sources"] = true
-L["Soul Shards gain sources"] = true
 
 -- Window Creation
 L["Create Windows"] = true
