@@ -333,7 +333,7 @@ Skada:AddLoadableModule("Deaths", nil, function(Skada, L)
 						if spellid == death_spell then
 							rspellname = spellname -- nicely formatted death message
 						else
-							rspellname = GetSpellLink(spellid) or spellname
+							rspellname = C_Spell.GetSpellLink(spellid) or spellname
 						end
 						local label
 						if log.ts >= death.ts then
