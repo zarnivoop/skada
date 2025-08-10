@@ -12,14 +12,11 @@ L["Appearance"] = true
 L["A damage meter."] = true
 L["Skada summary"] = true
 
-L["opens the configuration window"] = true
 L["Memory usage is high. You may want to reset Skada, and enable one of the automatic reset options."] = true
-L["resets all data"] = true
 
 L["Current"] = "Current fight"
 L["Total"] = "Total"
 
-L["All data has been reset."] = true
 L["Skada: Modes"] = true
 L["Skada: Fights"] = true
 
@@ -49,13 +46,11 @@ L["Left to right"] = true
 L["Right to left"] = true
 L["Combat mode"] = true
 L["Automatically switch to set 'Current' and this mode when entering combat."] = true
-L["None"] = true
 L["Return after combat"] = true
 L["Return to the previous set and mode after combat ends."] = true
 L["Show minimap button"] = true
 L["Toggles showing the minimap button."] = true
 
-L["reports the active mode"] = true
 L["Skada: %s for %s:"] = "Skada: %s for %s:"
 L["Only keep boss fighs"] = "Only keep boss fights"
 L["Boss fights will be kept with this on, and non-boss fights are discarded."] = true
@@ -110,7 +105,6 @@ L["The margin between the outer edge and the background texture."] = "The margin
 L["Margin"] = "Margin"
 L["Window height"] = "Window height"
 L["The height of the window. If this is 0 the height is dynamically changed according to how many bars exist."] = "The height of the window. If this is 0 the height is dynamically changed according to how many bars exist."
-L["Adds a background frame under the bars. The height of the background frame determines how many bars are shown. This will override the max number of bars setting."] = "Adds a background frame under the bars. The height of the background frame determines how many bars are shown. This will override the max number of bars setting."
 L["Enable"] = "Enable"
 L["Background"] = "Background"
 L["The texture used as the background."] = "The texture used as the background."
@@ -126,7 +120,6 @@ L["Threat: Personal Threat"] = "Threat: Personal Threat"
 L["Data segments to keep"] = "Data segments to keep"
 L["The number of fight segments to keep. Persistent segments are not included in this."] = "The number of fight segments to keep. Persistent segments are not included in this."
 
-L["Alternate color"] = "Alternate color"
 L["Choose the alternate color of the bars."] = "Choose the alternate color of the bars."
 
 L["Threat warning"] = "Threat warning"
@@ -176,7 +169,6 @@ L["Delete window"] = "Delete window"
 L["Deletes the chosen window."] = "Deletes the chosen window."
 L["Choose the window to be deleted."] = "Choose the window to be deleted."
 L["Enter the name for the new window."] = "Enter the name for the new window."
-L["Create window"] = "Create window"
 L["Windows"] = "Windows"
 
 L["Switch to segment"] = "Switch to segment"
@@ -196,7 +188,6 @@ L["Deflect"] = "Deflect"
 L["Block"] = "Block"
 L["Absorb"] = "Absorb"
 
-L["Last fight"] = "Last fight"
 L["Disable while hidden"] = "Disable while hidden"
 L["Skada will not collect any data when automatically hidden."] = "Skada will not collect any data when automatically hidden."
 L["Data Collection"] = "Data Collection"
@@ -211,9 +202,7 @@ L["Display system"] = "Display system"
 L["Choose the system to be used for displaying data in this window."] = "Choose the system to be used for displaying data in this window."
 
 L["Hides HPS from the Healing modes."] = "Hides HPS from the Healing modes."
-L["Do not show HPS"] = "Do not show HPS"
 
-L["Do not show DPS"] = "Do not show DPS"
 L["Hides DPS from the Damage mode."] = "Hides DPS from the Damage mode."
 
 L["Class color bars"] = "Class color bars"
@@ -229,10 +218,8 @@ L["Shows tooltips with extra information in some modes."] = "Shows tooltips with
 L["Average hit:"] = "Average hit:"
 L["Maximum hit:"] = "Maximum hit:"
 L["Minimum hit:"] = "Minimum hit:"
-L["Absorbs"] = "Absorbs"
 L["'s Absorbs"] = "'s Absorbs"
 
-L["Do not show TPS"] = "Do not show TPS"
 L["Do not warn while tanking"] = "Do not warn while tanking"
 
 L["Hide in PvP"] = "Hide in PvP"
@@ -285,18 +272,14 @@ L["Crushing"] = true
 L["Absorbed"] = true
 L["Dispels"] = true
 L["Fails"] = true
-L["'s Fails"] = true
 L["HPS"] = "HPS"
 L["Healing"] = true
-L["'s Healing"] = true
 L["Overhealing"] = true
 L["Threat"] = true
 L["Power"] = "Power"
 L["Power gains"] = "Power gains"
 L["Enemies"] = true
 L["Debuffs"] = true
-L["DamageTaken"] = "Damage Taken"
-L["TotalHealing"] = "Total Healing"
 
 L["Announce CC breaking to party"] = true
 L["Ignore Main Tanks"] = true
@@ -310,10 +293,8 @@ L["Start new segment"] = true
 L["Columns"] = "Columns"
 L["Overheal"] = "Overheal"
 L["Percent"] = "Percent"
-L["TPS"] = "TPS"
 
 L["%s dies"] = "%s dies"
-L["Timestamp"] = "Timestamp"
 L["Change"] = "Change"
 L["Health"] = "Health"
 
@@ -329,7 +310,6 @@ L["The number of rows from each subview to show when using informative tooltips.
 L["Damage done"] = "Damage done"
 L["Active time"] = "Active time"
 L["Segment time"] = "Segment time"
-L["Absorbs and healing"] = "Absorbs and healing"
 L["Activity"] = true
 
 L["Show rank numbers"] = "Show rank numbers"
@@ -349,7 +329,6 @@ L["Skada usually uses a very conservative (simple) combat detection scheme that 
 
 L["Clickthrough"] = "Clickthrough"
 L["Disables mouse clicks on bars."] = "Disables mouse clicks on bars."
-L["DTPS"] = "DTPS"
 L["Healing taken"] = "Healing taken"
 
 L["Wipe mode"] = "Wipe mode"
@@ -368,14 +347,9 @@ L["Buff uptimes"] = "Buff uptimes"
 L["Buff spell list"] = "Buff spell list"
 L["'s Buffs"] = "'s Buffs"
 
-L["Deletes the chosen window."] = "Deletes the chosen window."
-L["Delete window"] = "Delete window"
 L["Window"] = "Window"
 L["Scale"] = "Scale"
 L["Sets the scale of the window."] = "Sets the scale of the window."
-
-L["Snaps the window size to best fit when resizing."] = "Snaps the window size to best fit when resizing."
-L["Snap to best fit"] = "Snap to best fit"
 
 L["Hide window"] = "Hide window"
 L["Absorb spells"] = "Absorb spells"
@@ -395,7 +369,6 @@ L["Title height"] = "Title height"
 L["Use class icons where applicable."] = "Use class icons where applicable."
 L["Class icons"] = "Class icons"
 
-L["RealID"] = "RealID"
 L["Instance"] = "Instance"
 
 L["Enemy healing done"] = "Enemy healing done"
@@ -467,27 +440,6 @@ L["Delete theme"] = true
 L["Various tweaks to get around deficiences and problems in the game's combat logs. Carries a small performance penalty."] = true
 L["Adds a set of standard themes to Skada. Custom themes can also be used."] = true
 L["Smart"] = true
-L["Memory usage is high. You may want to reset Skada, and enable one of the automatic reset options."] = true
-
-L["Other"] = true
-
-L["Energy gained"] = true
-L["Rage gained"] = true
-L["Runic power gained"] = true
-L["Holy power gained"] = true
-L["Energy gain sources"] = true
-L["Rage gain sources"] = true
-L["Holy power gain sources"] = true
-L["Runic power gain sources"] = true
-L["Power gains"] = true
-L["Focus gained"] = true
-L["Fury gained"] = true
-L["Pain gained"] = true
-L["Soul Shards gained"] = true
-L["Focus gain sources"] = true
-L["Fury gain sources"] = true
-L["Pain gain sources"] = true
-L["Soul Shards gain sources"] = true
 
 L["Minimum"] = true
 L["Maximum"] = true
@@ -506,7 +458,6 @@ L["Update frequency"] = true
 L["How often windows are updated. Shorter for faster updates. Increases CPU usage."] = true
 
 L["Buffs"] = true
-L["Debuffs"] = true
 
 L["Healing: Personal HPS"] = true
 L["Healing: Raid HPS"] = true
@@ -514,25 +465,11 @@ L["RHPS"] = true
 
 L["Friendly Fire"] = true
 L["List of players damaged"] = true
-L["List of damaging spells"] = true
 L["spells"] = true
-L["targets"] = true
 L["Shows damage done on players by friendly players."] = true
 
-L["Pain gain sources"] = true
-L["Soul Shards gain sources"] = true
-
 -- Window Creation
-L["Create Windows"] = true
-L["Create bar window"] = true
-L["Create inline window"] = true
-L["Create broker window"] = true
-L["Enter the name for the new window with the selected display system."] = true
 L["Display Settings"] = true
-
--- Dynamic window creation
-L["Create %s window"] = true
-L["Enter the name for the new %s display window."] = true
 
 L["Version History"] = true
 L["View the version history of Skada."] = true
