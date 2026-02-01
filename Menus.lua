@@ -226,7 +226,10 @@ function Skada:OpenMenu(window)
 							Skada:Wipe()
 							Skada:UpdateDisplay(true)
 						end
-						info.checked = (window.selectedset == set.starttime)
+						-- For Native API, sets don't have starttime as identifier
+						-- Use sessionID or index instead
+						local setIdentifier = set.sessionID or set.startTime or set.starttime or i
+						info.checked = (window.selectedset == setIdentifier)
 						UIDropDownMenu_AddButton(info, level)
 				end
 

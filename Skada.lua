@@ -39,89 +39,9 @@ if not InterfaceOptions_AddCategory then
 	end
 end
 
--- Simple boss detection helpers for WoW 12.0+
-function Skada:IsUnitBoss(unit)
-	if not unit then 
-		self:Debug("IsUnitBoss: No unit provided")
-		return false 
-	end
-	
-	if not UnitExists(unit) then
-		self:Debug("IsUnitBoss: Unit does not exist:", unit)
-		return false
-	end
-	
-	-- Check via UnitClassification
-	local classification = UnitClassification(unit)
-	self:Debug("IsUnitBoss: Unit classification for", unit, ":", classification)
-	
-	if classification == "worldboss" or classification == "rareelite" then
-		self:Debug("IsUnitBoss: Detected as boss via classification:", unit, classification)
-		return true
-	end
-	
-	-- Check skull level (-1 indicates boss/elite)
-	local level = UnitLevel(unit)
-	self:Debug("IsUnitBoss: Unit level for", unit, ":", level)
-	
-	if level == -1 then -- Skull level
-		self:Debug("IsUnitBoss: Detected as boss via skull level:", unit)
-		return true
-	end
-	
-	self:Debug("IsUnitBoss: Not a boss:", unit, "classification:", classification, "level:", level)
-	return false
-end
-
-function Skada:GetNPCIDFromGUID(guid)
-	if not guid then 
-		self:Debug("GetNPCIDFromGUID: No GUID provided")
-		return nil 
-	end
-	
-	local _, _, _, _, _, npcID = strsplit("-", guid)
-	local id = tonumber(npcID)
-	
-	self:Debug("GetNPCIDFromGUID: GUID", guid, "-> NPC ID:", id)
-	return id
-end
-
--- Helper to check if current encounter has boss units
-function Skada:CheckForBossUnitsInCombat()
-	if not self.current then
-		self:Debug("CheckForBossUnitsInCombat: No current combat")
-		return false
-	end
-	
-	self:Debug("CheckForBossUnitsInCombat: Checking party/raid targets")
-	
-	-- Check party/raid members' targets
-	local numMembers = GetNumGroupMembers()
-	if numMembers > 0 then
-		for i = 1, numMembers do
-			local unit = IsInRaid() and ("raid"..i.."target") or ("party"..i.."target")
-			if UnitExists(unit) then
-				if self:IsUnitBoss(unit) then
-					self.current.gotboss = true
-					self:Debug("CheckForBossUnitsInCombat: Found boss unit:", unit, "Setting gotboss = true")
-					return true
-				end
-			end
-		end
-	end
-	
-	-- Check player's target
-	if UnitExists("target") and self:IsUnitBoss("target") then
-		self.current.gotboss = true
-		self:Debug("CheckForBossUnitsInCombat: Player target is boss. Setting gotboss = true")
-		return true
-	end
-	
-	self:Debug("CheckForBossUnitsInCombat: No boss units found")
-	return false
-end
-
+-- Simple boss detection helpers removed - WoW 12.0+ uses native encounter detection
 function Skada:GetSpellIcon(spellId)
+	if not spellId or spellId == 0 then return nil end
 	local info = C_Spell.GetSpellInfo(spellId)
 	if info then
 		return info.iconID
@@ -137,20 +57,10 @@ end
 
 local popup
 
--- Used for automatic stop on wipe option
-local deathcounter = 0
-local startingmembers = 0
-
--- Aliases
-
 -- Aliases
 local tsort, tinsert, tremove = table.sort, table.insert, table.remove
 local next, pairs, ipairs, type = next, pairs, ipairs, type
-local band = bit.band
-
-local PET_FLAGS = bit.bor(COMBATLOG_OBJECT_TYPE_PET, COMBATLOG_OBJECT_TYPE_GUARDIAN)
-local RAID_FLAGS = bit.bor(COMBATLOG_OBJECT_AFFILIATION_MINE, COMBATLOG_OBJECT_AFFILIATION_PARTY,
-	COMBATLOG_OBJECT_AFFILIATION_RAID)
+-- bit.band no longer needed with Native API
 
 -- Returns the group type (i.e., "party" or "raid") and the size of the group.
 function Skada:GetGroupTypeAndCount()
@@ -172,7 +82,13 @@ end
 do
 	popup = CreateFrame("Frame", nil, UIParent, "BackdropTemplate") -- Recycle the popup frame as an event handler.
 	popup:SetScript("OnEvent", function(frame, event, ...)
-		Skada[event](Skada, ...)
+		local handler = Skada[event]
+		if handler then
+			handler(Skada, ...)
+		else
+			-- Some events are registered for compatibility but don't have handlers with Native API
+			Skada:Debug("Unhandled event:", event)
+		end
 	end)
 
 	popup:SetBackdrop({
@@ -241,8 +157,8 @@ Skada.last = nil
 -- Modes - these are modules, really. Modeules?
 local modes = {}
 
--- Pets; an array of pets and their owners.
-local pets, players = {}, {}
+-- Pet tracking handled by Native API
+-- No local pet/player tables needed
 
 -- Flag marking if we need an update.
 local changed = true
@@ -605,7 +521,12 @@ end
 
 function Skada:GetSetLabel(set) -- return a nicely-formatted label for a set
 	if not set then return "" end
-	return SetLabelFormat(set.name or "Unknown", set.starttime, set.endtime or time())
+	
+	-- Handle Native API session fields (capital T)
+	local startTime = set.startTime or set.starttime
+	local endTime = set.endTime or set.endtime or time()
+	
+	return SetLabelFormat(set.name or "Unknown", startTime, endTime)
 end
 
 function Window:set_mode_title()
@@ -632,9 +553,9 @@ function Window:set_mode_title()
 				setname = Skada:GetSetLabel(set)
 			end
 		end
-		if setname then
-			name = name .. ": " .. setname
-		end
+	if setname then
+		name = name .. ": " .. setname
+	end
 	end
 	if disabled and (self.selectedset == "current" or self.selectedset == "total") then
 		-- indicate when data collection is disabled
@@ -690,19 +611,18 @@ function Window:DisplayModes(settime)
 	self.metadata.title = L["Skada: Modes"]
 
 	-- Find the selected set
+	-- With Native API, we only have "current" and "total" sessions
+	-- Historical sessions are managed by WoW's API
 	if settime == "current" or settime == "total" then
 		self.selectedset = settime
 	else
-		for i, set in ipairs(Skada.char.sets) do
-			if tostring(set.starttime) == settime then
-				if set.name == L["Current"] then
-					self.selectedset = "current"
-				elseif set.name == L["Total"] then
-					self.selectedset = "total"
-				else
-					self.selectedset = i
-				end
-			end
+		-- Try to parse as session ID
+		local sessionId = tonumber(settime)
+		if sessionId then
+			self.selectedset = settime -- Store as string session ID
+		else
+			-- Default to current
+			self.selectedset = "current"
 		end
 	end
 
@@ -916,8 +836,7 @@ local function slashHandler(param)
 		Skada:Notify("test")
 	elseif param == "reset" then
 		Skada:Reset()
-	elseif param == "newsegment" then
-		Skada:NewSegment()
+	-- newsegment command removed - with Native API, sessions are managed by WoW
 	elseif param == "toggle" then
 		Skada:ToggleWindow()
 	elseif param == "debug" then
@@ -926,10 +845,6 @@ local function slashHandler(param)
 		(Skada.db.profile.debug and ("|cFF00FF00" .. L["ENABLED"] .. "|r") or ("|cFFFF0000" .. L["DISABLED"] .. "|r")))
 	elseif param == "config" then
 		Skada:OpenOptions()
-	elseif param == "datatest" then
-		Skada:TestDataCollection()
-	elseif param == "status" then
-		Skada:ShowStatus()
 	elseif param:sub(1, 6) == "report" then
 		local chan = (IsInGroup(LE_PARTY_CATEGORY_INSTANCE) and "instance") or
 			(IsInRaid() and "raid") or
@@ -1070,13 +985,7 @@ function Skada:RefreshMMButton()
 	end
 end
 
-function Skada:PetDebug()
-	self:CheckGroup()
-	self:Print("pets:")
-	for pet, owner in pairs(pets) do
-		self:Print("pet " .. pet .. " belongs to " .. owner.id .. ", " .. owner.name)
-	end
-end
+
 
 function Skada:SetActive(enable)
 	if enable then
@@ -1089,283 +998,30 @@ function Skada:SetActive(enable)
 		end
 	end
 	
-	if not enable and self.db.profile.hidedisables then
-		if not disabled then
-			self:Debug(L["Data Collection"] .. " " .. "|cFFFF0000" .. L["DISABLED"] .. "|r")
-		end
-		disabled = true
-		-- Stop native API polling
-		if self.NativeAPI then
-			self.NativeAPI:StopPolling()
-		end
-	else
-		if disabled then
-			self:Debug(L["Data Collection"] .. " " .. "|cFF00FF00" .. L["ENABLED"] .. "|r")
-		end
-		disabled = false
-		-- Start native API polling
-		if self.NativeAPI then
-			self.NativeAPI:StartPolling()
-		end
-	end
-
-	Skada:UpdateDisplay(true)
+	-- With Native API, window visibility doesn't affect data collection
+	-- The hidedisables setting only controls window visibility
 end
 
-function Skada:CheckGroup()
-	local type, count = self:GetGroupTypeAndCount()
-	if count > 0 then
-		for i = 1, count do
-			local unit = ("%s%d"):format(type, i)
-			local playerGUID = UnitGUID(unit)
-			if playerGUID then
-				players[playerGUID] = true
-				local unitPet = unit .. "pet"
-				local petGUID = UnitGUID(unitPet)
-				if petGUID and not pets[petGUID] then
-					local name, server = UnitName(unit)
-					if server and server ~= "" then name = name .. "-" .. server end
-					pets[petGUID] = { id = playerGUID, name = name }
-				end
-			end
-		end
-	end
-
-	-- Solo, always check.
-	local playerGUID = UnitGUID("player")
-	if playerGUID then
-		players[playerGUID] = true
-		local petGUID = UnitGUID("playerpet")
-		if petGUID and not pets[petGUID] then
-			local name = UnitName("player")
-			pets[petGUID] = { id = playerGUID, name = name }
-		end
-	end
-end
-
--- Ask a mode to verify the contents of a set.
-local function verify_set(mode, set)
-	if mode.AddSetAttributes ~= nil then
-		mode:AddSetAttributes(set)
-	end
-	for j, player in ipairs(set.players) do
-		if mode.AddPlayerAttributes ~= nil then
-			mode:AddPlayerAttributes(player, set)
-		end
-	end
-end
-
-local wasininstance
-local wasinpvp
-
--- Are we in a PVP zone?
-local pvp_zones = {}
-local function IsInPVP()
-	local pvpType, isFFA = GetZonePVPInfo()
-	local _, instanceType = IsInInstance()
-	return instanceType == "pvp" or instanceType == "arena" or pvpType == "arena" or pvpType == "combat" or isFFA
-end
-
-function Skada:ZoneCheck()
-	-- Check if we are entering an instance.
-	local inInstance, instanceType = IsInInstance()
-	local isininstance = inInstance and (instanceType == "party" or instanceType == "raid")
-	local isinpvp = IsInPVP()
-
-	-- If we are entering an instance, and we were not previously in an instance, and we got this event before... and we have some data...
-	if isininstance and wasininstance ~= nil and not wasininstance and self.db.profile.reset.instance ~= 1 and Skada:CanReset() then
-		if self.db.profile.reset.instance == 3 then
-			Skada:ShowPopup()
-		else
-			self:Reset()
-		end
-	end
-
-	-- Hide in PvP. Hide if entering a PvP instance, show if we are leaving one.
-	if self.db.profile.hidepvp then
-		if IsInPVP() then
-			Skada:SetActive(false)
-		elseif wasinpvp then
-			Skada:SetActive(true)
-		end
-	end
-
-	-- Save a flag marking our previous (current) instance status.
-	if isininstance then
-		wasininstance = true
-	else
-		wasininstance = false
-	end
-
-	-- Save a flag marking out previous (current) pvp status.
-	if isinpvp then
-		wasinpvp = true
-	else
-		wasinpvp = false
-	end
-end
-
--- Fired on entering a zone.
-function Skada:ZONE_CHANGED_NEW_AREA()
-	Skada:ZoneCheck()
-end
-
--- Fired on blue bar screen
-function Skada:PLAYER_ENTERING_WORLD()
-	Skada:ZoneCheck() -- catch reloadui within a zone, which does not fire ZONE_CHANGED_NEW_AREA
-	-- If this event fired in response to a login or teleport, zone info is usually not yet available
-	-- and will be caught by a sunsequent ZONE_CHANGED_NEW_AREA
-
-	-- make sure we update once on reload
-	-- delay it because group is unavailable during first PLAYER_ENTERING_WORLD on login
-	if wasinparty == nil then Skada:ScheduleTimer("GROUP_ROSTER_UPDATE", 1) end
-end
-
--- Check if we join a party/raid.
-local function check_for_join_and_leave()
-	if not IsInGroup() and wasinparty then
-		-- We left a party.
-
-		if Skada.db.profile.reset.leave == 3 and Skada:CanReset() then
-			Skada:ShowPopup()
-		elseif Skada.db.profile.reset.leave == 2 and Skada:CanReset() then
-			Skada:Reset()
-		end
-
-		-- Hide window if we have enabled the "Hide when solo" option.
-		if Skada.db.profile.hidesolo then
-			Skada:SetActive(false)
-		end
-	end
-
-	if IsInGroup() and wasinparty == false then -- if nil this is first check after reload/relog
-		-- We joined a raid.
-
-		if Skada.db.profile.reset.join == 3 and Skada:CanReset() then
-			Skada:ShowPopup()
-		elseif Skada.db.profile.reset.join == 2 and Skada:CanReset() then
-			Skada:Reset()
-		end
-
-		-- Show window if we have enabled the "Hide when solo" option.
-		-- But only when NOT in pvp if it's set to hide in pvp.
-		if Skada.db.profile.hidesolo and not (Skada.db.profile.hidepvp and IsInPVP()) then
-			Skada:SetActive(true)
-		end
-	end
-
-	-- Mark our last party status.
-	wasinparty = not not IsInGroup()
-end
-
-function Skada:GROUP_ROSTER_UPDATE()
-	check_for_join_and_leave()
-
-	-- Check for new pets.
-	self:CheckGroup()
-end
-
-function Skada:UNIT_PET()
-	-- Check for new pets.
-	self:CheckGroup()
-end
-
-function Skada:PET_BATTLE_OPENING_START()
-	-- Hide during pet battles
-	for i, win in ipairs(windows) do
-		if win:IsShown() then
-			win:Hide()
-		end
-	end
-end
-
-function Skada:PET_BATTLE_CLOSE()
-	-- Restore after pet battles
-	if not Skada.db.profile.hidesolo or IsInGroup() then
-		for i, win in ipairs(windows) do
-			if not win.db.hidden and not win:IsShown() then
-				win:Show()
-			end
-		end
-	end
-end
-
--- Toggles all windows.
-function Skada:ToggleWindow()
-	for i, win in ipairs(windows) do
-		if win:IsShown() then
-			win.db.hidden = true
-			win:Hide()
-		else
-			win.db.hidden = false
-			win:Show()
-		end
-	end
-end
-
-local function createSet(setname)
-	local set = { players = {}, name = setname, starttime = time(), ["time"] = 0, last_action = time() }
-
-	-- Tell each mode to apply its needed attributes.
-	for i, mode in ipairs(modes) do verify_set(mode, set) end
-
-	return set
-end
-
-function Skada:CanReset()                    -- returns true if we have actual data that can be cleared via :Reset()
-	local totalplayers = self.total and self.total.players
-	if totalplayers and next(totalplayers) then -- Total set contains data
-		return true
-	end
-
-	for _, set in ipairs(self.char.sets) do
-		if not set.keep then -- have a non-persistent set (possibly un-kept since last reset)
-			return true
-		end
-	end
-
-	return false
+function Skada:CanReset()
+	return true
 end
 
 function Skada:Reset()
 	self:Wipe()
-
-	-- Clear existing tables instead of creating new ones
-	if pets then wipe(pets) end
-	if players then wipe(players) end
-
-	self:CheckGroup()
-
-	if self.current ~= nil then
-		wipe(self.current)
-		self.current = nil
-	end
-
-	if self.total ~= nil then
-		wipe(self.total)
-		self.total = nil
-	end
 
 	if self.last ~= nil then
 		wipe(self.last)
 		self.last = nil
 	end
 
-	-- Delete non-persistent sets
-	for i = #self.char.sets, 1, -1 do
-		local set = self.char.sets[i]
-		if not set.keep then -- have a non-persistent set (possibly un-kept since last reset)
-			self:UpdateWindowsForDeletedSet(set, i)
-			wipe(tremove(self.char.sets, i))
-		end
-	end
-
-	deathcounter = 0
-	startingmembers = 0
+	-- With Native API, sets are managed by WoW's C_DamageMeter
+	-- No local set management needed
 
 	-- Reset all windows
 	for i, win in ipairs(windows) do
 		win:Reset()
+		win.selectedset = "current"
+		win.changed = true
 	end
 
 	-- Let the modes know
@@ -1376,41 +1032,13 @@ function Skada:Reset()
 	end
 
 	if self.db.profile.reset.instance then
-		Skada:StartCombat()
+		Skada:OnCombatStart()
 	end
 end
 
-function Skada:UpdateWindowsForDeletedSet(set, setIndex)
-	if set == self.last then
-		self.last = nil
-	end
-
-	-- Don't leave windows pointing to deleted sets
-	for _, win in ipairs(windows) do
-		if win.selectedset == setIndex or win:get_selected_set() == set then
-			win.selectedset = "current"
-			win.changed = true
-		elseif (tonumber(win.selectedset) or 0) > setIndex then
-			win.selectedset = win.selectedset - 1
-			win.changed = true
-		end
-	end
-end
-
--- Delete a set.
 function Skada:DeleteSet(set)
-	if not set then return end
-
-	for i, s in ipairs(self.char.sets) do
-		if s == set then
-			wipe(tremove(self.char.sets, i))
-			self:UpdateWindowsForDeletedSet(set, i)
-			break
-		end
-	end
-
-	self:Wipe()
-	self:UpdateDisplay(true)
+	-- With Native API, sets are managed by WoW's C_DamageMeter
+	-- Individual set deletion not supported
 end
 
 function Skada:ReloadSettings()
@@ -1421,14 +1049,11 @@ function Skada:ReloadSettings()
 	windows = {}
 
 	-- Re-create windows
-	-- As this can be called from a profile change as well as login, re-use windows when possible.
 	for i, win in ipairs(self.db.profile.windows) do
 		self:CreateWindow(win.name, win)
 	end
 
 	self.total = self.char.total
-
-	Skada:ClearAllIndexes()
 
 	-- Minimap button.
 	if icon and not icon:IsRegistered("Skada") then
@@ -1440,7 +1065,6 @@ function Skada:ReloadSettings()
 	self:ApplySettings()
 end
 
--- Applies settings to things like the bar window.
 function Skada:ApplySettings()
 	for i, win in ipairs(windows) do
 		if win.display and win.display.ApplySettings then
@@ -1448,14 +1072,11 @@ function Skada:ApplySettings()
 		end
 	end
 
-	-- Don't show window if we are solo, option.
-	-- Don't show window in a PvP instance, option.
 	if (self.db.profile.hidesolo and not IsInGroup()) or (self.db.profile.hidepvp and IsInPVP()) then
 		self:SetActive(false)
 	else
 		self:SetActive(true)
 
-		-- Hide specific windows if window is marked as hidden (ie, if user manually hid the window, keep hiding it).
 		for i, win in ipairs(windows) do
 			if win.db.hidden and win:IsShown() then
 				win:Hide()
@@ -1466,339 +1087,97 @@ function Skada:ApplySettings()
 	self:UpdateDisplay(true)
 end
 
--- Set a data feed as selectedfeed.
 function Skada:SetFeed(feed)
 	selectedfeed = feed
 	self:UpdateDisplay()
 end
 
--- Iterates over all players in a set and adds to the "time" variable
--- the time between first and last action.
-local function setPlayerActiveTimes(set)
-	for i, player in ipairs(set.players) do
-		if player.last then
-			player.time = player.time + (player.last - player.first)
-		end
-	end
-end
+-- NewSegment removed - with Native API, sessions are managed by WoW
 
--- Starts a new segment, saving the current one first.
--- Does nothing if we are out of combat.
--- Useful for multi-part fights where you want individual segments for each part.
-function Skada:NewSegment()
-	if self.current then
-		self:EndSegment()
-		self:StartCombat()
-	end
-end
-
-local function IsRaidInCombat()
-	local type, count = Skada:GetGroupTypeAndCount()
-	if count > 0 then
-		for i = 1, count, 1 do
-			if UnitExists(type .. i) and UnitAffectingCombat(type .. i) then
-				return true
-			end
-		end
-	elseif UnitAffectingCombat("player") then
-		return true
-	end
-end
-
--- Returns true if the party/raid/us are dead/ghost.
-local function IsRaidDead()
-	local type, count = Skada:GetGroupTypeAndCount()
-	if count > 0 then
-		for i = 1, count, 1 do
-			if UnitExists(type .. i) and not UnitIsDeadOrGhost(type .. i) then
-				return false
-			end
-		end
-	elseif not UnitIsDeadOrGhost("player") then
-		return false
-	end
-	return true
-end
-
--- Our scheme for segmenting fights:
--- Each second, if player is not in combat and is not dead and we have an active set (current),
--- check if anyone in raid is in combat; if so, close up shop.
--- We can not simply rely on PLAYER_REGEN_ENABLED since it is fired if we die and the fight continues.
-function Skada:Tick()
-	if self.NativeAPI then return end -- Native API handles segment lifecycle
-
-	if not disabled and self.current and not InCombatLockdown() and not IsRaidInCombat() then
-		self:Debug("EndSegment: Tick")
-		self:EndSegment()
-	end
-end
-
--- Stops the current segment immediately.
--- To not complicate things, this only stops processing of CLEU events and sets the segment end time.
--- A stopped segment can be resumed.
-function Skada:StopSegment()
-	if self.current then
-		self.current.stopped = true
-		self.current.endtime = time()
-		self.current.time = self.current.endtime - self.current.starttime
-	end
-end
-
--- Resumes a stopped segment.
-function Skada:ResumeSegment()
-	if self.current and self.current.stopped then
-		self.current.stopped = nil
-		self.current.endtime = nil
-		self.current.time = nil
-	end
-end
-
-function Skada:EndSegment()
-	if not self.current then
-		return
-	end
-
-	-- Save current set unless this a trivial set, or if we have the Only keep boss fights options on, and no boss in fight.
-	-- A set is trivial if we have no mob name saved, or if total time for set is not more than 5 seconds.
-	self:Debug("EndSegment: onlykeepbosses =", self.db.profile.onlykeepbosses, 
-	           "current.gotboss =", self.current.gotboss)
-	if not self.db.profile.onlykeepbosses or self.current.gotboss then
-		if self.current.mobname ~= nil and time() - self.current.starttime > 5 then
-			-- End current set.
-			if not self.current.endtime then
-				self.current.endtime = time()
-			end
-			self.current.time = self.current.endtime - self.current.starttime
-			setPlayerActiveTimes(self.current)
-			self.current.stopped = nil
-
-			-- compute a count suffix for the set name
-			local setname = self.current.mobname
-			if self.db.profile.setnumber then
-				local max = 0
-				for _, set in ipairs(self.char.sets) do
-					if set.name == setname and max == 0 then
-						max = 1
-					elseif set.name then
-						local n, c = set.name:match("^(.-)%s*%((%d+)%)$")
-						if n == setname then max = math.max(max, tonumber(c) or 0) end
-					end
-				end
-				if max > 0 then
-					setname = setname .. " (" .. (max + 1) .. ")"
-				end
-			end
-			self.current.name = setname
-
-			-- Tell each mode that set has finished and do whatever it wants to do about it.
-			for i, mode in ipairs(modes) do
-				if mode.SetComplete ~= nil then
-					mode:SetComplete(self.current)
-				end
-			end
-
-			-- Add set to sets.
-			tinsert(self.char.sets, 1, self.current)
-		end
-	end
-
-	-- Make set last set.
+function Skada:OnCombatEnd()
+	-- Called when Native API detects combat session has ended
+	if not self.current then return end
+	
+	self:Debug("OnCombatEnd")
+	
+	-- Save reference to last session for "Last" view
 	self.last = self.current
-
-	-- Add time spent to total set as well.
-	self.total.time = self.total.time + self.current.time
-	setPlayerActiveTimes(self.total)
-
-	-- Set player.first and player.last to nil in total set.
-	-- Neccessary since first and last has no relevance over an entire raid.
-	-- Modes should look at the "time" value if available.
-	for i, player in ipairs(self.total.players) do
-		player.first = nil
-		player.last = nil
-	end
-
-	-- Reset current set.
 	self.current = nil
 
-	-- Find out number of non-persistent sets.
-	local numsets = 0
-	for i, set in ipairs(self.char.sets) do if not set.keep then numsets = numsets + 1 end end
-
-	-- Trim segments; don't touch persistent sets.
-	for i = #self.char.sets, 1, -1 do
-		if numsets > self.db.profile.setstokeep and not self.char.sets[i].keep then
-			tremove(self.char.sets, i)
-			numsets = numsets - 1
-		end
-	end
-
+	-- Restore window views if configured
 	for i, win in ipairs(windows) do
-		-- win:Wipe()
-		-- changed = true
-
-		-- Wipe mode - switch to current set and specific mode if no party/raid members are alive.
-		-- Restore mode is not changed.
-		if win.db.wipemode ~= "" and IsRaidDead() then
-			self:RestoreView(win, "current", win.db.wipemode)
-		elseif win.db.returnaftercombat and win.restore_mode and win.restore_set then
-			-- Auto-switch back to previous set/mode.
-			if win.restore_set ~= win.selectedset or win.restore_mode ~= win.selectedmode then
-				self:RestoreView(win, win.restore_set, win.restore_mode)
-
-				win.restore_mode = nil
-				win.restore_set = nil
-			end
+		if win.db.returnaftercombat and win.restore_mode and win.restore_set then
+			self:RestoreView(win, win.restore_set, win.restore_mode)
+			win.restore_mode = nil
+			win.restore_set = nil
 		end
-
-		-- Hide in combat option.
+		-- Show windows if they were hidden during combat
 		if not win.db.hidden and self.db.profile.hidecombat and (not self.db.profile.hidesolo or IsInGroup()) then
 			win:Show()
 		end
 	end
 
-	self:UpdateDisplay(true) -- force required to update displays looking at older sets after insertion
+	-- Update display and stop combat timer
+	self:UpdateDisplay(true)
 	if update_timer then self:CancelTimer(update_timer) end
-	if tick_timer then self:CancelTimer(tick_timer) end
-	update_timer, tick_timer = nil, nil
+	update_timer = nil
 end
 
-function Skada:PLAYER_REGEN_DISABLED()
-	self:Debug("PLAYER_REGEN_DISABLED event fired")
-	-- Start a new set if we are not in one already.
-	if not disabled and not self.current then
-		self:Debug("StartCombat: PLAYER_REGEN_DISABLED - calling StartCombat")
-		self:StartCombat()
-	else
-		self:Debug("PLAYER_REGEN_DISABLED: disabled =", disabled, "self.current =", self.current and "exists" or "nil")
-	end
-end
-
--- This flag is used to mark a possible combat start.
--- It is a count of captured events.
--- When we hit our treshold (let's say 5), combat starts.
--- If we have not hit our treshold after a certain time (let's say 3 seconds) combat start failed.
-local tentative = nil
-
--- AceTimer handle for reverting combat start.
-local tentativehandle = nil
-
-function Skada:StartCombat()
-	self:Debug("=== StartCombat called ===")
-	self:Debug("StartCombat: disabled =", disabled, "self.current =", self.current and "exists" or "nil")
-	
-	-- Reset automatic stop on wipe variables
-	deathcounter = 0
-	local _, members = self:GetGroupTypeAndCount()
-
-	startingmembers = members
-
-	-- Cancel cancelling combat if needed.
-	if tentativehandle ~= nil then
-		self:CancelTimer(tentativehandle)
-		tentativehandle = nil
-	end
-
-	if update_timer then
-		self:Debug("EndSegment: StartCombat")
-		self:EndSegment()
-	end
-
-	-- Remove old bars.
+function Skada:OnCombatStart()
+	-- Called when Native API detects active combat session
 	self:Wipe()
 
-	-- Create a new current set unless we are already have one (combat detection kicked in).
-	if not self.current then
-		self.current = createSet(L["Current"])
-	end
-
-	if self.encounterName and
-		GetTime() < (self.encounterTime or 0) + 15 then -- a recent ENCOUNTER_START named our segment
-		self:Debug("StartCombat setting encounterName from ENCOUNTER_START", self.encounterName)
+	-- Mark that we are in combat (modules query API directly for data)
+	self.current = { name = "Current", sessionType = 1 }
+	
+	-- Add encounter info if available
+	if self.encounterName and GetTime() < (self.encounterTime or 0) + 15 then
 		self.current.mobname = self.encounterName
 		self.current.gotboss = true
-		self:Debug("StartCombat: gotboss set to true from ENCOUNTER_START")
-
 		self.encounterName = nil
 		self.encounterTime = nil
 	end
 
-	-- Also start the total set if it is nil.
-	if self.total == nil then
-		self.total = createSet(L["Total"])
-		self.char.total = self.total
-	end
-
-	-- Auto-switch set/mode if configured.
 	for i, win in ipairs(windows) do
 		if win.db.modeincombat ~= "" then
-			-- First, get the mode. The mode may not actually be available.
 			local mymode = find_mode(win.db.modeincombat)
-
-			-- If the mode exists, switch to current set and this mode. Save current set/mode so we can return after combat if configured.
-			if mymode ~= nil then
-				-- self:Print("Switching to "..mymode.name.." mode.")
-
+			if mymode then
 				if win.db.returnaftercombat then
-					if win.selectedset then
-						win.restore_set = win.selectedset
-					end
-					if win.selectedmode then
-						win.restore_mode = win.selectedmode:GetName()
-					end
+					win.restore_set = win.selectedset
+					win.restore_mode = win.selectedmode and win.selectedmode:GetName()
 				end
-
 				win.selectedset = "current"
 				win:DisplayMode(mymode)
 			end
 		end
 
-		-- Hide in combat option.
 		if not win.db.hidden and self.db.profile.hidecombat then
 			win:Hide()
 		end
 	end
 	
-	-- Check for boss units in combat (supplemental detection)
-	self:CheckForBossUnitsInCombat()
-
-	-- Force immediate update.
 	self:UpdateDisplay(true)
-
-	-- Schedule timers for updating windows and detecting combat end.
 	update_timer = self:ScheduleRepeatingTimer("UpdateDisplay", self.db.profile.updatefrequency or 0.25)
-	-- ticket 363: It is NOT safe to use ENCOUNTER_END to replace combat detection
-	tick_timer = self:ScheduleRepeatingTimer("Tick", 1)
 end
 
--- Simply calls the same function on all windows.
 function Skada:Wipe()
-	for i, win in ipairs(windows) do
-		win:Wipe()
-	end
+	for i, win in ipairs(windows) do win:Wipe() end
 end
 
--- Attempts to restore a view (set and mode).
--- Set is either the set name ("total", "current"), or an index.
--- Mode is the name of a mode.
 function Skada:RestoreView(win, theset, themode)
-	-- Set the... set. If no such set exists, set to current.
 	if theset and type(theset) == "string" and (theset == "current" or theset == "total" or theset == "last") then
 		win.selectedset = theset
-	elseif theset and type(theset) == "number" and theset <= #self.char.sets then
-		win.selectedset = theset
+	elseif theset and type(theset) == "number" then
+		-- Session ID from Native API
+		win.selectedset = tostring(theset)
 	else
 		win.selectedset = "current"
 	end
 
-	-- Force an update.
 	changed = true
 
-	-- Find the mode. The mode may not actually be available.
 	if themode then
 		local mymode = find_mode(themode)
-
-		-- If the mode exists, switch to this mode.
-		-- If not, show modes.
 		if mymode then
 			win:DisplayMode(mymode)
 		else
@@ -1809,295 +1188,79 @@ function Skada:RestoreView(win, theset, themode)
 	end
 end
 
--- If set is "current", returns current set if we are in combat, otherwise returns the last set.
 function Skada:find_set(s)
 	if s == "current" then
-		if Skada.current ~= nil then
-			return Skada.current
-		elseif Skada.last ~= nil then
-			return Skada.last
-		else
-			return self.char.sets[1]
-		end
+		local set = self.NativeAPI:GetCurrentSession()
+		if set then set.sessionType = 1 end
+		return set
 	elseif s == "total" then
-		return Skada.total
-	else
-		return self.char.sets[s]
+		local set = self.NativeAPI:GetTotalSession()
+		if set then set.sessionType = 0 end
+		return set
+	elseif type(s) == "string" and tonumber(s) then
+		return self.NativeAPI:GetSessionByID(tonumber(s))
 	end
+	return s
 end
 
-function Skada:ClearIndexes(set)
-	if set then
-		set._playeridx = nil
+-- Helper to find player in Native API session
+function Skada:find_player_in_session(session, playerGUID)
+	if not session or not playerGUID then return nil end
+	local sources = session.combatSources or session.participants or {}
+	for _, p in pairs(sources) do
+		if (p.sourceGUID == playerGUID) or (p.guid == playerGUID) or (p.unitGUID == playerGUID) then
+			return p
+		end
 	end
+	return nil
 end
 
-function Skada:ClearAllIndexes()
-	-- clear indexes used for accelerating set lookups
-	-- this is done on login/logout to prevent the in-memory aliasing from becoming redundant tables on reload
-	Skada:ClearIndexes(self.current)
-	Skada:ClearIndexes(self.char.total)
-	for _, set in pairs(self.char.sets) do
-		Skada:ClearIndexes(set)
-	end
+-- Alias for backward compatibility
+function Skada:find_player(set, playerGUID)
+	return self:find_player_in_session(set, playerGUID)
 end
 
--- Returns a player from the current. Safe to use to simply view a player without creating an entry.
-function Skada:find_player(set, playerid, playername)
-	if set then
-		-- use a private index here for more efficient lookup
-		-- may eventually want to re-key .players by id but that would break external mods
-		set._playeridx = set._playeridx or {}
-		
-		-- Safely try to access index, handling restricted/secret keys
-		local success, player = pcall(function() return set._playeridx[playerid] end)
-		if success and player then return player end
-		
-		for i, p in ipairs(set.players) do
-			local match = false
-			-- Try safely comparing IDs (GUIDs)
-			if not pcall(function() match = (p.id == playerid) end) then
-				-- If ID comparison fails (secret), fallback to name if provided
-				if playername then
-					pcall(function() match = (p.name == playername) end)
-				end
-			end
-			
-			if match then
-				-- Safely try to cache index
-				pcall(function() set._playeridx[playerid] = p end)
-				return p
-			end
-		end
+function Skada:PLAYER_REGEN_DISABLED()
+	if not self.current then
+		self:OnCombatStart()
 	end
-end
-
--- Returns or creates a player in the current.
-function Skada:get_player(set, playerid, playername, playerclass, playerrole)
-	-- Add player to set if it does not exist.
-	local player = Skada:find_player(set, playerid, playername)
-
-	if not player then
-		-- If we do not supply a playername (often the case in submodes), we can not create an entry.
-		if not playername then
-			return
-		end
-
-		local playerClass = playerclass
-		if not playerClass then
-			pcall(function() _, playerClass = UnitClass(playername) end)
-		end
-		
-		local playerRole = playerrole
-		if not playerRole then
-			pcall(function() playerRole = UnitGroupRolesAssigned(playername) end)
-		end
-		
-		player = { id = playerid, class = playerClass, role = playerRole, name = playername, first = time(), ["time"] = 0 }
-
-		-- Tell each mode to apply its needed attributes.
-		for i, mode in ipairs(modes) do
-			if mode.AddPlayerAttributes ~= nil then
-				mode:AddPlayerAttributes(player, set)
-			end
-		end
-
-		-- Strip realm name
-		-- This is done after module processing due to cross-realm names messing with modules (death log for example, which needs to do UnitHealthMax on the playername).
-		local player_name, realm
-		if not pcall(function() player_name, realm = string.split("-", playername, 2) end) then
-			player_name = playername
-		end
-		player.name = player_name or playername
-
-		tinsert(set.players, player)
-	end
-	
-	local needsFixup = false
-	pcall(function() needsFixup = (player.name == UNKNOWN and playername ~= UNKNOWN) end)
-	
-	if needsFixup then -- fixup players created before we had their info
-		local player_name, realm
-		if not pcall(function() player_name, realm = string.split("-", playername, 2) end) then
-			player_name = playername
-		end
-		player.name = player_name or playername
-		
-		pcall(function()
-			local _, playerClass = UnitClass(playername)
-			local playerRole = UnitGroupRolesAssigned(playername)
-			player.class = playerClass
-			player.role = playerRole
-		end)
-	end
-
-
-	-- The total set clears out first and last timestamps.
-	if not player.first then
-		player.first = time()
-	end
-
-	-- Mark now as the last time player did something worthwhile.
-	player.last = time()
-	changed = true
-	return player
-end
-
--- Legacy RegisterForCL removed - WoW 12.0+ uses native C_DamageMeter API instead
--- All combat log parsing has been removed from Skada
-
-function Skada:AssignPet(ownerguid, ownername, petguid)
-	pets[petguid] = { id = ownerguid, name = ownername }
-end
-
-function Skada:GetPetOwner(petguid)
-	return pets[petguid]
 end
 
 function Skada:ENCOUNTER_START(encounterId, encounterName)
-	self:Debug("ENCOUNTER_START", encounterId, encounterName)
-	if not disabled then
-		if self.current then -- already in combat, update the segment name
-			self.current.mobname = encounterName
-			self.current.gotboss = true
-			self:Debug("ENCOUNTER_START: Setting gotboss = true (already in combat)")
-		else -- we are not in combat yet
-			-- if we StartCombat here, the segment will immediately end by Tick
-			-- just save the encounter name for use when we enter combat
-			self.encounterName = encounterName
-			self.encounterTime = GetTime()
-		end
+	self.encounterName = encounterName
+	self.encounterTime = GetTime()
+	if self.current then
+		self.current.mobname = encounterName
+		self.current.gotboss = true
 	end
 end
 
 function Skada:ENCOUNTER_END(encounterId, encounterName)
-	self:Debug("ENCOUNTER_END", encounterId, encounterName)
-	if not disabled and self.current then
-		-- ticket 363: it is NOT safe to EndSegment here
-		if not self.current.gotboss then -- might have missed the bossname (eg d/c in combat)
-			self.current.mobname = encounterName
-			self.current.gotboss = true
-			self:Debug("ENCOUNTER_END: Setting gotboss = true (was missed earlier)")
-		else
-			self:Debug("ENCOUNTER_END: gotboss already true")
-		end
+	if self.current then
+		self.current.mobname = encounterName
+		self.current.gotboss = true
 	end
 end
 
--- Native API Event Handlers (WoW 12.0.0+)
-
+-- Native API Event Handlers
 function Skada:DAMAGE_METER_COMBAT_SESSION_UPDATED()
-	if not disabled and self.NativeAPI then
-		-- Refresh data from native API
+	if self.NativeAPI then
 		local sessionData = self.NativeAPI:GetCurrentSession()
-
-		-- Auto-start combat if we have active session data but no current set
 		if sessionData and not self.current then
-			local sources = sessionData.combatSources or sessionData.participants or sessionData.players or sessionData.units or sessionData.members or {}
-			if next(sources) then
-				self:StartCombat()
-			end
+			self:OnCombatStart()
 		end
-
-		if sessionData and self.current then
-			self.NativeAPI:UpdateSkadaFromSession(self.current, sessionData)
-			if self.total then
-				self.NativeAPI:UpdateSkadaFromSession(self.total, sessionData)
-			end
-			
-			-- Also update specialized modules
-			-- Damage Taken
-			local damageTakenSession = self.NativeAPI:GetDamageTakenSession()
-			if damageTakenSession then
-				self.NativeAPI:UpdateDamageTakenFromSession(self.current, damageTakenSession)
-				if self.total then
-					self.NativeAPI:UpdateDamageTakenFromSession(self.total, damageTakenSession)
-				end
-			end
-			
-			-- Dispels
-			local dispelsSession = self.NativeAPI:GetDispelsSession()
-			if dispelsSession then
-				self.NativeAPI:UpdateDispelsFromSession(self.current, dispelsSession)
-				if self.total then
-					self.NativeAPI:UpdateDispelsFromSession(self.total, dispelsSession)
-				end
-			end
-			
-			-- Interrupts
-			local interruptsSession = self.NativeAPI:GetInterruptsSession()
-			if interruptsSession then
-				self.NativeAPI:UpdateInterruptsFromSession(self.current, interruptsSession)
-				if self.total then
-					self.NativeAPI:UpdateInterruptsFromSession(self.total, interruptsSession)
-				end
-			end
-			
-			-- Healing
-			local healingSession = self.NativeAPI:GetHealingDoneSession()
-			if healingSession then
-				self.NativeAPI:UpdateHealingFromSession(self.current, healingSession)
-				if self.total then
-					self.NativeAPI:UpdateHealingFromSession(self.total, healingSession)
-				end
-			end
-			
-			self:UpdateDisplay(true)
-		end
+		self:UpdateDisplay(true)
 	end
 end
 
 function Skada:DAMAGE_METER_CURRENT_SESSION_UPDATED()
-	if not disabled and self.NativeAPI then
-		-- Similar to above, refresh current session
-		local sessionData = self.NativeAPI:GetCurrentSession()
-
-		-- Auto-start combat if we have active session data but no current set
-		if sessionData and not self.current then
-			local sources = sessionData.combatSources or sessionData.participants or sessionData.players or sessionData.units or sessionData.members or {}
-			if next(sources) then
-				self:StartCombat()
-			end
-		end
-
-		if sessionData and self.current then
-			self.NativeAPI:UpdateSkadaFromSession(self.current, sessionData)
-			
-			-- Also update specialized modules
-			-- Damage Taken
-			local damageTakenSession = self.NativeAPI:GetDamageTakenSession()
-			if damageTakenSession then
-				self.NativeAPI:UpdateDamageTakenFromSession(self.current, damageTakenSession)
-			end
-			
-			-- Dispels
-			local dispelsSession = self.NativeAPI:GetDispelsSession()
-			if dispelsSession then
-				self.NativeAPI:UpdateDispelsFromSession(self.current, dispelsSession)
-			end
-			
-			-- Interrupts
-			local interruptsSession = self.NativeAPI:GetInterruptsSession()
-			if interruptsSession then
-				self.NativeAPI:UpdateInterruptsFromSession(self.current, interruptsSession)
-			end
-			
-			-- Healing
-			local healingSession = self.NativeAPI:GetHealingDoneSession()
-			if healingSession then
-				self.NativeAPI:UpdateHealingFromSession(self.current, healingSession)
-			end
-			
-			self:UpdateDisplay(true)
-		end
+	if self.NativeAPI then
+		self:UpdateDisplay(true)
 	end
 end
 
 function Skada:DAMAGE_METER_RESET()
-	-- Native meter was reset, we should reset too
-	if not disabled then
-		self:Reset()
-	end
+	self:Reset()
 end
 
 
@@ -2114,7 +1277,8 @@ function dataobj:OnEnter()
 	if Skada.current then
 		set = Skada.current
 	else
-		set = Skada.char.sets[1]
+		-- With Native API, use total session if no current
+		set = Skada.NativeAPI and Skada.NativeAPI:GetTotalSession()
 	end
 	if set then
 		GameTooltip:AddLine(L["Skada summary"], 0, 1, 0)
@@ -2167,7 +1331,7 @@ function Skada:UpdateDisplay(force)
 	end
 
 	for i, win in ipairs(windows) do
-		if (changed or win.changed or self.current) then
+		if (changed or win.changed or true) then
 			win.changed = false
 			if win.selectedmode then -- Force mode display for display systems which do not handle navigation.
 				win:set_mode_title()
@@ -2274,23 +1438,8 @@ function Skada:UpdateDisplay(force)
 					d.icon = nonbossicon
 				end
 
-				for i, set in ipairs(self.char.sets) do
-					nr = nr + 1
-					local d = win.dataset[nr] or {}
-					win.dataset[nr] = d
-
-					d.id = tostring(set.starttime)
-					d.label, d.valuetext = select(2, Skada:GetSetLabel(set))
-					d.value = 1
-					if set.keep then
-						d.emphathize = true
-					end
-					if set.gotboss then
-						d.icon = bossicon
-					else
-						d.icon = nonbossicon
-					end
-				end
+				-- With Native API, historical sessions are managed by WoW
+				-- Not displayed in local menu
 
 				win.metadata.ordersort = true
 
@@ -2314,7 +1463,9 @@ Everything below this is OK to use in modes.
 --]]
 
 function Skada:GetSets()
-	return self.char.sets
+	-- With Native API, sessions are managed by WoW's C_DamageMeter
+	-- Return empty table for compatibility
+	return {}
 end
 
 function Skada:GetModes(sortfunc)
@@ -2341,6 +1492,35 @@ function Skada:FormatNumber(number)
 		end
 		return math.floor(number)
 	end
+end
+
+-- Safely converts a value to a number, handling nil values and "secret values" from Native API.
+function Skada:SafeNumber(value)
+	if not value then return 0 end
+	if type(value) ~= "number" then return 0 end
+	
+	-- Try multiple approaches to strip secret status
+	-- First try: string.format (like NativeAPI.sanitizeNumber)
+	local success, s = pcall(string.format, "%f", value)
+	if success then
+		local num = tonumber(s)
+		if num then return num end
+	end
+	
+	-- Second try: tostring (might work better with some secret values)
+	local success2, s2 = pcall(tostring, value)
+	if success2 then
+		local num = tonumber(s2)
+		if num then return num end
+	end
+	
+	-- Third try: arithmetic (value + 0)
+	local success3, result = pcall(function() return value + 0 end)
+	if success3 and type(result) == "number" then
+		return result
+	end
+	
+	return 0 -- All approaches failed
 end
 
 local function scan_for_columns(mode)
@@ -2384,17 +1564,8 @@ end
 
 -- Register a mode.
 function Skada:AddMode(mode, category)
-	-- Ask mode to verify our sets.
-	-- Needed in case we enable a mode and we have old data.
-	if self.total then
-		verify_set(mode, self.total)
-	end
-	if self.current then
-		verify_set(mode, self.current)
-	end
-	for i, set in ipairs(self.char.sets) do
-		verify_set(mode, set)
-	end
+	-- Mode set verification removed - not needed with Native API
+	-- verify_set function was undefined
 
 	-- Set mode category (used for menus)
 	mode.category = category or L['Other']
@@ -2467,99 +1638,67 @@ Sets
 --]]
 
 function Skada:GetSetTime(set)
-	if set.time then
+	-- For Native API sessions
+	if set.startTime then
+		if set.endTime then
+			-- Session has ended, return duration
+			return (set.endTime - set.startTime)
+		else
+			-- Session is still active, return current duration
+			return (time() - set.startTime)
+		end
+	-- Legacy support
+	elseif set.time then
 		return set.time
-	else
+	elseif set.starttime then
 		return (time() - set.starttime)
+	else
+		return 0
 	end
 end
 
 -- Returns the time (in seconds) a player has been active for a set.
 function Skada:PlayerActiveTime(set, player)
-	local maxtime = 0
-
-	-- Add recorded time (for total set)
-	if player.time > 0 then
-		maxtime = player.time
+	-- With Native API, we don't have individual player active time tracking
+	-- Return session duration if player has activity, 0 otherwise
+	
+	-- Check if player has any activity in this set
+	local hasActivity = false
+	
+	-- Check common activity fields from Native API
+	-- Use SafeNumber to handle secret values
+	if Skada:SafeNumber(player.totalAmount or 0) > 0 then
+		hasActivity = true
+	elseif Skada:SafeNumber(player.healing or 0) > 0 then
+		hasActivity = true
+	elseif Skada:SafeNumber(player.damageTaken or 0) > 0 then
+		hasActivity = true
+	elseif Skada:SafeNumber(player.dispels or 0) > 0 then
+		hasActivity = true
+	elseif Skada:SafeNumber(player.interrupts or 0) > 0 then
+		hasActivity = true
 	end
-
-	-- Add in-progress time if set is not ended.
-	if (not set.endtime or set.stopped) and player.first then
-		maxtime = maxtime + player.last - player.first
+	
+	if not hasActivity then
+		return 0
 	end
-	return maxtime
+	
+	-- Calculate session duration
+	local startTime = set.startTime or set.starttime or 0
+	local endTime = set.endTime or set.endtime or time()
+	
+	if endTime <= startTime then
+		-- Session hasn't started or is instantaneous
+		return 0
+	end
+	
+	return endTime - startTime
 end
 
-do
-	local function GetPetOwner(guid)
-		if not C_TooltipInfo then return end
-		local data = C_TooltipInfo.GetHyperlink("unit:" .. guid)
-		if not data then return end
-		for _, line in next, data.lines do
-			-- TooltipUtil.SurfaceArgs(line)
-			if line.type == 16 and line.guid then -- Enum.TooltipDataLineType.UnitOwner
-				return line.guid
-			end
-		end
-	end
+-- Pet tracking is handled by the Native API in WoW 12.0+
+-- No custom pet tracking needed
 
-	-- Modify objects if they are pets.
-	-- Expects to find "playerid", "playername", and optionally "spellname" in the object.
-	-- playerid and playername are exchanged for the pet owner's, and spellname is modified to include pet name.
-	function Skada:FixPets(action)
-		if not action or not action.playername or not action.playerid then return end
-
-		local owner = pets[action.playerid]
-
-		-- Try to associate pets and guardians with their owner
-		if not owner and action.playerflags and band(action.playerflags, PET_FLAGS) ~= 0 and band(action.playerflags, RAID_FLAGS) ~= 0 then
-			if band(action.playerflags, COMBATLOG_OBJECT_AFFILIATION_MINE) ~= 0 then
-				-- Skip tooltip scanning if it belongs to the player
-				owner = { id = UnitGUID("player"), name = UnitName("player") }
-				pets[action.playerid] = owner
-			else
-				local id = GetPetOwner(action.playerid)
-				if players[id] then
-					local name, server = select(6, GetPlayerInfoByGUID(id))
-					if name then
-						if server and server ~= "" then name = name .. "-" .. server end
-						owner = { id = id, name = name }
-						pets[action.playerid] = owner
-					end
-				end
-			end
-			if not owner then
-				-- Couldn't resolve the owner. Modify guid so that there will only be 1 similar entry at least.
-				action.playerid = action.playername
-			end
-		end
-
-		if owner then
-			if self.db.profile.mergepets then
-				if action.spellname then
-					action.spellname = action.playername .. ": " .. action.spellname
-				end
-				action.playername = owner.name
-				action.playerid = owner.id
-			else
-				action.playername = owner.name .. ": " .. action.playername
-				-- create a unique ID for each player for each type of pet
-				local _, _, _, _, _, id, spawnId = ("-"):split(action.playerid)
-				action.playerid = owner.id .. id -- just append it to the pets owner id
-			end
-		end
-	end
-end
-
--- Takes a source GUID and name and returns the owner GUID and name if found.
-function Skada:FixMyPets(guid, name)
-	local owner = pets[guid]
-	if owner then
-		return owner.id, owner.name
-	end
-	-- No pet match, return the original source.
-	return guid, name
-end
+-- FixMyPets removed - Native API handles pet tracking
 
 function Skada:SetTooltipPosition(tooltip, frame)
 	local p = self.db.profile.tooltippos
@@ -3014,7 +2153,7 @@ function Skada:OnInitialize()
 	self.db = LibStub("AceDB-3.0"):New("SkadaDB", self.defaults, "Default")
 	if type(SkadaPerCharDB) ~= "table" then SkadaPerCharDB = {} end
 	self.char = SkadaPerCharDB
-	self.char.sets = self.char.sets or {}
+	-- self.char.sets not used with Native API
 	LibStub("AceConfigRegistry-3.0"):RegisterOptionsTable("Skada", self.options, true)
 
 	-- Profiles
@@ -3059,7 +2198,7 @@ function Skada:OnInitialize()
 	self.db.RegisterCallback(self, "OnProfileChanged", "ReloadSettings")
 	self.db.RegisterCallback(self, "OnProfileCopied", "ReloadSettings")
 	self.db.RegisterCallback(self, "OnProfileReset", "ReloadSettings")
-	self.db.RegisterCallback(self, "OnDatabaseShutdown", "ClearAllIndexes")
+	-- ClearAllIndexes callback removed - method doesn't exist
 
 	if self.db.profile.total then
 		self.db.profile.current = nil
@@ -3104,8 +2243,7 @@ function Skada:OnEnable()
 	popup:RegisterEvent("DAMAGE_METER_CURRENT_SESSION_UPDATED")
 	popup:RegisterEvent("DAMAGE_METER_RESET")
 	
-	-- Start polling for updates
-	self.NativeAPI:StartPolling()
+	-- Native API doesn't need polling
 	
 	-- Print info message
 	self:Print("Damage meter powered by native WoW 12.0+ API")
@@ -3113,15 +2251,8 @@ function Skada:OnEnable()
 	-- Test session types to find correct values
 	self.NativeAPI:TestSessionTypes()
 
-	popup:RegisterEvent("PLAYER_ENTERING_WORLD")
-	popup:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-	popup:RegisterEvent("GROUP_ROSTER_UPDATE")
-	popup:RegisterEvent("UNIT_PET")
+	-- Only register events that have handlers and are needed with Native API
 	popup:RegisterEvent("PLAYER_REGEN_DISABLED")
-
-	popup:RegisterEvent("PET_BATTLE_OPENING_START")
-	popup:RegisterEvent("PET_BATTLE_CLOSE")
-
 	popup:RegisterEvent("ENCOUNTER_START")
 	popup:RegisterEvent("ENCOUNTER_END")
 
@@ -3133,15 +2264,8 @@ function Skada:OnEnable()
 	-- to catch any missing media. Lame? Yes.
 	self:ScheduleTimer("ApplySettings", 2)
 	
-	-- Ensure data collection is enabled by default
-	self:Debug("OnEnable: Ensuring data collection is enabled...")
-	if disabled then
-		self:Debug("OnEnable: Data collection was disabled, enabling now")
-		disabled = false
-		if self.NativeAPI then
-			self.NativeAPI:StartPolling()
-		end
-	end
+	-- With Native API, data collection is always enabled
+	disabled = false
 end
 
 function Skada:AddLoadableModule(name, description, func)
@@ -3157,54 +2281,3 @@ function Skada:ShowVersionHistory()
 	-- Show all versions directly using the notify library
 	self:ShowDetailedNotification(self.versions)
 end
-
--- Test command to manually trigger data collection
-function Skada:TestDataCollection()
-	if not disabled and self.NativeAPI then
-		-- Test if API is available
-		local available = self.NativeAPI:IsAvailable()
-		
-		-- Test getting current session
-		local session = self.NativeAPI:GetCurrentSession()
-		
-		if session then
-			-- If we have data but no current combat, start one
-			local sources = session.combatSources or session.participants or session.players or session.units or session.members or {}
-			local count = 0
-			for _ in pairs(sources) do count = count + 1 end
-			
-			if not self.current and count > 0 then
-				self:StartCombat()
-			end
-			
-			-- Update data if we have current combat
-			if self.current then
-				self.NativeAPI:UpdateSkadaFromSession(self.current, session)
-				self:UpdateDisplay(false)
-				self:Print("Test: Data updated successfully!")
-			else
-				self:Print("Test: Got session data but no current combat")
-			end
-		else
-			self:Print("Test: No session data available")
-		end
-	else
-		self:Print("Test: Data collection is disabled or NativeAPI not loaded")
-	end
-end
-
--- Status command to check current state
-function Skada:ShowStatus()
-	self:Print("=== Skada Status ===")
-	self:Print("Data collection:", disabled and "|cFFFF0000DISABLED|r" or "|cFF00FF00ENABLED|r")
-	self:Print("NativeAPI:", self.NativeAPI and "|cFF00FF00LOADED|r" or "|cFFFF0000NOT LOADED|r")
-	self:Print("Current combat:", self.current and "|cFF00FF00ACTIVE|r" or "|cFFFF0000INACTIVE|r")
-	self:Print("Windows:", #windows > 0 and #windows .. " window(s)" or "|cFFFF0000NO WINDOWS|r")
-	self:Print("hidedisables setting:", self.db.profile.hidedisables and "|cFFFF0000TRUE|r" or "|cFF00FF00FALSE|r")
-	
-	if self.NativeAPI then
-		local available = self.NativeAPI:IsAvailable()
-		self:Print("WoW API available:", available and "|cFF00FF00YES|r" or "|cFFFF0000NO|r")
-	end
-end
-

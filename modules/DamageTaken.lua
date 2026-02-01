@@ -9,29 +9,62 @@ Skada:AddLoadableModule("DamageTaken", nil, function(Skada, L)
 
 
 
-	function mod:Update(win, set)
-		local max = 0
+	local function getSetTotal(set)
+		if not set then return 0 end
+		-- 7 = DamageTaken
+		local view = Skada.NativeAPI:GetSessionView(set, 7)
+		if not view then return 0 end
+		
+		local total = 0
+		local sources = view.combatSources or {}
+		for _, p in pairs(sources) do
+			total = total + Skada:SafeNumber(p.totalAmount)
+		end
+		return total
+	end
 
+	local function getDTPS(set, player)
+		-- Use API DTPS (type 7 = DamageTaken)
+		return Skada.NativeAPI:GetPlayerRate(set, player, 7)
+	end
+
+	function mod:Update(win, set)
+		-- 7 = DamageTaken
+		local view = Skada.NativeAPI:GetSessionView(set, 7)
+		if not view then return end
+		
+		local sources = view.combatSources or {}
+		local max = 0
 		local nr = 1
-		for i, player in ipairs(set.players) do
-			local damagetaken = player.damagetaken or 0
+		
+		-- Calculate total for percentage
+		local setTotalDT = 0
+		for _, p in pairs(sources) do
+			local amount = Skada:SafeNumber(p.totalAmount)
+			setTotalDT = setTotalDT + amount
+		end
+
+		for i, player in pairs(sources) do
+			local damagetaken = Skada:SafeNumber(player.totalAmount or 0)
 			if damagetaken > 0 then
 				local d = win.dataset[nr] or {}
 				win.dataset[nr] = d
 
-				local totaltime = Skada:PlayerActiveTime(set, player)
-				local dtps = damagetaken / math.max(1,totaltime)
+				local dtps = getDTPS(set, player)
 
-				d.label = player.name
-				d.value = damagetaken
+				local playerName = player.name or player.unitName
+				local playerID = player.sourceGUID
+
+				d.label = playerName
+				d.value = Skada:SafeNumber(damagetaken)
 
 				Skada:FormatValueText(d,
 					Skada:FormatNumber(damagetaken), self.metadata.columns.Damage,
 					string.format("%02.1f", dtps), self.metadata.columns.DTPS,
-					string.format("%02.1f%%", damagetaken / math.max(1, set.damagetaken or 1) * 100), self.metadata.columns.Percent
+					string.format("%02.1f%%", damagetaken / math.max(1, setTotalDT) * 100), self.metadata.columns.Percent
 				)
-				d.id = player.id
-				d.class = player.class
+				d.id = playerID
+				d.class = player.class or player.classFilename
 				d.role = player.role
 
 				if damagetaken > max then
@@ -51,22 +84,34 @@ Skada:AddLoadableModule("DamageTaken", nil, function(Skada, L)
 
 	-- Detail view of a player.
 	function playermod:Update(win, set)
-		local player = Skada:find_player(set, self.playerid)
+		-- 7 = DamageTaken
+		local spells = Skada.NativeAPI:GetPlayerSpells(self.playerid, set, 7)
+		if not spells then return end
+		
 		local max = 0
 		local nr = 1
+		local totalDT = 0
 		
-		if player and player.damagetakenspells then
-			for spellname, spell in pairs(player.damagetakenspells) do
+		for _, spell in pairs(spells) do
+			totalDT = totalDT + (spell.totalAmount or 0)
+		end
+		
+		for _, spell in pairs(spells) do
+			local amount = spell.totalAmount or 0
+			if amount > 0 then
 				local d = win.dataset[nr] or {}
 				win.dataset[nr] = d
-				d.id = spell.id
-				d.label = spellname
-				d.value = spell.damage
-				d.valuetext = Skada:FormatNumber(spell.damage)..(" (%02.1f%%)"):format(spell.damage / math.max(1, player.damagetaken) * 100)
-				d.icon = Skada:GetSpellIcon(spell.id)
+				d.id = spell.spellID
+				local spellID = spell.spellID or 0
+				local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
+				d.label = spellInfo and spellInfo.name or ("Spell " .. spell.spellID)
 				
-				if spell.damage > max then
-					max = spell.damage
+				d.value = amount
+				d.valuetext = Skada:FormatNumber(amount)..(" (%02.1f%%)"):format(amount / math.max(1, totalDT) * 100)
+				d.icon = Skada:GetSpellIcon(spell.spellID)
+				
+				if amount > max then
+					max = amount
 				end
 				nr = nr + 1
 			end
@@ -77,13 +122,48 @@ Skada:AddLoadableModule("DamageTaken", nil, function(Skada, L)
 
 	-- Tooltip for damage taken.
 	local function playerspell_tooltip(win, id, label, tooltip)
-		local player = Skada:find_player(win:get_selected_set(), playermod.playerid)
+		local set = win:get_selected_set()
+		if not set then return end
+		-- 7 = DamageTaken
+		local view = Skada.NativeAPI:GetSessionView(set, 7)
+		if not view then return end
+		
+		local sources = view.combatSources or {}
+		local player
+		for _, p in pairs(sources) do
+			-- Safely compare GUIDs, handling "secret values"
+			local sourceGUID = tostring(p.sourceGUID or "")
+			if sourceGUID == playermod.playerid then
+				player = p
+				break
+			end
+		end
+
 		if player then
-			tooltip:AddLine(player.name.." - "..L["Damage Taken"])
-			tooltip:AddDoubleLine(L["Total Damage:"], Skada:FormatNumber(player.damagetaken), 255,255,255,255,255,255)
-			local set = win:get_selected_set()
-			if set and set.damagetaken and set.damagetaken > 0 then
-				tooltip:AddDoubleLine(L["Percentage:"], string.format("%02.1f%%", player.damagetaken / set.damagetaken * 100), 255,255,255,255,255,255)
+			local damagetaken = Skada:SafeNumber(player.totalAmount or 0)
+			tooltip:AddLine((player.name or label).." - "..L["Damage Taken"])
+			tooltip:AddDoubleLine(L["Total Damage:"], Skada:FormatNumber(damagetaken), 1,1,1,1,1,1)
+			
+			-- Add top 3 sources (spells)
+			local spells = Skada.NativeAPI:GetPlayerSpells(playermod.playerid, set, 7)
+			if spells then
+				local sorted = {}
+				for _, s in pairs(spells) do
+					table.insert(sorted, s)
+				end
+				table.sort(sorted, function(a, b) return (a.totalAmount or 0) > (b.totalAmount or 0) end)
+				
+				tooltip:AddLine(" ")
+				tooltip:AddLine(L["Top Sources"])
+				for i = 1, math.min(3, #sorted) do
+					local s = sorted[i]
+					local spellID = s.spellID or 0
+					local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
+					local name = spellInfo and spellInfo.name or ("Source " .. s.spellID)
+					local val = s.totalAmount or 0
+					local percent = (val / math.max(1, damagetaken)) * 100
+					tooltip:AddDoubleLine(name, Skada:FormatNumber(val) .. " (" .. string.format("%02.1f%%", percent) .. ")", 1,1,1,1,1,1)
+				end
 			end
 		end
 	end
@@ -102,19 +182,13 @@ Skada:AddLoadableModule("DamageTaken", nil, function(Skada, L)
 
 	-- Called by Skada when a new player is added to a set.
 	function mod:AddPlayerAttributes(player)
-		if not player.damagetaken then
-			player.damagetaken = 0
-		end
 	end
 
 	-- Called by Skada when a new set is created.
 	function mod:AddSetAttributes(set)
-		if not set.damagetaken then
-			set.damagetaken = 0
-		end
 	end
 
 	function mod:FormatSetSummary(datasetItem,set)
-		Skada:FormatValueText(datasetItem, Skada:FormatNumber(set.damagetaken), true)
+		Skada:FormatValueText(datasetItem, Skada:FormatNumber(getSetTotal(set)), true)
 	end
 end)

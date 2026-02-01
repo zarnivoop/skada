@@ -88,18 +88,18 @@ Skada:AddLoadableModule("TotalHealing", nil, function(Skada, L)
 			if spell then
 				tooltip:AddLine(player.name.." - "..label)
 				if spell.max and spell.min then
-					tooltip:AddDoubleLine(L["Minimum hit:"], Skada:FormatNumber(spell.min), 255,255,255,255,255,255)
-					tooltip:AddDoubleLine(L["Maximum hit:"], Skada:FormatNumber(spell.max), 255,255,255,255,255,255)
+					tooltip:AddDoubleLine(L["Minimum hit:"], Skada:FormatNumber(spell.min), 1,1,1,1,1,1)
+					tooltip:AddDoubleLine(L["Maximum hit:"], Skada:FormatNumber(spell.max), 1,1,1,1,1,1)
 				end
-				tooltip:AddDoubleLine(L["Average hit:"], Skada:FormatNumber(spell.healing / spell.hits), 255,255,255,255,255,255)
+				tooltip:AddDoubleLine(L["Average hit:"], Skada:FormatNumber(spell.healing / spell.hits), 1,1,1,1,1,1)
 				if spell.hits then
-					tooltip:AddDoubleLine(L["Critical"]..":", ("%02.1f%%"):format(spell.critical / spell.hits * 100), 255,255,255,255,255,255)
+					tooltip:AddDoubleLine(L["Critical"]..":", ("%02.1f%%"):format(spell.critical / spell.hits * 100), 1,1,1,1,1,1)
 				end
 				if spell.hits then
-					tooltip:AddDoubleLine(L["Overhealing"]..":", ("%02.1f%%"):format(spell.overhealing / (spell.overhealing + spell.healing) * 100), 255,255,255,255,255,255)
+					tooltip:AddDoubleLine(L["Overhealing"]..":", ("%02.1f%%"):format(spell.overhealing / (spell.overhealing + spell.healing) * 100), 1,1,1,1,1,1)
 				end
 				if spell.hits and spell.absorbed then
-					tooltip:AddDoubleLine(L["Absorbed"]..":", ("%02.1f%%"):format(spell.absorbed / (spell.overhealing + spell.healing) * 100), 255,255,255,255,255,255)
+					tooltip:AddDoubleLine(L["Absorbed"]..":", ("%02.1f%%"):format(spell.absorbed / (spell.overhealing + spell.healing) * 100), 1,1,1,1,1,1)
 				end
 			end
 		end

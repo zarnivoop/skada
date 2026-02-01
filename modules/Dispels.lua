@@ -5,7 +5,19 @@ Skada:AddLoadableModule("Dispels", nil, function(Skada, L)
 	local mod = Skada:NewModule(L["Dispels"])
 	local playermod = Skada:NewModule(L["Dispels spell list"])
 
-
+	local function getSetTotal(set)
+		if not set then return 0 end
+		-- 6 = Dispels
+		local view = Skada.NativeAPI:GetSessionView(set, 6)
+		if not view then return 0 end
+		
+		local total = 0
+		local sources = view.combatSources or view.participants or {}
+		for _, p in pairs(sources) do
+			total = total + (p.dispels or p.totalAmount or 0)
+		end
+		return total
+	end
 
 	function playermod:Enter(win, id, label)
 		playermod.playerid = id
@@ -13,47 +25,79 @@ Skada:AddLoadableModule("Dispels", nil, function(Skada, L)
 	end
 
 	function playermod:Update(win, set)
-		local player = Skada:find_player(set, self.playerid)
+		-- 6 = Dispels
+		local view = Skada.NativeAPI:GetSessionView(set, 6)
+		if not view then return end
+		
+		local source = Skada.NativeAPI:GetPlayerSpells(self.playerid, view, 6)
+		if not source then return end
+		
+		local spells = source.combatSpells
+		if not spells then return end
+		
 		local max = 0
 		local nr = 1
+		local totalDispels = 0
 		
-		if player and player.dispellspells then
-			for spellname, spell in pairs(player.dispellspells) do
-				local d = win.dataset[nr] or {}
-				win.dataset[nr] = d
-				d.id = spell.id
-				d.label = spellname
-				d.value = spell.count
-				d.valuetext = tostring(spell.count)
-				d.icon = Skada:GetSpellIcon(spell.id)
-				
-				if spell.count > max then
-					max = spell.count
+		if spells then
+			-- Calculate total for percentage
+			for _, spell in pairs(spells) do
+				totalDispels = totalDispels + (spell.totalAmount or 0)
+			end
+			
+			for _, spell in pairs(spells) do
+				local amount = spell.totalAmount or 0
+				if amount > 0 then
+					local d = win.dataset[nr] or {}
+					win.dataset[nr] = d
+					d.id = spell.spellID
+					local spellID = spell.spellID or 0
+					local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
+					d.label = spellInfo and spellInfo.name or ("Spell " .. spell.spellID)
+					
+					d.value = amount
+					d.valuetext = Skada:FormatNumber(amount)..(" (%02.1f%%)"):format(amount / math.max(1, totalDispels) * 100)
+					d.icon = Skada:GetSpellIcon(spell.spellID)
+					
+					if amount > max then
+						max = amount
+					end
+					nr = nr + 1
 				end
-				nr = nr + 1
 			end
 		end
 		win.metadata.maxvalue = max
 	end
 
 	function mod:Update(win, set)
+		-- 6 = Dispels
+		local view = Skada.NativeAPI:GetSessionView(set, 6)
+		if not view then return end
+		
+		local sources = view.combatSources or {}
 		local max = 0
 		local nr = 1
+		
+		local setTotal = 0
+		for _, p in pairs(sources) do
+			local amount = Skada:SafeNumber(p.totalAmount)
+			setTotal = setTotal + amount
+		end
+		set.dispels = setTotal -- Cache
 
-		for i, player in ipairs(set.players) do
-			local dispells = player.dispells or 0
-			if dispells > 0 then
-
+		for i, player in pairs(sources) do
+			local dispels = Skada:SafeNumber(player.totalAmount or 0)
+			if dispels > 0 then
 				local d = win.dataset[nr] or {}
 				win.dataset[nr] = d
-				d.value = dispells
-				d.label = player.name
-				d.class = player.class
+				d.value = dispels
+				d.label = player.name or player.unitName
+				d.class = player.class or player.classFilename
 				d.role = player.role
-				d.id = player.id
-				d.valuetext = tostring(dispells)
-				if dispells > max then
-					max = dispells
+				d.id = player.sourceGUID
+				d.valuetext = Skada:FormatNumber(dispels)
+				if dispels > max then
+					max = dispels
 				end
 				nr = nr + 1
 			end
@@ -73,30 +117,20 @@ Skada:AddLoadableModule("Dispels", nil, function(Skada, L)
 	end
 
 	function mod:AddToTooltip(set, tooltip)
-		GameTooltip:AddDoubleLine(L["Dispels"], set.dispells, 1,1,1)
+		local total = getSetTotal(set)
+		GameTooltip:AddDoubleLine(L["Dispels"], Skada:FormatNumber(total), 1,1,1)
 	end
 
 	-- Called by Skada when a new player is added to a set.
 	function mod:AddPlayerAttributes(player)
-		if not player.dispells then
-			player.dispells = 0
-		end
-		if not player.interrupts then
-			player.interrupts = 0
-		end
 	end
 
 	-- Called by Skada when a new set is created.
 	function mod:AddSetAttributes(set)
-		if not set.dispells then
-			set.dispells = 0
-		end
-		if not set.interrupts then
-			set.interrupts = 0
-		end
 	end
 
 	function mod:FormatSetSummary(datasetItem, set)
-		Skada:FormatValueText(datasetItem, set.dispells, true)
+		local total = getSetTotal(set)
+		Skada:FormatValueText(datasetItem, Skada:FormatNumber(total), true)
 	end
 end)

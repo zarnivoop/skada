@@ -1,6 +1,13 @@
 local _, Skada = ...
 Skada:AddLoadableModule("Enemies", nil, function(Skada, L)
 	if Skada.db.profile.modulesBlocked.Enemies then return end
+	
+	-- Skip this module if using Native API (WoW 12.0+)
+	-- Enemy tracking not available in Native API
+	if Skada.NativeAPI then
+		Skada:Print("Enemies module disabled: Not compatible with WoW 12.0+ Native API")
+		return
+	end
 
 	local done = Skada:NewModule(L["Enemy damage done"])
 	local taken = Skada:NewModule(L["Enemy damage taken"])
@@ -304,14 +311,14 @@ Skada:AddLoadableModule("Enemies", nil, function(Skada, L)
 			local spell = mob[ttentry][label]
 			if spell and (spell.hits or 0) > 0 then
 				tooltip:AddLine(ttmob.." - "..label)
-				tooltip:AddDoubleLine(L["Hit"]..":", spell.hits, 255,255,255,255,255,255)
+				tooltip:AddDoubleLine(L["Hit"]..":", spell.hits, 1,1,1,1,1,1)
 				if spell.max and spell.min then
-					tooltip:AddDoubleLine(L["Minimum hit:"], Skada:FormatNumber(spell.min), 255,255,255,255,255,255)
-					tooltip:AddDoubleLine(L["Maximum hit:"], Skada:FormatNumber(spell.max), 255,255,255,255,255,255)
+					tooltip:AddDoubleLine(L["Minimum hit:"], Skada:FormatNumber(spell.min), 1,1,1,1,1,1)
+					tooltip:AddDoubleLine(L["Maximum hit:"], Skada:FormatNumber(spell.max), 1,1,1,1,1,1)
 				end
-				tooltip:AddDoubleLine(L["Average hit:"], Skada:FormatNumber(spell.healing / spell.hits), 255,255,255,255,255,255)
-				tooltip:AddDoubleLine(L["Critical"]..":", ("%02.1f%%"):format(spell.crits / spell.hits * 100), 255,255,255,255,255,255)
-				tooltip:AddDoubleLine(L["Overhealing"]..":", ("%02.1f%%"):format(spell.overhealing / (spell.overhealing + spell.healing) * 100), 255,255,255,255,255,255)
+				tooltip:AddDoubleLine(L["Average hit:"], Skada:FormatNumber(spell.healing / spell.hits), 1,1,1,1,1,1)
+				tooltip:AddDoubleLine(L["Critical"]..":", ("%02.1f%%"):format(spell.crits / spell.hits * 100), 1,1,1,1,1,1)
+				tooltip:AddDoubleLine(L["Overhealing"]..":", ("%02.1f%%"):format(spell.overhealing / (spell.overhealing + spell.healing) * 100), 1,1,1,1,1,1)
 			end
 		end
 	end

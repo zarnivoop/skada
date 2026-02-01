@@ -72,57 +72,127 @@ end
 --[[
 	Update spells for a player from session source
 ]]
-local function updateSpells(player, sessionSource, statType)
-	if not sessionSource or not sessionSource.combatSpells then return end
-	
-	local spellTable, valueKey
-	if statType == "damage" then
-		player.damagespells = player.damagespells or {}
-		spellTable = player.damagespells
-		valueKey = "damage"
-	elseif statType == "healing" then
-		player.healingspells = player.healingspells or {}
-		spellTable = player.healingspells
-		valueKey = "healing"
-	elseif statType == "damagetaken" then
-		player.damagetakenspells = player.damagetakenspells or {}
-		spellTable = player.damagetakenspells
-		valueKey = "damage"
-	elseif statType == "dispels" then
-		player.dispellspells = player.dispellspells or {}
-		spellTable = player.dispellspells
-		valueKey = "count"
-	elseif statType == "interrupts" then
-		player.interruptspells = player.interruptspells or {}
-		spellTable = player.interruptspells
-		valueKey = "count"
-	else
-		return
-	end
-
-	for _, spellData in pairs(sessionSource.combatSpells) do
-		local amount = sanitizeNumber(spellData.totalAmount)
-		local spellID = spellData.spellID
-		
-		if spellID and amount > 0 then
-			local spellInfo = C_Spell.GetSpellInfo(spellID)
-			local spellName = spellInfo and spellInfo.name or ("Spell " .. spellID)
-			
-			local spell = spellTable[spellName]
-			if not spell then
-				spell = {id = spellID, name = spellName}
-				spell[valueKey] = 0
-				spellTable[spellName] = spell
-			end
-			
-			spell[valueKey] = amount
-		end
-	end
-end
 
 --[[
-	Check if damage meter is currently available
+	API Methods used by modules
 ]]
+
+function NativeAPI:GetSessionView(set, damageType)
+	if not set then return nil end
+	
+	-- If set has a sessionID, try to get it directly (though API might not support type change for ID)
+	-- Fallback to sessionType if available
+	local sessionType = set.sessionType or (set == Skada.total and 0 or 1)
+	
+	local success, result = pcall(C_DamageMeter.GetCombatSessionFromType, sessionType, damageType)
+	if success and result then
+		return result
+	end
+	
+	-- If that failed, maybe set IS the view we want if the types match
+	return set
+end
+
+function NativeAPI:GetPlayerRate(set, player, rateType)
+	if not player then return 0 end
+	return sanitizeNumber(player.amountPerSecond or player.rate or 0)
+end
+
+function NativeAPI:GetRaidRate(set, rateType)
+	if not set then return 0 end
+	-- This is a bit complex as we might need to sum up or get it from the API
+	-- For now, return a placeholder or try to find it in set
+	return sanitizeNumber(set.amountPerSecond or set.rate or 0)
+end
+
+function NativeAPI:GetPlayerSpells(playerID, set, damageType)
+	local sessionType = set and set.sessionType or 1
+	local source = self:GetSessionSource(playerID, sessionType, damageType)
+	
+	if not source then 
+		if Skada.db.profile.debug then
+			Skada:Debug("GetPlayerSpells: No source found for", playerID, "damageType", damageType)
+		end
+		return nil 
+	end
+	
+	-- Debug: Log source structure for troubleshooting
+	if Skada.db.profile.debug then
+		Skada:Debug("GetPlayerSpells source type:", type(source))
+		Skada:Debug("GetPlayerSpells source keys:", getKeys(source))
+		
+		-- Check what fields are available
+		for k, v in pairs(source) do
+			if type(v) == "table" then
+				Skada:Debug("  "..k.." (table) keys:", getKeys(v))
+				-- Check first few items if it's an array
+				local count = 0
+				for _, item in pairs(v) do
+					count = count + 1
+					if count <= 3 then
+						Skada:Debug("    Item "..count.." type:", type(item))
+						if type(item) == "table" then
+							Skada:Debug("    Item "..count.." keys:", getKeys(item))
+						end
+					else
+						break
+					end
+				end
+			else
+				Skada:Debug("  "..k..":", type(v), v)
+			end
+		end
+	end
+	
+	-- Try to find spells in various possible locations
+	-- Common field names based on WoW API patterns
+	local spellFields = {"combatSpells", "spells", "abilities", "damageSpells", "healingSpells"}
+	
+	for _, field in ipairs(spellFields) do
+		if source[field] and type(source[field]) == "table" then
+			if Skada.db.profile.debug then
+				Skada:Debug("Found spells in field:", field)
+			end
+			return source[field]
+		end
+	end
+	
+	-- If source itself looks like a spells array (array of tables with spell data)
+	local looksLikeSpellsArray = true
+	local itemCount = 0
+	for _, v in pairs(source) do
+		itemCount = itemCount + 1
+		if type(v) ~= "table" or (not v.spellID and not v.abilityID and not v.totalAmount) then
+			looksLikeSpellsArray = false
+			break
+		end
+	end
+	
+	if looksLikeSpellsArray and itemCount > 0 then
+		if Skada.db.profile.debug then
+			Skada:Debug("Source appears to be spells array with", itemCount, "items")
+		end
+		return source
+	end
+	
+	-- No spells found
+	if Skada.db.profile.debug then
+		Skada:Debug("No spells found in source")
+	end
+	return nil
+end
+
+function NativeAPI:GetPlayerSpell(playerID, set, damageType, spellID)
+	local spells = self:GetPlayerSpells(playerID, set, damageType)
+	if spells then
+		for _, spell in pairs(spells) do
+			if type(spell) == "table" and spell.spellID == spellID then
+				return spell
+			end
+		end
+	end
+	return nil
+end
 function NativeAPI:IsAvailable()
 	local available = C_DamageMeter.IsDamageMeterAvailable()
 	return available
@@ -476,6 +546,7 @@ function NativeAPI:ResetAllSessions()
 	return success
 end
 
+
 --[[
 	Update Skada's data structures from native API session data
 	
@@ -501,535 +572,7 @@ end
 		}
 	}
 ]]
-function NativeAPI:UpdateSkadaFromSession(set, sessionData)
-	if not sessionData then
-		return
-	end
-	
-	-- Update set metadata
-	if sessionData.encounterName then
-		set.mobname = sessionData.encounterName
-		set.gotboss = true
-	elseif not set.mobname then
-		set.mobname = "Combat" -- Fallback name to ensure segment saves
-	end
-	
-	if sessionData.encounterID then
-		set.encounterID = sessionData.encounterID
-	end
-	
-	local offset = time() - GetTime()
-	
-	if sessionData.startTime then
-		local sTime = sessionData.startTime
-		-- If startTime looks like GetTime() (small number) instead of epoch, convert it
-		if sTime < 1000000000 then
-			sTime = offset + sTime
-		end
-		set.starttime = sTime
-	end
-	
-	if sessionData.endTime then
-		local eTime = sessionData.endTime
-		-- If endTime looks like GetTime() (small number) instead of epoch, convert it
-		if eTime < 1000000000 then
-			eTime = offset + eTime
-		end
-		set.endtime = eTime
-		-- Calculate duration
-		set.time = set.endtime - set.starttime
-	end
-	
-	-- Update player data from combatSources or participants
-	local sources = sessionData.combatSources or sessionData.participants or sessionData.players or sessionData.units or sessionData.members or {}
-	
-	if Skada.db.profile.debug then
-		local count = 0
-		for _ in pairs(sources) do count = count + 1 end
-		
-		if count == 0 then
-			Skada:Debug("NativeAPI: Session data keys: " .. getKeys(sessionData))
-		end
-	end
-	
-	local loggedMissing = false
-
-	for _, sourceData in pairs(sources) do
-		-- Try to get player GUID and name from source data
-		local playerGuid = sourceData.sourceGUID or sourceData.guid or sourceData.playerGUID or sourceData.unitGUID or sourceData.id or sourceData.unitID
-		local playerName = sourceData.name or sourceData.playerName or sourceData.unitName
-		
-		-- Sanitize restricted/secret values
-		if playerGuid then playerGuid = string.format("%s", playerGuid) end
-		if playerName then playerName = string.format("%s", playerName) end
-
-		if not (playerGuid and playerName) and not loggedMissing and Skada.db.profile.debug then
-			Skada:Debug("NativeAPI: Missing GUID/Name in source. Keys: " .. getKeys(sourceData))
-			loggedMissing = true
-		end
-		
-		if playerGuid and playerName then
-			local playerClass = sourceData.class or sourceData.classFilename
-			local player = Skada:get_player(set, playerGuid, playerName, playerClass)
-			if player then
-				-- Update core stats - native API uses totalAmount for damage/healing
-				if sourceData.damage then
-					player.damage = sanitizeNumber(sourceData.damage)
-				elseif sourceData.totalAmount then
-					-- For DamageDone session type, totalAmount is damage
-					player.damage = sanitizeNumber(sourceData.totalAmount)
-				elseif sourceData.amount then
-					player.damage = sanitizeNumber(sourceData.amount)
-				elseif sourceData.value then
-					player.damage = sanitizeNumber(sourceData.value)
-				end
-				
-				if sourceData.amountPerSecond then
-					player.native_dps = sanitizeNumber(sourceData.amountPerSecond)
-				end
-				
-				-- Fetch detailed spell data if available
-				if sourceData.sourceGUID then
-					local sessionType = NativeAPI.sessionTypeCache.current
-					if set == Skada.total then sessionType = NativeAPI.sessionTypeCache.total end
-					if not sessionType then sessionType = 1 end
-					
-					-- 0 = DamageDone
-					local sessionSource = NativeAPI:GetSessionSource(sourceData.sourceGUID, sessionType, 0)
-					if sessionSource then
-						updateSpells(player, sessionSource, "damage")
-					end
-				end
-
-				-- Healing would come from a HealingDone session type
-				if sourceData.healing then
-					player.healing = sanitizeNumber(sourceData.healing)
-				elseif sourceData.totalAmount and set.type == "healing" then -- Context aware? No, simplified
-					-- If we knew this was a healing session...
-					-- But we rely on separate calls for healing.
-					-- For now, UpdateHealingFromSession handles this.
-				end
-				
-				-- Damage taken would come from a DamageTaken session type
-				if sourceData.damageTaken then
-					player.damagetaken = sanitizeNumber(sourceData.damageTaken)
-				end
-				
-				-- Update class
-				if sourceData.class or sourceData.classFilename then
-					player.class = sourceData.class or sourceData.classFilename
-				end
-				
-				-- Initialize empty spell tables (no spell details available from native API)
-				player.damagespells = player.damagespells or {}
-				player.healingspells = player.healingspells or {}
-				player.damaged = player.damaged or {}
-				
-				-- Mark player as updated
-				player.last = time()
-			end
-		end
-	end
-	
-	-- Recalculate set totals from players
-	set.damage = 0
-	set.healing = 0
-	for _, player in ipairs(set.players) do
-		set.damage = set.damage + (player.damage or 0)
-		set.healing = set.healing + (player.healing or 0)
-	end
-	
-	-- Mark setasas updated
-	set.last_action = time()
-end
-
---[[
-	Update Skada's damage taken data from native API session data
-]]
-function NativeAPI:UpdateDamageTakenFromSession(set, sessionData)
-	if not sessionData then
-		return
-	end
-	
-	-- Update player data from combatSources or participants
-	local sources = sessionData.combatSources or sessionData.participants or sessionData.players or sessionData.units or sessionData.members or {}
-	
-	for _, sourceData in pairs(sources) do
-		-- Try to get player GUID and name from source data
-		local playerGuid = sourceData.sourceGUID or sourceData.guid or sourceData.playerGUID
-		local playerName = sourceData.name or sourceData.playerName
-		
-		-- Sanitize restricted/secret values
-		if playerGuid then playerGuid = string.format("%s", playerGuid) end
-		if playerName then playerName = string.format("%s", playerName) end
-		
-		if playerGuid and playerName then
-			local playerClass = sourceData.class or sourceData.classFilename
-			local player = Skada:get_player(set, playerGuid, playerName, playerClass)
-			if player then
-				-- Update damage taken - could be in totalAmount or damageTaken field
-				if sourceData.damageTaken then
-					player.damagetaken = sanitizeNumber(sourceData.damageTaken)
-				elseif sourceData.totalAmount then
-					player.damagetaken = sanitizeNumber(sourceData.totalAmount)
-				end
-				
-				-- Update class
-				if sourceData.class or sourceData.classFilename then
-					player.class = sourceData.class or sourceData.classFilename
-				end
-				
-				-- Mark player as updated
-				player.last = time()
-				
-				-- Fetch damage taken spells
-				if sourceData.sourceGUID then
-					local sessionType = NativeAPI.sessionTypeCache.current
-					if set == Skada.total then sessionType = NativeAPI.sessionTypeCache.total end
-					if not sessionType then sessionType = 1 end
-					
-					-- 7 = DamageTaken
-					local sessionSource = NativeAPI:GetSessionSource(sourceData.sourceGUID, sessionType, 7)
-					if sessionSource then
-						updateSpells(player, sessionSource, "damagetaken")
-					end
-				end
-			end
-		end
-	end
-	
-	-- Recalculate set total damage taken from players
-	set.damagetaken = 0
-	for _, player in ipairs(set.players) do
-		set.damagetaken = set.damagetaken + (player.damagetaken or 0)
-	end
-	
-	-- Mark set as updated
-	set.last_action = time()
-end
-
---[[
-	Update Skada's dispels data from native API session data
-]]
-function NativeAPI:UpdateDispelsFromSession(set, sessionData)
-	if not sessionData then
-		return
-	end
-	
-	-- Update player data from combatSources or participants
-	local sources = sessionData.combatSources or sessionData.participants or sessionData.players or sessionData.units or sessionData.members or {}
-	
-	for _, sourceData in pairs(sources) do
-		-- Try to get player GUID and name from source data
-		local playerGuid = sourceData.sourceGUID or sourceData.guid or sourceData.playerGUID
-		local playerName = sourceData.name or sourceData.playerName
-		
-		-- Sanitize restricted/secret values
-		if playerGuid then playerGuid = string.format("%s", playerGuid) end
-		if playerName then playerName = string.format("%s", playerName) end
-		
-		if playerGuid and playerName then
-			local playerClass = sourceData.class or sourceData.classFilename
-			local player = Skada:get_player(set, playerGuid, playerName, playerClass)
-			if player then
-				-- Update dispels - could be in totalAmount or count field
-				if sourceData.dispels then
-					player.dispells = sanitizeNumber(sourceData.dispels)
-				elseif sourceData.count then
-					player.dispells = sanitizeNumber(sourceData.count)
-				elseif sourceData.totalAmount then
-					-- For non-damage metrics, totalAmount might be the count
-					player.dispells = sanitizeNumber(sourceData.totalAmount)
-				end
-				
-				-- Update class
-				if sourceData.class or sourceData.classFilename then
-					player.class = sourceData.class or sourceData.classFilename
-				end
-				
-				-- Mark player as updated
-				player.last = time()
-				
-				-- Fetch dispels spells
-				if sourceData.sourceGUID then
-					local sessionType = NativeAPI.sessionTypeCache.current
-					if set == Skada.total then sessionType = NativeAPI.sessionTypeCache.total end
-					if not sessionType then sessionType = 1 end
-					
-					-- 6 = Dispels
-					local sessionSource = NativeAPI:GetSessionSource(sourceData.sourceGUID, sessionType, 6)
-					if sessionSource then
-						updateSpells(player, sessionSource, "dispels")
-					end
-				end
-			end
-		end
-	end
-	
-	-- Recalculate set total dispels from players
-	set.dispells = 0
-	for _, player in ipairs(set.players) do
-		set.dispells = set.dispells + (player.dispells or 0)
-	end
-	
-	-- Mark set as updated
-	set.last_action = time()
-end
-
---[[
-	Update Skada's interrupts data from native API session data
-]]
-function NativeAPI:UpdateInterruptsFromSession(set, sessionData)
-	if not sessionData then
-		return
-	end
-	
-	-- Update player data from combatSources or participants
-	local sources = sessionData.combatSources or sessionData.participants or sessionData.players or sessionData.units or sessionData.members or {}
-	
-	for _, sourceData in pairs(sources) do
-		-- Try to get player GUID and name from source data
-		local playerGuid = sourceData.sourceGUID or sourceData.guid or sourceData.playerGUID
-		local playerName = sourceData.name or sourceData.playerName
-		
-		-- Sanitize restricted/secret values
-		if playerGuid then playerGuid = string.format("%s", playerGuid) end
-		if playerName then playerName = string.format("%s", playerName) end
-		
-		if playerGuid and playerName then
-			local playerClass = sourceData.class or sourceData.classFilename
-			local player = Skada:get_player(set, playerGuid, playerName, playerClass)
-			if player then
-				-- Update interrupts - could be in totalAmount or count field
-				if sourceData.interrupts then
-					player.interrupts = sanitizeNumber(sourceData.interrupts)
-				elseif sourceData.count then
-					player.interrupts = sanitizeNumber(sourceData.count)
-				elseif sourceData.totalAmount then
-					-- For non-damage metrics, totalAmount might be the count
-					player.interrupts = sanitizeNumber(sourceData.totalAmount)
-				end
-				
-				-- Update class
-				if sourceData.class or sourceData.classFilename then
-					player.class = sourceData.class or sourceData.classFilename
-				end
-				
-				-- Mark player as updated
-				player.last = time()
-				
-				-- Fetch interrupts spells
-				if sourceData.sourceGUID then
-					local sessionType = NativeAPI.sessionTypeCache.current
-					if set == Skada.total then sessionType = NativeAPI.sessionTypeCache.total end
-					if not sessionType then sessionType = 1 end
-					
-					-- 5 = Interrupts
-					local sessionSource = NativeAPI:GetSessionSource(sourceData.sourceGUID, sessionType, 5)
-					if sessionSource then
-						updateSpells(player, sessionSource, "interrupts")
-					end
-				end
-			end
-		end
-	end
-	
-	-- Recalculate set total interrupts from players
-	set.interrupts = 0
-	for _, player in ipairs(set.players) do
-		set.interrupts = set.interrupts + (player.interrupts or 0)
-	end
-	
-	-- Mark set as updated
-	set.last_action = time()
-end
-
---[[
-	Update Skada's healing data from native API session data
-]]
-function NativeAPI:UpdateHealingFromSession(set, sessionData)
-	if not sessionData then
-		return
-	end
-	
-	-- Update player data from combatSources or participants
-	local sources = sessionData.combatSources or sessionData.participants or sessionData.players or sessionData.units or sessionData.members or {}
-	
-	for _, sourceData in pairs(sources) do
-		-- Try to get player GUID and name from source data
-		local playerGuid = sourceData.sourceGUID or sourceData.guid or sourceData.playerGUID
-		local playerName = sourceData.name or sourceData.playerName
-		
-		-- Sanitize restricted/secret values
-		if playerGuid then playerGuid = string.format("%s", playerGuid) end
-		if playerName then playerName = string.format("%s", playerName) end
-		
-		if playerGuid and playerName then
-			local playerClass = sourceData.class or sourceData.classFilename
-			local player = Skada:get_player(set, playerGuid, playerName, playerClass)
-			if player then
-				-- Update healing - could be in totalAmount or healing field
-				if sourceData.healing then
-					player.healing = sanitizeNumber(sourceData.healing)
-				elseif sourceData.totalAmount then
-					-- For HealingDone session type, totalAmount is healing
-					player.healing = sanitizeNumber(sourceData.totalAmount)
-				end
-				
-				-- Update class
-				if sourceData.class or sourceData.classFilename then
-					player.class = sourceData.class or sourceData.classFilename
-				end
-				
-				-- Mark player as updated
-				player.last = time()
-				
-				-- Fetch healing spells
-				if sourceData.sourceGUID then
-					local sessionType = NativeAPI.sessionTypeCache.current
-					if set == Skada.total then sessionType = NativeAPI.sessionTypeCache.total end
-					if not sessionType then sessionType = 1 end
-					
-					-- 2 = HealingDone
-					local sessionSource = NativeAPI:GetSessionSource(sourceData.sourceGUID, sessionType, 2)
-					if sessionSource then
-						updateSpells(player, sessionSource, "healing")
-					end
-				end
-			end
-		end
-	end
-	
-	-- Recalculate set total healing from players
-	set.healing = 0
-	for _, player in ipairs(set.players) do
-		set.healing = set.healing + (player.healing or 0)
-	end
-	
-	-- Mark set as updated
-	set.last_action = time()
-end
-
---[[
-	Poll the native API for updates
-	Called on a timer to refresh Skada's data
-]]
-function NativeAPI:PollForUpdates()
-	-- Always try to get current session data, even outside combat
-	local currentSession = self:GetCurrentSession()
-	if currentSession then
-		local isActive = not currentSession.endTime
-		
-		-- If we have active session data but no current combat, start one
-		if not Skada.current and isActive then
-			-- Check if there's actual combat data
-			local sources = currentSession.combatSources or currentSession.participants or currentSession.players or currentSession.units or currentSession.members or {}
-			local count = 0
-			for _ in pairs(sources) do count = count + 1 end
-			
-			if count > 0 then
-				Skada:StartCombat()
-			end
-		end
-		
-		-- Update current combat if it exists
-		if Skada.current then
-			self:UpdateSkadaFromSession(Skada.current, currentSession)
-			
-			-- Also update specialized modules
-			-- Damage Taken
-			local damageTakenSession = self:GetDamageTakenSession()
-			if damageTakenSession then
-				self:UpdateDamageTakenFromSession(Skada.current, damageTakenSession)
-			end
-			
-			-- Dispels
-			local dispelsSession = self:GetDispelsSession()
-			if dispelsSession then
-				self:UpdateDispelsFromSession(Skada.current, dispelsSession)
-			end
-			
-			-- Interrupts
-			local interruptsSession = self:GetInterruptsSession()
-			if interruptsSession then
-				self:UpdateInterruptsFromSession(Skada.current, interruptsSession)
-			end
-			
-			-- Healing
-			local healingSession = self:GetHealingDoneSession()
-			if healingSession then
-				self:UpdateHealingFromSession(Skada.current, healingSession)
-			end
-			
-			-- If the session has ended, end the Skada segment
-			if not isActive then
-				Skada:EndSegment()
-			end
-		end
-	end
-	
-	-- Get total session data
-	if Skada.total then
-		local totalSession = self:GetTotalSession()
-		if totalSession then
-			self:UpdateSkadaFromSession(Skada.total, totalSession)
-			
-			-- Also update specialized modules for total session
-			-- Damage Taken
-			local damageTakenSession = self:GetDamageTakenSession()
-			if damageTakenSession then
-				self:UpdateDamageTakenFromSession(Skada.total, damageTakenSession)
-			end
-			
-			-- Dispels
-			local dispelsSession = self:GetDispelsSession()
-			if dispelsSession then
-				self:UpdateDispelsFromSession(Skada.total, dispelsSession)
-			end
-			
-			-- Interrupts
-			local interruptsSession = self:GetInterruptsSession()
-			if interruptsSession then
-				self:UpdateInterruptsFromSession(Skada.total, interruptsSession)
-			end
-			
-			-- Healing
-			local healingSession = self:GetHealingDoneSession()
-			if healingSession then
-				self:UpdateHealingFromSession(Skada.total, healingSession)
-			end
-		end
-	end
-	
-	-- Trigger display update if we have data
-	if currentSession or (Skada.total and self:GetTotalSession()) then
-		Skada:UpdateDisplay(false)
-	end
-end
-
---[[
-	Start polling for native API updates
-]]
-function NativeAPI:StartPolling()
-	if self.pollingTimer then
-		return -- Already polling
-	end
-	
-	-- Poll every 1 second for updates
-	self.pollingTimer = Skada:ScheduleRepeatingTimer(function()
-		self:PollForUpdates()
-	end, 1.0)
-end
-
---[[
-	Stop polling for updates
-]]
-function NativeAPI:StopPolling()
-	if self.pollingTimer then
-		Skada:CancelTimer(self.pollingTimer)
-		self.pollingTimer = nil
-	end
-end
+-- Update*FromSession functions removed - modules query Native API directly
 
 --[[
 	Diagnostic function to dump native API structure
