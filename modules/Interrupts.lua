@@ -3,9 +3,40 @@ Skada:AddLoadableModule("Interrupts", nil, function(Skada, L)
 	if Skada.db.profile.modulesBlocked.Interrupts then return end
 
 	local mod = Skada:NewModule(L["Interrupts"])
+	local playermod = Skada:NewModule(L["Interrupt spells"])
 	mod.metadata = {icon = "Interface\\Icons\\Ability_rogue_kidneyshot"}
 
+	function playermod:Enter(win, id, label)
+		playermod.playerid = id
+		playermod.title = label..L["'s Interrupts"]
+	end
+
+	function playermod:Update(win, set)
+		local player = Skada:find_player(set, self.playerid)
+		local max = 0
+		local nr = 1
+		
+		if player and player.interruptspells then
+			for spellname, spell in pairs(player.interruptspells) do
+				local d = win.dataset[nr] or {}
+				win.dataset[nr] = d
+				d.id = spell.id
+				d.label = spellname
+				d.value = spell.count
+				d.valuetext = tostring(spell.count)
+				d.icon = Skada:GetSpellIcon(spell.id)
+				
+				if spell.count > max then
+					max = spell.count
+				end
+				nr = nr + 1
+			end
+		end
+		win.metadata.maxvalue = max
+	end
+
 	function mod:OnEnable()
+		mod.metadata = {click1 = playermod, icon = "Interface\\Icons\\Ability_rogue_kidneyshot"}
 		Skada:AddMode(self)
 	end
 
@@ -39,19 +70,20 @@ Skada:AddLoadableModule("Interrupts", nil, function(Skada, L)
 		local max = 0
 		local nr = 1
 		for i, player in ipairs(set.players) do
-			if player.interrupts > 0 then
+			local interrupts = player.interrupts or 0
+			if interrupts > 0 then
 
 				local d = win.dataset[nr] or {}
 				win.dataset[nr] = d
 
-				d.value = player.interrupts
+				d.value = interrupts
 				d.label = player.name
-				d.valuetext = tostring(player.interrupts)
+				d.valuetext = tostring(interrupts)
 				d.id = player.id
 				d.class = player.class
 				d.role = player.role
-				if player.interrupts > max then
-					max = player.interrupts
+				if interrupts > max then
+					max = interrupts
 				end
 
 				nr = nr + 1

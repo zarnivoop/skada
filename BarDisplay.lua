@@ -5,7 +5,7 @@ The traditional bar display used in some form by most damage meters.
 --]]
 
 local _, Skada = ...
-local L = LibStub("AceLocale-3.0"):GetLocale("Skada", false)
+local L = LibStub("AceLocale-3.0"):GetLocale("Skada", true)
 
 local mod = Skada:NewModule("BarDisplay", "SpecializedLibBars-1.0")
 local libwindow = LibStub("LibWindow-1.1")
@@ -521,6 +521,7 @@ function mod:WindowResized(cbk, group)
 	libwindow.SavePosition(group)
 	group.win.db.background.height = snappedHeight
 	group.win.db.barwidth = group:GetWidth()
+	group:SetLength(group:GetWidth())
 
 	-- Update all bars
 	local bars = group:GetBars()

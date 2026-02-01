@@ -1,6 +1,15 @@
 local _, Skada = ...
 Skada.versions = {
 	{
+		id = "2.0.0",
+		title = "Skada 2.0 (Midnight)",
+		message = "Adapted for WoW 12.0, Midnight. We are now limited to the data provided by the built-in damage meter.",
+		changes = {
+			"Basic rework and simplification for WoW 12.0",
+			"Most modules have been disabled for now",
+		}
+	},
+	{
 		id = "1.10.0",
 		title = "Skada 1.10.0",
 		message = "A ton of small fixes and improvements to bring the addon to a more up to date state.",

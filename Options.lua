@@ -1,5 +1,5 @@
 local _, Skada = ...
-local L = LibStub("AceLocale-3.0"):GetLocale("Skada", false)
+local L = LibStub("AceLocale-3.0"):GetLocale("Skada", true)
 local media = LibStub("LibSharedMedia-3.0")
 
 Skada.resetoptions = { [1] = L["No"], [2] = L["Yes"], [3] = L["Ask"] }
@@ -97,7 +97,7 @@ Skada.defaults = {
 		tentativecombatstart = false,
 		hidesolo = false,
 		hidepvp = false,
-		hidedisables = true,
+		hidedisables = false,
 		hidecombat = false,
 		mergepets = true,
 		feed = "",

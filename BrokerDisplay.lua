@@ -1,6 +1,6 @@
 -- LDB data object with an optional internal frame.
 local _, Skada = ...
-local L = LibStub("AceLocale-3.0"):GetLocale("Skada", false)
+local L = LibStub("AceLocale-3.0"):GetLocale("Skada", true)
 
 local name = L["Data text"]
 local mod = Skada:NewModule(name)

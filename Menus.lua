@@ -1,5 +1,5 @@
 local _, Skada = ...
-local L = LibStub("AceLocale-3.0"):GetLocale("Skada", false)
+local L = LibStub("AceLocale-3.0"):GetLocale("Skada", true)
 local AceGUI = LibStub("AceGUI-3.0")
 
 -- Mode menu list sorted by category

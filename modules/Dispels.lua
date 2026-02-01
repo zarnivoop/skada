@@ -3,61 +3,37 @@ Skada:AddLoadableModule("Dispels", nil, function(Skada, L)
 	if Skada.db.profile.modulesBlocked.Dispels then return end
 
 	local mod = Skada:NewModule(L["Dispels"])
+	local playermod = Skada:NewModule(L["Dispels spell list"])
 
-	local function log_dispell(set, dispell)
-		local player = Skada:get_player(set, dispell.playerid, dispell.playername)
-		if player then
-			-- Add to player dispels.
-			player.dispells = player.dispells + 1
 
-			-- Also add to set total dispels.
-			set.dispells = set.dispells + 1
+
+	function playermod:Enter(win, id, label)
+		playermod.playerid = id
+		playermod.title = label..L["'s Dispels"]
+	end
+
+	function playermod:Update(win, set)
+		local player = Skada:find_player(set, self.playerid)
+		local max = 0
+		local nr = 1
+		
+		if player and player.dispellspells then
+			for spellname, spell in pairs(player.dispellspells) do
+				local d = win.dataset[nr] or {}
+				win.dataset[nr] = d
+				d.id = spell.id
+				d.label = spellname
+				d.value = spell.count
+				d.valuetext = tostring(spell.count)
+				d.icon = Skada:GetSpellIcon(spell.id)
+				
+				if spell.count > max then
+					max = spell.count
+				end
+				nr = nr + 1
+			end
 		end
-	end
-
-	local function log_interrupt(set, interrupt)
-		local player = Skada:get_player(set, interrupt.playerid, interrupt.playername)
-		if player then
-			-- Add to player interrupts.
-			player.interrupts = player.interrupts + 1
-
-			-- Also add to set total interrupts.
-			set.interrupts = set.interrupts + 1
-		end
-	end
-
-	local dispell = {}
-
-	local function SpellDispel(timestamp, eventtype, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags, ...)
-		-- Dispells
-		local spellId, spellName, spellSchool, sextraSpellId, sextraSpellName, sextraSchool, auraType = ...
-
-		dispell.playerid = srcGUID
-		dispell.playername = srcName
-		dispell.spellid = spellId
-		dispell.spellname = spellName
-		dispell.extraspellid = sextraSpellId
-		dispell.extraspellname = sextraSpellName
-
-		log_dispell(Skada.current, dispell)
-		log_dispell(Skada.total, dispell)
-	end
-
-	local function SpellInterrupt(timestamp, eventtype, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags, ...)
-		-- Interrupts
-		local spellId, spellName, spellSchool, sextraSpellId, sextraSpellName, sextraSchool = ...
-
-		dispell.playerid = srcGUID
-		dispell.playername = srcName
-		dispell.spellid = spellId
-		dispell.spellname = spellName
-		dispell.extraspellid = sextraSpellId
-		dispell.extraspellname = sextraSpellName
-
-		Skada:FixPets(dispell)
-
-		log_interrupt(Skada.current, dispell)
-		log_interrupt(Skada.total, dispell)
+		win.metadata.maxvalue = max
 	end
 
 	function mod:Update(win, set)
@@ -65,18 +41,19 @@ Skada:AddLoadableModule("Dispels", nil, function(Skada, L)
 		local nr = 1
 
 		for i, player in ipairs(set.players) do
-			if player.dispells > 0 then
+			local dispells = player.dispells or 0
+			if dispells > 0 then
 
 				local d = win.dataset[nr] or {}
 				win.dataset[nr] = d
-				d.value = player.dispells
+				d.value = dispells
 				d.label = player.name
 				d.class = player.class
 				d.role = player.role
 				d.id = player.id
-				d.valuetext = tostring(player.dispells)
-				if player.dispells > max then
-					max = player.dispells
+				d.valuetext = tostring(dispells)
+				if dispells > max then
+					max = dispells
 				end
 				nr = nr + 1
 			end
@@ -86,11 +63,7 @@ Skada:AddLoadableModule("Dispels", nil, function(Skada, L)
 	end
 
 	function mod:OnEnable()
-		mod.metadata = {showspots = true, icon = "Interface\\Icons\\Spell_holy_dispelmagic"}
-
-		Skada:RegisterForCL(SpellDispel, 'SPELL_STOLEN', {src_is_interesting = true})
-		Skada:RegisterForCL(SpellDispel, 'SPELL_DISPEL', {src_is_interesting = true})
-		Skada:RegisterForCL(SpellInterrupt, 'SPELL_INTERRUPT', {src_is_interesting = true})
+		mod.metadata = {click1 = playermod, showspots = true, icon = "Interface\\Icons\\Spell_holy_dispelmagic"}
 
 		Skada:AddMode(self)
 	end

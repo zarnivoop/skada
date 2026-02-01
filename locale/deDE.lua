@@ -1,4 +1,4 @@
-local L = LibStub("AceLocale-3.0"):NewLocale("Skada", "deDE", false)
+local L = LibStub("AceLocale-3.0"):NewLocale("Skada", "deDE", false, true)
 if not L then return end
 
 L["%s dies"] = "%s stirbt"

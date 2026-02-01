@@ -1,4 +1,4 @@
-local L = LibStub("AceLocale-3.0"):NewLocale("Skada", "enUS", true)
+local L = LibStub("AceLocale-3.0"):NewLocale("Skada", "enUS", true, true)
 
 L["Include set"] = true
 L["Include set name in title bar"] = true
