@@ -46,6 +46,12 @@ end
 
 local function sanitizeNumber(val)
 	if not val then return nil end
+	
+	-- Check for WoW 12.0 issecretvalue function
+	if issecretvalue and issecretvalue(val) then
+		return val
+	end
+	
 	if type(val) ~= "number" then return val end
 	
 	-- Try to strip secret status by string round-trip
@@ -53,7 +59,7 @@ local function sanitizeNumber(val)
 	if success then
 		return tonumber(s)
 	end
-	return 0 -- Failed to sanitize, return 0 to prevent crashes
+	return val -- Return original value (possibly secret) instead of 0
 end
 
 --[[
@@ -100,9 +106,29 @@ end
 
 function NativeAPI:GetRaidRate(set, rateType)
 	if not set then return 0 end
-	-- This is a bit complex as we might need to sum up or get it from the API
-	-- For now, return a placeholder or try to find it in set
-	return sanitizeNumber(set.amountPerSecond or set.rate or 0)
+	
+	local val = set.amountPerSecond or set.rate
+	if val then
+		return sanitizeNumber(val)
+	end
+	
+	-- Fallback: sum up participants
+	local totalRate = 0
+	local sources = set.combatSources or set.participants or {}
+	for _, p in pairs(sources) do
+		local prate = p.amountPerSecond or p.rate
+		if not prate then
+			-- Try to get it from GetPlayerRate
+			prate = self:GetPlayerRate(set, p, rateType)
+		end
+		
+		if issecretvalue and issecretvalue(prate) then
+			return prate -- Any secret makes total secret
+		end
+		totalRate = totalRate + (tonumber(prate) or 0)
+	end
+	
+	return totalRate
 end
 
 function NativeAPI:GetPlayerSpells(playerID, set, damageType)

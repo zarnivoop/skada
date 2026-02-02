@@ -15,7 +15,11 @@ Skada:AddLoadableModule("Interrupts", nil, function(Skada, L)
 		local total = 0
 		local sources = view.combatSources or {}
 		for _, p in pairs(sources) do
-			total = total + (p.totalAmount or 0)
+			local amount = p.totalAmount or 0
+			if issecretvalue and issecretvalue(amount) then
+				return amount -- If any secret, total is secret
+			end
+			total = total + (tonumber(amount) or 0)
 		end
 		return total
 	end
@@ -36,38 +40,49 @@ Skada:AddLoadableModule("Interrupts", nil, function(Skada, L)
 		local spells = source.combatSpells
 		if not spells then return end
 		
+		local hasSecretAPI = issecretvalue ~= nil
+		local hasSecretValues = false
 		local max = 0
 		local nr = 1
 		local totalInterrupts = 0
 		
-		if spells then
-			-- Calculate total for percentage
-			for _, spell in pairs(spells) do
-				totalInterrupts = totalInterrupts + (spell.totalAmount or 0)
+		for _, spell in pairs(spells) do
+			local amount = spell.totalAmount or 0
+			if hasSecretAPI and issecretvalue(amount) then
+				hasSecretValues = true
+			else
+				totalInterrupts = totalInterrupts + (tonumber(amount) or 0)
 			end
+		end
+		
+		for _, spell in pairs(spells) do
+			local rawAmount = spell.totalAmount or 0
+			local isSecretAmt = hasSecretAPI and rawAmount and issecretvalue(rawAmount)
 			
-			for _, spell in pairs(spells) do
-				local amount = spell.totalAmount or 0
-				if amount > 0 then
-					local d = win.dataset[nr] or {}
-					win.dataset[nr] = d
-					d.id = spell.spellID
-					local spellID = spell.spellID or 0
-					local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
-					d.label = spellInfo and spellInfo.name or ("Spell " .. spell.spellID)
-					
+			if rawAmount ~= 0 or isSecretAmt then
+				local d = win.dataset[nr] or {}
+				win.dataset[nr] = d
+				d.id = spell.spellID
+				local spellID = spell.spellID or 0
+				local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
+				d.label = spellInfo and spellInfo.name or ("Spell " .. spell.spellID)
+				
+				if isSecretAmt then
+					d.value = 1000 - nr
+					d.valuetext = Skada:FormatNumberSecret(rawAmount)
+				else
+					local amount = tonumber(rawAmount) or 0
 					d.value = amount
 					d.valuetext = Skada:FormatNumber(amount)..(" (%02.1f%%)"):format(amount / math.max(1, totalInterrupts) * 100)
-					d.icon = Skada:GetSpellIcon(spell.spellID)
-					
 					if amount > max then
 						max = amount
 					end
-					nr = nr + 1
 				end
+				d.icon = Skada:GetSpellIcon(spell.spellID)
+				nr = nr + 1
 			end
 		end
-		win.metadata.maxvalue = max
+		win.metadata.maxvalue = hasSecretValues and (1000 - 1) or max
 	end
 
 	function mod:OnEnable()
@@ -81,12 +96,12 @@ Skada:AddLoadableModule("Interrupts", nil, function(Skada, L)
 
 	function mod:AddToTooltip(set, tooltip)
 		local total = getSetTotal(set)
-		GameTooltip:AddDoubleLine(L["Interrupts"], Skada:FormatNumber(total), 1,1,1)
+		GameTooltip:AddDoubleLine(L["Interrupts"], Skada:FormatNumberSecret(total), 1,1,1)
 	end
 
 	function mod:FormatSetSummary(datasetItem,set)
 		local total = getSetTotal(set)
-		Skada:FormatValueText(datasetItem, Skada:FormatNumber(total), true)
+		Skada:FormatValueText(datasetItem, Skada:FormatNumberSecret(total), true)
 	end
 
 	-- Called by Skada when a new player is added to a set.
@@ -103,36 +118,84 @@ Skada:AddLoadableModule("Interrupts", nil, function(Skada, L)
 		if not view then return end
 		
 		local sources = view.combatSources or {}
+		
+		-- Check for WoW 12.0 issecretvalue function
+		local hasSecretAPI = issecretvalue ~= nil
+		
+		-- Detect if any values are secret (during combat)
+		local hasSecretValues = false
 		local max = 0
 		local nr = 1
 		
+		-- First pass: detect secrets
 		local setTotal = 0
-		for _, p in pairs(sources) do
-			local amount = Skada:SafeNumber(p.totalAmount)
-			setTotal = setTotal + amount
+		for _, player in pairs(sources) do
+			local amount = player.totalAmount
+			if amount then
+				if hasSecretAPI and issecretvalue(amount) then
+					hasSecretValues = true
+				else
+					local num = tonumber(amount) or 0
+					setTotal = setTotal + num
+				end
+			end
 		end
-		set.interrupts = setTotal -- Cache
+		set.interrupts = setTotal
+		
+		-- If secret state changed, wipe the window
+		if win.metadata.wasSecretValues ~= nil and win.metadata.wasSecretValues ~= hasSecretValues then
+			win:Wipe()
+		end
+		win.metadata.wasSecretValues = hasSecretValues
+		win.metadata.ordersort = hasSecretValues
 
-		for i, player in pairs(sources) do
-			local interrupts = Skada:SafeNumber(player.totalAmount)
-			if interrupts > 0 then
+		for _, player in pairs(sources) do
+			-- Get player name
+			local playerName = nil
+			local rawName = player.name or player.unitName
+			if rawName then
+				if hasSecretAPI and issecretvalue(rawName) then
+					playerName = string.format("%s", rawName)
+				elseif type(rawName) == "string" then
+					playerName = rawName
+				end
+			end
+			
+			if playerName then
+				local rawInterrupts = player.totalAmount
+				local interrupts = 0
+				local isSecretInt = hasSecretAPI and rawInterrupts and issecretvalue(rawInterrupts)
+				
+				if rawInterrupts and not isSecretInt then
+					interrupts = tonumber(rawInterrupts) or 0
+				end
+				
 				local d = win.dataset[nr] or {}
 				win.dataset[nr] = d
 
-				d.value = interrupts
-				d.label = player.name or player.unitName
-				d.valuetext = Skada:FormatNumber(interrupts)
-				d.id = player.sourceGUID
+				-- Use real GUID for detail view navigation
+				d.id = player.sourceGUID or playerName
+				
+				if hasSecretValues then
+					d.value = 1000 - nr
+					d.valuetext = Skada:FormatNumberSecret(rawInterrupts)
+				else
+					d.value = interrupts
+					d.valuetext = Skada:FormatNumber(interrupts)
+					if interrupts > max then
+						max = interrupts
+					end
+				end
+				
+				d.label = playerName
 				d.class = player.class or player.classFilename
 				d.role = player.role
-				if interrupts > max then
-					max = interrupts
-				end
+				d.order = nr
 
 				nr = nr + 1
 			end
 		end
 
-		win.metadata.maxvalue = max
+		win.metadata.maxvalue = hasSecretValues and (1000 - 1) or max
 	end
 end)

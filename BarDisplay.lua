@@ -425,16 +425,11 @@ function mod:Update(win)
 				-- No columns
 				bar:SetColumnText(3, data.valuetext)
 			else
-				-- Up to 3 columns
-				if data.valueText1 then
-					bar:SetColumnText(3, data.valueText1)
-				end
-				if data.valueText2 then
-					bar:SetColumnText(2, data.valueText2)
-				end
-				if data.valueText3 then
-					bar:SetColumnText(1, data.valueText3)
-				end
+				-- Up to 3 columns - always call SetColumnText, it handles nil
+				-- Note: Boolean tests on secret values are not allowed in WoW 12.0
+				bar:SetColumnText(3, data.valueText1)
+				bar:SetColumnText(2, data.valueText2)
+				bar:SetColumnText(1, data.valueText3)
 			end
 
 			if win.metadata.wipestale then

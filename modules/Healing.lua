@@ -18,7 +18,11 @@ Skada:AddLoadableModule("Healing", nil, function(Skada, L)
 		local total = 0
 		local sources = view.combatSources or view.participants or {}
 		for _, p in pairs(sources) do
-			total = total + Skada:SafeNumber(p.totalAmount)
+			local amount = p.totalAmount or 0
+			if issecretvalue and issecretvalue(amount) then
+				return amount -- If any secret, total is secret
+			end
+			total = total + (tonumber(amount) or 0)
 		end
 		return total
 	end
@@ -43,22 +47,30 @@ Skada:AddLoadableModule("Healing", nil, function(Skada, L)
 		local spells = Skada.NativeAPI:GetPlayerSpells(self.playerid, set, 2)
 		if not spells then return end
 		
+		local hasSecretAPI = issecretvalue ~= nil
+		local hasSecretValues = false
 		local max = 0
 		local nr = 1
 		local totalHealing = 0
 		
-		-- Calculate total first for percentage
+		-- Calculate total first for percentage and detect secrets
 		for _, spell in pairs(spells) do
 			if type(spell) == "table" and spell.totalAmount then
-				totalHealing = totalHealing + Skada:SafeNumber(spell.totalAmount)
+				local amount = spell.totalAmount
+				if hasSecretAPI and issecretvalue(amount) then
+					hasSecretValues = true
+				else
+					totalHealing = totalHealing + (tonumber(amount) or 0)
+				end
 			end
 		end
 		
 		for _, spell in pairs(spells) do
 			if type(spell) == "table" and spell.totalAmount then
-				local amount = Skada:SafeNumber(spell.totalAmount)
+				local rawAmount = spell.totalAmount
+				local isSecretAmt = hasSecretAPI and rawAmount and issecretvalue(rawAmount)
 				
-				if amount > 0 then
+				if rawAmount ~= 0 or isSecretAmt then
 					local spellID = spell.spellID or 0
 					local d = win.dataset[nr] or {}
 					win.dataset[nr] = d
@@ -68,18 +80,23 @@ Skada:AddLoadableModule("Healing", nil, function(Skada, L)
 					local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
 					d.label = spellInfo and spellInfo.name or ("Spell " .. tostring(spellID))
 					
-					d.value = amount
-					d.valuetext = Skada:FormatNumber(amount)..(" (%02.1f%%)"):format(amount / math.max(1, totalHealing) * 100)
-					d.icon = Skada:GetSpellIcon(spellID)
-					
-					if amount > max then
-						max = amount
+					if isSecretAmt then
+						d.value = 1000 - nr
+						d.valuetext = Skada:FormatNumberSecret(rawAmount)
+					else
+						local amount = tonumber(rawAmount) or 0
+						d.value = amount
+						d.valuetext = Skada:FormatNumber(amount)..(" (%02.1f%%)"):format(amount / math.max(1, totalHealing) * 100)
+						if amount > max then
+							max = amount
+						end
 					end
+					d.icon = Skada:GetSpellIcon(spellID)
 					nr = nr + 1
 				end
 			end
 		end
-		win.metadata.maxvalue = max
+		win.metadata.maxvalue = hasSecretValues and (1000 - 1) or max
 	end
 
 	-- Healing overview.
@@ -90,51 +107,126 @@ Skada:AddLoadableModule("Healing", nil, function(Skada, L)
 		
 		-- Use API participants/sources
 		local sources = healingSet.combatSources or healingSet.participants or {}
+		local sourceCount = 0
+		for _ in pairs(sources) do sourceCount = sourceCount + 1 end
 		
+		-- Check for WoW 12.0 issecretvalue function
+		local hasSecretAPI = issecretvalue ~= nil
+		
+		-- Detect if values are secret (during combat)
+		local hasSecretValues = false
 		local max = 0
 		local nr = 1
 		
-		-- Calculate Set Total Healing on the fly (if API doesn't provide it conveniently in the list)
+		-- First pass: detect secrets and calculate total for non-secrets
 		local setTotalHealing = 0
-		for _, p in pairs(sources) do
-			local amount = Skada:SafeNumber(p.healing or p.totalAmount)
-			setTotalHealing = setTotalHealing + amount
+		for _, player in pairs(sources) do
+			local amountVal = player.healing or player.totalAmount
+			if amountVal then
+				if hasSecretAPI and issecretvalue(amountVal) then
+					hasSecretValues = true
+				else
+					local num = tonumber(amountVal) or 0
+					setTotalHealing = setTotalHealing + num
+				end
+			end
 		end
-		healingSet.healing = setTotalHealing -- Cache it for getRaidHPS
+		
+		-- If secret state changed, wipe the window to prevent duplicate bars
+		if win.metadata.wasSecretValues ~= nil and win.metadata.wasSecretValues ~= hasSecretValues then
+			win:Wipe()
+		end
+		win.metadata.wasSecretValues = hasSecretValues
+		
+		-- If values are secret, we'll preserve API order for sorting
+		win.metadata.ordersort = hasSecretValues
 
-		for i, player in pairs(sources) do
-			-- API returns a map or list, pairs works for both
-			local amount = Skada:SafeNumber(player.totalAmount or 0)
+		for _, player in pairs(sources) do
+			-- Get player name - string.format works with secrets
+			local playerName = nil
+			local rawName = player.name or player.unitName
+			if rawName then
+				if hasSecretAPI and issecretvalue(rawName) then
+					playerName = string.format("%s", rawName)
+				elseif type(rawName) == "string" then
+					playerName = rawName
+				end
+			end
 			
-			if amount > 0 then
-				local hps = getHPS(healingSet, player)
+			-- Only process if we have a name
+			if playerName then
+				-- Get raw healing value (may be secret)
+				local rawAmount = player.healing or player.totalAmount
+				local amount = 0
+				local isSecretAmount = hasSecretAPI and rawAmount and issecretvalue(rawAmount)
 				
-				-- Normalize player name/id
-				local playerName = player.name or player.unitName
-				local playerID = player.sourceGUID or player.guid or player.unitGUID
+				if rawAmount and not isSecretAmount then
+					amount = tonumber(rawAmount) or 0
+				end
+				
+				-- Get raw HPS (may be secret)
+				local rawHps = player.amountPerSecond or player.rate
+				local hps = 0
+				local isSecretHps = hasSecretAPI and rawHps and issecretvalue(rawHps)
+				
+				if rawHps and not isSecretHps then
+					hps = tonumber(rawHps) or 0
+				else
+					-- Fallback: calculate HPS if available
+					hps = getHPS(healingSet, player)
+				end
+				
+				-- Get class/role safely
+				local playerClass = nil
+				local rawClass = player.class or player.classFilename
+				if rawClass and type(rawClass) == "string" then
+					playerClass = rawClass
+				end
+				
+				local playerRole = player.role
 
 				local d = win.dataset[nr] or {}
 				win.dataset[nr] = d
+				
+				-- Use player GUID as ID for detail view navigation.
+				-- Even if it is a secret value, Skada:find_player will handle it.
+				d.id = player.sourceGUID or playerName
 				d.label = playerName
-
-				Skada:FormatValueText(d,
-					Skada:FormatNumber(amount), self.metadata.columns.Healing,
-					Skada:FormatNumber(hps), self.metadata.columns.HPS,
-					string.format("%02.1f%%", amount / math.max(1, setTotalHealing) * 100), self.metadata.columns.Percent
-				)
-
-				d.value = amount
-				d.id = playerID
-				d.class = player.class or player.classFilename
-				d.role = player.role -- API might not have this, might need fallback
-				if amount > max then
-					max = amount
+				d.class = playerClass
+				d.role = playerRole
+				d.order = nr  -- Store order for fallback sorting
+				
+				if hasSecretValues then
+					-- During combat: use FormatNumberSecret for secret values
+					local healingText = Skada:FormatNumberSecret(rawAmount)
+					local hpsText = Skada:FormatNumberSecret(rawHps)
+					
+					Skada:FormatValueText(d,
+						healingText, self.metadata.columns.Healing,
+						hpsText, self.metadata.columns.HPS,
+						"", self.metadata.columns.Percent  -- Can't calculate % with secrets
+					)
+					d.value = 1000 - nr  -- Use order for bar sizing
+				else
+					-- After combat: values are readable
+					local percent = setTotalHealing > 0 and (amount / setTotalHealing * 100) or 0
+					
+					Skada:FormatValueText(d,
+						Skada:FormatNumber(amount), self.metadata.columns.Healing,
+						Skada:FormatNumber(hps), self.metadata.columns.HPS,
+						string.format("%02.1f%%", percent), self.metadata.columns.Percent
+					)
+					d.value = amount
+					if amount > max then
+						max = amount
+					end
 				end
+				
 				nr = nr + 1
 			end
 		end
 
-		win.metadata.maxvalue = max
+		win.metadata.maxvalue = hasSecretValues and (1000 - 1) or (max > 0 and max or 1)
 	end
 
 	-- Tooltip for a specific player.
@@ -151,13 +243,13 @@ Skada:AddLoadableModule("Healing", nil, function(Skada, L)
 		if not healingSet then return end
 		
 		local totaltime = Skada:GetSetTime(healingSet)
-		local amount = Skada:SafeNumber(player.totalAmount or 0)
-		local hps = Skada:SafeNumber(player.amountPerSecond or 0)
+		local rawAmount = player.totalAmount or 0
+		local rawHps = player.amountPerSecond or 0
 		
-		tooltip:AddLine((player.name or label).." - "..L["HPS"])
+		tooltip:AddLine((playerName or label).." - "..L["HPS"])
 		tooltip:AddDoubleLine(L["Segment time"], totaltime.."s", 1,1,1,1,1,1)
-		tooltip:AddDoubleLine(L["Healing done"], Skada:FormatNumber(amount), 1,1,1,1,1,1)
-		tooltip:AddDoubleLine(L["HPS"], Skada:FormatNumber(hps), 1,1,1,1,1,1)
+		tooltip:AddDoubleLine(L["Healing done"], Skada:FormatNumberSecret(rawAmount), 1,1,1,1,1,1)
+		tooltip:AddDoubleLine(L["HPS"], Skada:FormatNumberSecret(rawHps), 1,1,1,1,1,1)
 		
 		-- Add top 3 spells
 		-- 2 = Healing
@@ -183,9 +275,18 @@ Skada:AddLoadableModule("Healing", nil, function(Skada, L)
 					local spellID = s.spellID or 0
 					local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
 					local name = spellInfo and spellInfo.name or ("Spell " .. tostring(spellID))
-					local val = Skada:SafeNumber(s.totalAmount or 0)
-					local percent = amount > 0 and (val / amount) * 100 or 0
-					tooltip:AddDoubleLine(name, Skada:FormatNumber(val) .. " (" .. string.format("%02.1f%%", percent) .. ")", 1,1,1,1,1,1)
+					
+					local rawVal = s.totalAmount or 0
+					local isSecretVal = issecretvalue and issecretvalue(rawVal)
+					
+					if isSecretVal then
+						tooltip:AddDoubleLine(name, Skada:FormatNumberSecret(rawVal), 1,1,1,1,1,1)
+					else
+						local val = tonumber(rawVal) or 0
+						local playerVal = Skada:SafeNumber(rawAmount)
+						local percent = playerVal > 0 and (val / playerVal) * 100 or 0
+						tooltip:AddDoubleLine(name, Skada:FormatNumber(val) .. " (" .. string.format("%02.1f%%", percent) .. ")", 1,1,1,1,1,1)
+					end
 				end
 			end
 		end
@@ -205,9 +306,9 @@ Skada:AddLoadableModule("Healing", nil, function(Skada, L)
 		local spellData = Skada.NativeAPI:GetPlayerSpell(playerID, healingSet, 2, id)
 
 		if spellData then
-			local amount = spellData.totalAmount or 0
+			local rawAmount = spellData.totalAmount or 0
 			tooltip:AddLine(label .. " (" .. L["Healing"] .. ")")
-			tooltip:AddDoubleLine(L["Total"], Skada:FormatNumber(amount), 1,1,1)
+			tooltip:AddDoubleLine(L["Total"], Skada:FormatNumberSecret(rawAmount), 1,1,1)
 			
 			if spellData.hitCount then 
 				tooltip:AddDoubleLine(L["Hits"], spellData.hitCount, 1,1,1) 
@@ -223,10 +324,8 @@ Skada:AddLoadableModule("Healing", nil, function(Skada, L)
 
 	-- HPS-only view
 	function hpsmod:FormatSetSummary(datasetItem, set)
-		local healingSet = Skada.NativeAPI:GetSessionView(set, 2)
-		if healingSet then
-			Skada:FormatValueText(datasetItem, Skada:FormatNumber(getRaidHPS(healingSet)), true)
-		end
+		local raidHPS = getRaidHPS(set)
+		Skada:FormatValueText(datasetItem, Skada:FormatNumberSecret(raidHPS), true)
 	end
 
 	function hpsmod:Update(win, set)
@@ -234,37 +333,72 @@ Skada:AddLoadableModule("Healing", nil, function(Skada, L)
 		if not healingSet then return end
 		
 		local sources = healingSet.combatSources or {}
+		
+		-- Secret detection
+		local hasSecretAPI = issecretvalue ~= nil
+		local hasSecretValues = false
 		local max = 0
-
 		local nr = 1
+		
+		for _, player in pairs(sources) do
+			local amountVal = player.totalAmount
+			if amountVal and hasSecretAPI and issecretvalue(amountVal) then
+				hasSecretValues = true
+				break
+			end
+		end
+		
+		-- Wipe on state change
+		if win.metadata.wasSecretValues ~= nil and win.metadata.wasSecretValues ~= hasSecretValues then
+			win:Wipe()
+		end
+		win.metadata.wasSecretValues = hasSecretValues
+		win.metadata.ordersort = hasSecretValues
 
-		for i, player in pairs(sources) do
-			local amount = Skada:SafeNumber(player.totalAmount or 0)
+		for _, player in pairs(sources) do
+			local rawAmount = player.totalAmount or 0
+			local isSecretAmount = hasSecretAPI and rawAmount and issecretvalue(rawAmount)
+			local amount = 0
+			if not isSecretAmount then
+				amount = tonumber(rawAmount) or 0
+			end
 			
-			if amount > 0 then
+			if amount > 0 or isSecretAmount then
 				local hps = getHPS(healingSet, player)
 				
 				-- Normalize player name/id
-				local playerName = player.name or player.unitName
-				local playerID = player.sourceGUID
+				local rawName = player.name or player.unitName
+				local playerName = rawName
+				if hasSecretAPI and issecretvalue(rawName) then
+					playerName = string.format("%s", rawName)
+				end
 
 				local d = win.dataset[nr] or {}
 				win.dataset[nr] = d
 				d.label = playerName
-				d.id = playerID
-				d.value = Skada:SafeNumber(hps)
+				
+				if hasSecretValues then
+					d.id = "combat_" .. nr
+					d.value = 1000 - nr
+					d.valuetext = Skada:FormatNumberSecret(hps)
+				else
+					d.id = player.sourceGUID or playerName
+					d.value = Skada:SafeNumber(hps)
+					d.valuetext = Skada:FormatNumber(hps)
+					if hps > max then
+						max = hps
+					end
+				end
+				
 				d.class = player.class or player.classFilename
 				d.role = player.role
-				d.valuetext = Skada:FormatNumber(hps)
-				if hps > max then
-					max = hps
-				end
+				d.order = nr
 
 				nr = nr + 1
 			end
 		end
 
-		win.metadata.maxvalue = max
+		win.metadata.maxvalue = hasSecretValues and (1000 - 1) or (max > 0 and max or 1)
 	end
 
 	function mod:OnEnable()
@@ -277,15 +411,17 @@ Skada:AddLoadableModule("Healing", nil, function(Skada, L)
 
 		Skada:AddFeed(L["Healing: Personal HPS"], function()
 			if Skada.current then
-				local player = Skada:find_player_in_session(Skada.current, UnitGUID("player"))
+				local player = Skada:find_player(Skada.current, UnitGUID("player"))
 				if player then
-					return Skada:FormatNumber(getHPS(Skada.current, player)).." "..L["HPS"]
+					local hps = getHPS(Skada.current, player)
+					return Skada:FormatNumberSecret(hps).." "..L["HPS"]
 				end
 			end
 		end)
 		Skada:AddFeed(L["Healing: Raid HPS"], function()
 			if Skada.current then
-				return Skada:FormatNumber(getRaidHPS(Skada.current)).." "..L["RHPS"]
+				local raidHps = getRaidHPS(Skada.current)
+				return Skada:FormatNumberSecret(raidHps).." "..L["RHPS"]
 			end
 		end)
 		Skada:AddMode(self, L["Healing"])
@@ -306,15 +442,17 @@ Skada:AddLoadableModule("Healing", nil, function(Skada, L)
 	end
 
 	function mod:AddToTooltip(set, tooltip)
-		GameTooltip:AddDoubleLine(L["HPS"], Skada:FormatNumber(getRaidHPS(set)), 1,1,1)
+		local raidHps = getRaidHPS(set)
+		GameTooltip:AddDoubleLine(L["HPS"], Skada:FormatNumberSecret(raidHps), 1,1,1)
 	end
 
 	function mod:FormatSetSummary(datasetItem,set)
 		local total = getSetTotal(set)
+		local raidHps = getRaidHPS(set)
 		Skada:FormatValueText(
 			datasetItem,
-			Skada:FormatNumber(total), self.metadata.columns.Healing,
-			Skada:FormatNumber(getRaidHPS(set)), self.metadata.columns.HPS
+			Skada:FormatNumberSecret(total), self.metadata.columns.Healing,
+			Skada:FormatNumberSecret(raidHps), self.metadata.columns.HPS
 		)
 	end
 

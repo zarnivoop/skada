@@ -801,7 +801,15 @@ function Skada:Debug(...)
 	if not Skada.db.profile.debug then return end
 	local msg = ""
 	for i = 1, select("#", ...) do
-		local v = tostring(select(i, ...))
+		local val = select(i, ...)
+		local v
+		-- Safe conversion for debug output
+		if issecretvalue and issecretvalue(val) then
+			v = string.format("%s", val)
+		else
+			v = tostring(val)
+		end
+		
 		if #msg > 0 then
 			msg = msg .. ", "
 		end
@@ -1139,16 +1147,24 @@ function Skada:OnCombatStart()
 	end
 
 	for i, win in ipairs(windows) do
-		if win.db.modeincombat ~= "" then
+		-- Store current view for restoration after combat if configured
+		if win.db.returnaftercombat then
+			win.restore_set = win.selectedset
+			win.restore_mode = win.selectedmode and win.selectedmode:GetName()
+		end
+		
+		-- Always switch to current segment when entering combat
+		win.selectedset = "current"
+		
+		-- Switch to combat mode if configured, otherwise just refresh current mode
+		if win.db.modeincombat and win.db.modeincombat ~= "" then
 			local mymode = find_mode(win.db.modeincombat)
 			if mymode then
-				if win.db.returnaftercombat then
-					win.restore_set = win.selectedset
-					win.restore_mode = win.selectedmode and win.selectedmode:GetName()
-				end
-				win.selectedset = "current"
 				win:DisplayMode(mymode)
 			end
+		elseif win.selectedmode then
+			-- Keep current mode but trigger a refresh
+			win.changed = true
 		end
 
 		if not win.db.hidden and self.db.profile.hidecombat then
@@ -1191,7 +1207,12 @@ end
 function Skada:find_set(s)
 	if s == "current" then
 		local set = self.NativeAPI:GetCurrentSession()
-		if set then set.sessionType = 1 end
+		if set then 
+			set.sessionType = 1
+			self:Debug("find_set('current') returned session with", set.combatSources and #set.combatSources or 0, "sources")
+		else
+			self:Debug("find_set('current') returned nil")
+		end
 		return set
 	elseif s == "total" then
 		local set = self.NativeAPI:GetTotalSession()
@@ -1204,11 +1225,16 @@ function Skada:find_set(s)
 end
 
 -- Helper to find player in Native API session
+-- Note: With WoW 12.0+ secret values, we must use pcall for comparisons
 function Skada:find_player_in_session(session, playerGUID)
 	if not session or not playerGUID then return nil end
 	local sources = session.combatSources or session.participants or {}
 	for _, p in pairs(sources) do
-		if (p.sourceGUID == playerGUID) or (p.guid == playerGUID) or (p.unitGUID == playerGUID) then
+		-- Secret values cannot be compared directly, wrap in pcall
+		local success, matches = pcall(function()
+			return (p.sourceGUID == playerGUID) or (p.guid == playerGUID) or (p.unitGUID == playerGUID)
+		end)
+		if success and matches then
 			return p
 		end
 	end
@@ -1226,6 +1252,13 @@ function Skada:PLAYER_REGEN_DISABLED()
 	end
 end
 
+function Skada:PLAYER_REGEN_ENABLED()
+	-- Only end combat if we're not in an encounter (boss fights use ENCOUNTER_END)
+	if self.current and not self.current.gotboss then
+		self:OnCombatEnd()
+	end
+end
+
 function Skada:ENCOUNTER_START(encounterId, encounterName)
 	self.encounterName = encounterName
 	self.encounterTime = GetTime()
@@ -1239,6 +1272,8 @@ function Skada:ENCOUNTER_END(encounterId, encounterName)
 	if self.current then
 		self.current.mobname = encounterName
 		self.current.gotboss = true
+		-- End combat after boss encounter ends
+		self:OnCombatEnd()
 	end
 end
 
@@ -1331,7 +1366,8 @@ function Skada:UpdateDisplay(force)
 	end
 
 	for i, win in ipairs(windows) do
-		if (changed or win.changed or true) then
+		-- Update window if forced, if window state changed, or if in combat (to refresh bars/feeds)
+		if changed or win.changed or self.current then
 			win.changed = false
 			if win.selectedmode then -- Force mode display for display systems which do not handle navigation.
 				win:set_mode_title()
@@ -1354,7 +1390,9 @@ function Skada:UpdateDisplay(force)
 						local existing = nil
 						for i, data in ipairs(win.dataset) do
 							if data.id then
-								total = total + data.value
+								-- Protect against secret values in summation
+								local val = Skada:SafeNumber(data.value)
+								total = total + val
 							end
 							if not existing and not data.id then
 								existing = data
@@ -1377,12 +1415,30 @@ function Skada:UpdateDisplay(force)
 
 				-- Let window display the data.
 				if win.display and win.display.Update then
-					win.display:Update(win)
+					local success, err = pcall(win.display.Update, win.display, win)
+					if not success and Skada.db.profile.debug then
+						Skada:Debug("Display Update Error (Inside Mode):", err)
+					end
 				end
 			elseif win.selectedset then
 				local set = win:get_selected_set()
 
+				-- Wipe only on explicit mode/view change, not every refresh.
+				if win.changed or not win.metadata.is_modelist then
+					if Skada.db.profile.debug then
+						Skada:Debug("View Change to Mode List. Wiping.")
+					end
+					win:Wipe()
+				end
+
 				-- View available modes.
+				if Skada.db.profile.debug then
+					Skada:Debug("Updating Mode List. Modes count:", #modes, "Set exists:", set ~= nil)
+					if set then
+						Skada:Debug("  Set Name:", set.name or "Current/Unknown")
+						Skada:Debug("  Sources count:", set.combatSources and #set.combatSources or 0)
+					end
+				end
 				for i, mode in ipairs(modes) do
 					local d = win.dataset[i] or {}
 					win.dataset[i] = d
@@ -1391,15 +1447,23 @@ function Skada:UpdateDisplay(force)
 					d.label = mode:GetName()
 					d.value = 1
 					if set and mode.FormatSetSummary ~= nil then
-						mode:FormatSetSummary(d, set)
+						local success, err = pcall(mode.FormatSetSummary, mode, d, set)
+						if not success and Skada.db.profile.debug then
+							Skada:Debug("FormatSetSummary Error in", mode:GetName(), ":", err)
+						end
 					end
 					if mode.metadata and mode.metadata.icon then
 						d.icon = mode.metadata.icon
 					end
 				end
 
+				if Skada.db.profile.debug then
+					Skada:Debug("Mode List Dataset size:", #win.dataset)
+				end
+
 				-- Tell window to sort by our data order. Our modes are in the correct order already.
 				win.metadata.ordersort = true
+				win.metadata.maxvalue = 1 -- Ensure bars show up
 
 				-- Let display provider/tooltip know we are showing a mode list.
 				if set then
@@ -1408,9 +1472,17 @@ function Skada:UpdateDisplay(force)
 
 				-- Let window display the data.
 				if win.display and win.display.Update then
-					win.display:Update(win)
+					local success, err = pcall(win.display.Update, win.display, win)
+					if not success and Skada.db.profile.debug then
+						Skada:Debug("Display Update Error (Mode List):", err)
+					end
 				end
 			else
+				-- Wipe only on explicit view change.
+				if win.changed or win.metadata.is_modelist or win.selectedmode then
+					win:Wipe()
+				end
+
 				-- View available sets.
 				local nr = 1
 				local d = win.dataset[nr] or {}
@@ -1445,7 +1517,10 @@ function Skada:UpdateDisplay(force)
 
 				-- Let window display the data.
 				if win.display and win.display.Update then
-					win.display:Update(win)
+					local success, err = pcall(win.display.Update, win.display, win)
+					if not success and Skada.db.profile.debug then
+						Skada:Debug("Display Update Error (Set List):", err)
+					end
 				end
 			end
 		end
@@ -1474,29 +1549,72 @@ end
 
 -- Formats a number into human readable form.
 function Skada:FormatNumber(number)
-	if number then
-		if self.db.profile.numberformat == 1 then
-			if number > 1000000000 then
-				return ("%dB"):format(number / 1000000000)
-			elseif number > 100000000 then
-				return ("%dM"):format(number / 1000000)
-			elseif number > 10000000 then
-				return ("%02.1fM"):format(number / 1000000)
-			elseif number > 1000000 then
-				return ("%02.2fM"):format(number / 1000000)
-			elseif number > 100000 then
-				return ("%dK"):format(number / 1000)
-			elseif number > 999 then
-				return ("%02.1fK"):format(number / 1000)
+	if not number then return "" end
+	
+	-- Check for WoW 12.0 secret value FIRST to avoid comparison errors
+	if issecretvalue and issecretvalue(number) then
+		if self.db.profile.debug then
+			self:Debug("FormatNumber Secret encountered:", type(number))
+		end
+
+		-- Try multiple formatting patterns
+		local success, s
+		for _, pattern in ipairs({"%s", "%d", "%.0f"}) do
+			success, s = pcall(string.format, pattern, number)
+			if success and s and s ~= "" then 
+				if self.db.profile.debug then
+					self:Debug("  Pattern", pattern, "worked:", s)
+				end
+				return s 
 			end
 		end
-		return math.floor(number)
+		
+		-- Last ditch fallback: tostring
+		success, s = pcall(tostring, number)
+		if success and s and s ~= "" then return s end
+		
+		if self.db.profile.debug then
+			self:Debug("  All formatting patterns failed for secret value")
+		end
+		return ""
 	end
+	
+	-- Now it is safe to perform comparisons
+	if number == 0 then return "" end
+
+	if self.db.profile.numberformat == 1 then
+		if number > 1000000000 then
+			return ("%dB"):format(number / 1000000000)
+		elseif number > 100000000 then
+			return ("%dM"):format(number / 1000000)
+		elseif number > 10000000 then
+			return ("%02.1fM"):format(number / 1000000)
+		elseif number > 1000000 then
+			return ("%02.2fM"):format(number / 1000000)
+		elseif number > 100000 then
+			return ("%dK"):format(number / 1000)
+		elseif number > 999 then
+			return ("%02.1fK"):format(number / 1000)
+		end
+	end
+	
+	return tostring(math.floor(number))
+end
+
+-- Format a number that may be a WoW 12.0 secret value.
+function Skada:FormatNumberSecret(number)
+	return self:FormatNumber(number)
 end
 
 -- Safely converts a value to a number, handling nil values and "secret values" from Native API.
 function Skada:SafeNumber(value)
 	if not value then return 0 end
+	
+	-- Check for WoW 12.0 issecretvalue function
+	if issecretvalue and issecretvalue(value) then
+		return 0 -- Return 0 for arithmetic/sorting safety; the module handles secret display separately
+	end
+	
 	if type(value) ~= "number" then return 0 end
 	
 	-- Try multiple approaches to strip secret status
@@ -1520,7 +1638,7 @@ function Skada:SafeNumber(value)
 		return result
 	end
 	
-	return 0 -- All approaches failed
+	return value -- Return original value (possibly secret) instead of 0
 end
 
 local function scan_for_columns(mode)
@@ -2253,6 +2371,7 @@ function Skada:OnEnable()
 
 	-- Only register events that have handlers and are needed with Native API
 	popup:RegisterEvent("PLAYER_REGEN_DISABLED")
+	popup:RegisterEvent("PLAYER_REGEN_ENABLED")
 	popup:RegisterEvent("ENCOUNTER_START")
 	popup:RegisterEvent("ENCOUNTER_END")
 

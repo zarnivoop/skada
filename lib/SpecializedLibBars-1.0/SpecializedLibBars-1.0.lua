@@ -225,7 +225,13 @@ do
 end
 
 function lib:GetBar(name)
-	return bars[self] and bars[self][name]
+	-- Use pcall in case name is a WoW 12.0 secret value (can't be used as table index)
+	if not bars[self] then return nil end
+	local success, result = pcall(function() return bars[self][name] end)
+	if success then
+		return result
+	end
+	return nil
 end
 
 function lib:GetBars(name)
@@ -265,7 +271,11 @@ function lib:NewBarFromPrototype(prototype, name, ...)
 	assert(self ~= lib, "You may only call :NewBar as an embedded function")
 	assert(type(prototype) == "table" and type(prototype.metatable) == "table", "Invalid bar prototype")
 	bars[self] = bars[self] or {}
-	local bar = bars[self][name]
+	
+	-- Use pcall in case name is a WoW 12.0 secret value
+	local success, existingBar = pcall(function() return bars[self][name] end)
+	local bar = success and existingBar or nil
+	
 	local isNew = false
 	if not bar then
 		isNew = true
@@ -281,7 +291,8 @@ function lib:NewBarFromPrototype(prototype, name, ...)
 	bar:Create(...)
 	bar:SetFont(self.font, self.fontSize, self.fontFlags)
 
-	bars[self][name] = bar
+	-- Use pcall for storing bar in case name is secret
+	pcall(function() bars[self][name] = bar end)
 
 	return bar, isNew
 end
@@ -295,9 +306,13 @@ function lib:ReleaseBar(name)
 
 	local bar
 	if type(name) == "string" then
-		bar = bars[self][name]
+		local success, result = pcall(function() return bars[self][name] end)
+		bar = success and result or nil
 	elseif type(name) == "table" then
-		if name.name and bars[self][name.name] == name then
+		local success, matches = pcall(function() 
+			return name.name and bars[self][name.name] == name 
+		end)
+		if success and matches then
 			bar = name
 		end
 	end
@@ -306,7 +321,7 @@ function lib:ReleaseBar(name)
 		bar:SetScript("OnEnter", nil)
 		bar:SetScript("OnLeave", nil)
 		bar:OnBarReleased()
-		bars[self][bar.name] = nil
+		pcall(function() bars[self][bar.name] = nil end)
 		tinsert(recycledBars, bar)
 	end
 end
@@ -944,16 +959,37 @@ do
 	local values = {}
 
 	local function sortFunc(a, b)
-		local apct, bpct = a.value / a.maxValue, b.value / b.maxValue
-		if apct == bpct then
-			if a.maxValue == b.maxValue then
-				return a.name > b.name
+		-- WoW 12.0 secret values cannot be used for arithmetic or comparisons
+		-- Use pcall to safely attempt the comparison
+		local success, result = pcall(function()
+			local apct, bpct = a.value / a.maxValue, b.value / b.maxValue
+			if apct == bpct then
+				if a.maxValue == b.maxValue then
+					return a.name > b.name
+				else
+					return a.maxValue > b.maxValue
+				end
 			else
-				return a.maxValue > b.maxValue
+				return apct > bpct
 			end
-		else
-			return apct > bpct
+		end)
+		
+		if success then
+			return result
 		end
+		
+		-- Fallback for secret values: use order field if available
+		if a.order and b.order then
+			return a.order < b.order
+		end
+		
+		-- Last resort: sort by name
+		local nameSuccess, nameResult = pcall(function() return a.name > b.name end)
+		if nameSuccess then
+			return nameResult
+		end
+		
+		return false
 	end
 
 	function barListPrototype:SortBars()
@@ -1377,7 +1413,13 @@ end
 function barPrototype:SetColumnText(column, text)
 	if not self.columns or column < 1 or column > 3 then return end
 	self.columns[column]:SetText(text)
-	if text and text ~= "" then
+	-- Use pcall for comparison in case text is a WoW 12.0 secret value
+	local isEmpty = false
+	local success, result = pcall(function() return text == nil or text == "" end)
+	if success then
+		isEmpty = result
+	end
+	if not isEmpty then
 		self.columns[column]:Show()
 	else
 		self.columns[column]:Hide()

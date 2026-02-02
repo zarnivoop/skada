@@ -29,21 +29,30 @@ Skada:AddLoadableModule("Damage", nil, function(Skada, L)
 		local spells = Skada.NativeAPI:GetPlayerSpells(self.playerid, set, 0)
 		if not spells then return end
 		
+		local hasSecretAPI = issecretvalue ~= nil
+		local hasSecretValues = false
 		local max = 0
 		local nr = 1
 		local totalDamage = 0
 		
-		-- Calculate total first for percentage
+		-- Calculate total first for percentage and detect secrets
 		for _, spell in pairs(spells) do
 			if type(spell) == "table" and spell.totalAmount then
-				totalDamage = totalDamage + Skada:SafeNumber(spell.totalAmount)
+				local amount = spell.totalAmount
+				if hasSecretAPI and issecretvalue(amount) then
+					hasSecretValues = true
+				else
+					totalDamage = totalDamage + (tonumber(amount) or 0)
+				end
 			end
 		end
 		
 		for _, spell in pairs(spells) do
 			if type(spell) == "table" and spell.totalAmount then
-				local amount = Skada:SafeNumber(spell.totalAmount)
-				if amount > 0 then
+				local rawAmount = spell.totalAmount
+				local isSecretAmt = hasSecretAPI and rawAmount and issecretvalue(rawAmount)
+				
+				if rawAmount ~= 0 or isSecretAmt then
 					local spellID = spell.spellID or 0
 					local d = win.dataset[nr] or {}
 					win.dataset[nr] = d
@@ -53,18 +62,23 @@ Skada:AddLoadableModule("Damage", nil, function(Skada, L)
 					local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
 					d.label = spellInfo and spellInfo.name or ("Spell " .. tostring(spellID))
 					
-					d.value = amount
-					d.valuetext = Skada:FormatNumber(amount)..(" (%02.1f%%)"):format(amount / math.max(1, totalDamage) * 100)
-					d.icon = Skada:GetSpellIcon(spellID)
-					
-					if amount > max then
-						max = amount
+					if isSecretAmt then
+						d.value = 1000 - nr
+						d.valuetext = Skada:FormatNumberSecret(rawAmount)
+					else
+						local amount = tonumber(rawAmount) or 0
+						d.value = amount
+						d.valuetext = Skada:FormatNumber(amount)..(" (%02.1f%%)"):format(amount / math.max(1, totalDamage) * 100)
+						if amount > max then
+							max = amount
+						end
 					end
+					d.icon = Skada:GetSpellIcon(spellID)
 					nr = nr + 1
 				end
 			end
 		end
-		win.metadata.maxvalue = max
+		win.metadata.maxvalue = hasSecretValues and (1000 - 1) or max
 	end
 
 	-- Damage overview.
@@ -75,59 +89,124 @@ Skada:AddLoadableModule("Damage", nil, function(Skada, L)
 		local view = Skada.NativeAPI:GetSessionView(set, 0)
 		if not view then return end
 		
-		-- Max value.
+		local sources = view.combatSources or {}
+		
+		-- Check for WoW 12.0 issecretvalue function
+		local hasSecretAPI = issecretvalue ~= nil
+		
+		-- Detect if any values are secret (during combat)
+		local hasSecretValues = false
 		local max = 0
 		local nr = 1
 		
-		-- Calculate total damage first for percentages
+		-- First pass: detect secrets and calculate total for non-secrets
 		local totalDamage = 0
-		local sources = view.combatSources or {}
 		for _, player in pairs(sources) do
-			-- Try to get damage value safely
-			local damage = 0
-			local success, damageValue = pcall(function() return player.totalAmount end)
-			if success and type(damageValue) == "number" then
-				damage = Skada:SafeNumber(damageValue)
+			local damageValue = player.totalAmount
+			if damageValue then
+				if hasSecretAPI and issecretvalue(damageValue) then
+					hasSecretValues = true
+				else
+					local num = tonumber(damageValue) or 0
+					totalDamage = totalDamage + num
+				end
 			end
-			totalDamage = totalDamage + damage
 		end
 		
+		-- If secret state changed, wipe the window to prevent duplicate bars
+		-- (combat uses "combat_N" IDs, non-combat uses player names)
+		if win.metadata.wasSecretValues ~= nil and win.metadata.wasSecretValues ~= hasSecretValues then
+			win:Wipe()
+		end
+		win.metadata.wasSecretValues = hasSecretValues
+		
+		-- If values are secret, we'll preserve API order for sorting
+		win.metadata.ordersort = hasSecretValues
+		
 		for _, player in pairs(sources) do
-			-- Try to get damage value safely
-			local damage = 0
-			local success, damageValue = pcall(function() return player.totalAmount end)
-			if success and type(damageValue) == "number" then
-				damage = Skada:SafeNumber(damageValue)
+			-- Get player name - string.format works with secrets
+			local playerName = nil
+			local rawName = player.name or player.unitName
+			
+			if rawName then
+				if hasSecretAPI and issecretvalue(rawName) then
+					playerName = string.format("%s", rawName)
+				elseif type(rawName) == "string" then
+					playerName = rawName
+				end
 			end
 			
-			if damage > 0 then
-					local dps = getDPS(set, player)
+			-- Only process if we have a name
+			if playerName then
+				-- Get raw damage value (may be secret)
+				local rawDamage = player.totalAmount
+				local damage = 0
+				local isSecretDamage = hasSecretAPI and rawDamage and issecretvalue(rawDamage)
+				
+				if rawDamage and not isSecretDamage then
+					damage = tonumber(rawDamage) or 0
+				end
+				
+				-- Get raw DPS (may be secret)
+				local rawDps = player.amountPerSecond or player.rate
+				local dps = 0
+				local isSecretDps = hasSecretAPI and rawDps and issecretvalue(rawDps)
+				
+				if rawDps and not isSecretDps then
+					dps = tonumber(rawDps) or 0
+				end
+				
+				-- Get class/role safely
+				local playerClass = nil
+				local rawClass = player.class or player.classFilename
+				if rawClass and type(rawClass) == "string" then
+					playerClass = rawClass
+				end
+				
+				local playerRole = player.role
+				
+				local d = win.dataset[nr] or {}
+				win.dataset[nr] = d
+				
+				-- Use player GUID as ID for detail view navigation.
+				-- Even if it is a secret value, Skada:find_player will handle it.
+				d.id = player.sourceGUID or playerName
+				d.label = playerName  -- Label can still be the (formatted) secret string
+				d.class = playerClass
+				d.role = playerRole
+				d.order = nr  -- Store order for fallback sorting
+				
+				if hasSecretValues then
+					-- During combat: use FormatNumberSecret for secret values
+					local damageText = Skada:FormatNumberSecret(rawDamage)
+					local dpsText = Skada:FormatNumberSecret(rawDps)
 					
-					local playerName = player.name or player.unitName
-					local playerID = player.sourceGUID
-
-					local d = win.dataset[nr] or {}
-					win.dataset[nr] = d
-					d.label = playerName
-
+					Skada:FormatValueText(d,
+						damageText, self.metadata.columns.Damage,
+						dpsText, self.metadata.columns.DPS,
+						"", self.metadata.columns.Percent  -- Can't calculate % with secrets
+					)
+					d.value = 1000 - nr  -- Use order for bar sizing
+				else
+					-- After combat: values are readable, format normally
+					local percent = totalDamage > 0 and (damage / totalDamage * 100) or 0
+					
 					Skada:FormatValueText(d,
 						Skada:FormatNumber(damage), self.metadata.columns.Damage,
 						Skada:FormatNumber(dps), self.metadata.columns.DPS,
-						string.format("%02.1f%%", damage / math.max(1, totalDamage) * 100), self.metadata.columns.Percent
+						string.format("%02.1f%%", percent), self.metadata.columns.Percent
 					)
-
-					d.value = Skada:SafeNumber(dps)
-					d.id = playerID
-					d.class = player.class or player.classFilename
-					d.role = player.role
-					if dps > max then
-						max = dps
+					d.value = damage
+					if damage > max then
+						max = damage
 					end
-					nr = nr + 1
 				end
+				
+				nr = nr + 1
 			end
+		end
 
-		win.metadata.maxvalue = max
+		win.metadata.maxvalue = hasSecretValues and (1000 - 1) or (max > 0 and max or 1)
 	end
 
 	-- Tooltip for a specific player.
@@ -142,13 +221,13 @@ Skada:AddLoadableModule("Damage", nil, function(Skada, L)
 		if not damageSet then return end
 		
 		local totaltime = Skada:GetSetTime(damageSet)
-		local damage = Skada:SafeNumber(player.totalAmount or 0)
-		local dps = Skada:SafeNumber(player.amountPerSecond or 0)
+		local rawDamage = player.totalAmount or 0
+		local rawDps = player.amountPerSecond or 0
 		
-		tooltip:AddLine((player.name or "Unknown").." - "..L["DPS"])
-		tooltip:AddDoubleLine(L["Segment time"], totaltime.."s", 255,255,255,255,255,255)
-		tooltip:AddDoubleLine(L["Damage done"], Skada:FormatNumber(damage), 255,255,255,255,255,255)
-		tooltip:AddDoubleLine(L["DPS"], Skada:FormatNumber(dps), 255,255,255,255,255,255)
+		tooltip:AddLine((playerName or label).." - "..L["DPS"])
+		tooltip:AddDoubleLine(L["Segment time"], totaltime.."s", 1,1,1,1,1,1)
+		tooltip:AddDoubleLine(L["Damage done"], Skada:FormatNumberSecret(rawDamage), 1,1,1,1,1,1)
+		tooltip:AddDoubleLine(L["DPS"], Skada:FormatNumberSecret(rawDps), 1,1,1,1,1,1)
 		
 		-- Add top 3 spells
 		-- 0 = DamageDone
@@ -174,9 +253,18 @@ Skada:AddLoadableModule("Damage", nil, function(Skada, L)
 					local spellID = s.spellID or 0
 					local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
 					local name = spellInfo and spellInfo.name or ("Spell " .. tostring(spellID))
-					local val = Skada:SafeNumber(s.totalAmount or 0)
-					local percent = damage > 0 and (val / damage) * 100 or 0
-					tooltip:AddDoubleLine(name, Skada:FormatNumber(val) .. " (" .. string.format("%02.1f%%", percent) .. ")", 255,255,255,255,255,255)
+					
+					local rawVal = s.totalAmount or 0
+					local isSecretVal = issecretvalue and issecretvalue(rawVal)
+					
+					if isSecretVal then
+						tooltip:AddDoubleLine(name, Skada:FormatNumberSecret(rawVal), 1,1,1,1,1,1)
+					else
+						local val = tonumber(rawVal) or 0
+						local playerVal = Skada:SafeNumber(rawDamage)
+						local percent = playerVal > 0 and (val / playerVal) * 100 or 0
+						tooltip:AddDoubleLine(name, Skada:FormatNumber(val) .. " (" .. string.format("%02.1f%%", percent) .. ")", 1,1,1,1,1,1)
+					end
 				end
 			end
 		end
@@ -192,7 +280,15 @@ Skada:AddLoadableModule("Damage", nil, function(Skada, L)
 		local player = Skada:find_player(set, id)
 		if player then
 			-- Calculate total damage in set for percentage
-			local playerDamage = Skada:SafeNumber(player.totalAmount or 0)
+			local rawPlayerDamage = player.totalAmount or 0
+			local isSecretPlayerDamage = issecretvalue and issecretvalue(rawPlayerDamage)
+			
+			if isSecretPlayerDamage then
+				-- Can't show share percentage with secrets
+				return
+			end
+			
+			local playerDamage = tonumber(rawPlayerDamage) or 0
 			local totalDamage = 0
 			
 			-- 0 = DamageDone
@@ -200,8 +296,7 @@ Skada:AddLoadableModule("Damage", nil, function(Skada, L)
 			if view then
 				local sources = view.combatSources or view.participants or {}
 				for _, p in pairs(sources) do
-					local dmg = Skada:SafeNumber(p.totalAmount or 0)
-					totalDamage = totalDamage + dmg
+					totalDamage = totalDamage + Skada:SafeNumber(p.totalAmount or 0)
 				end
 			end
 			
@@ -214,7 +309,8 @@ Skada:AddLoadableModule("Damage", nil, function(Skada, L)
 
 	-- DPS-only view
 	function dpsmod:FormatSetSummary(datasetItem, set)
-		Skada:FormatValueText(datasetItem, Skada:FormatNumber(getRaidDPS(set)), true)
+		local raidDPS = getRaidDPS(set)
+		Skada:FormatValueText(datasetItem, Skada:FormatNumberSecret(raidDPS), true)
 	end
 
 	function dpsmod:Update(win, set)
@@ -224,34 +320,70 @@ Skada:AddLoadableModule("Damage", nil, function(Skada, L)
 		local view = Skada.NativeAPI:GetSessionView(set, 0)
 		if not view then return end
 		
+		local sources = view.combatSources or {}
+		
+		-- Secret detection
+		local hasSecretAPI = issecretvalue ~= nil
+		local hasSecretValues = false
 		local max = 0
 		local nr = 1
-
-		local sources = view.combatSources or {}
+		
 		for _, player in pairs(sources) do
-			local dps = getDPS(set, player)
+			local dpsVal = player.amountPerSecond or player.rate
+			if dpsVal and hasSecretAPI and issecretvalue(dpsVal) then
+				hasSecretValues = true
+				break
+			end
+		end
+		
+		-- Wipe on state change
+		if win.metadata.wasSecretValues ~= nil and win.metadata.wasSecretValues ~= hasSecretValues then
+			win:Wipe()
+		end
+		win.metadata.wasSecretValues = hasSecretValues
+		win.metadata.ordersort = hasSecretValues
 
-			if dps > 0 then
-				local playerName = player.name or player.unitName
-				local playerID = player.sourceGUID
-				
+		for _, player in pairs(sources) do
+			local rawDps = player.amountPerSecond or player.rate
+			local isSecretDps = hasSecretAPI and rawDps and issecretvalue(rawDps)
+			local dps = 0
+			if not isSecretDps then
+				dps = tonumber(rawDps) or 0
+			end
+
+			if dps > 0 or isSecretDps then
+				local rawName = player.name or player.unitName
+				local playerName = rawName
+				if hasSecretAPI and issecretvalue(rawName) then
+					playerName = string.format("%s", rawName)
+				end
+
 				local d = win.dataset[nr] or {}
 				win.dataset[nr] = d
 				d.label = playerName
-				d.id = playerID
-				d.value = dps
+				
+				if hasSecretValues then
+					d.id = "combat_" .. nr
+					d.value = 1000 - nr
+					d.valuetext = Skada:FormatNumberSecret(rawDps)
+				else
+					d.id = player.sourceGUID or playerName
+					d.value = dps
+					d.valuetext = Skada:FormatNumber(dps)
+					if dps > max then
+						max = dps
+					end
+				end
+				
 				d.class = player.class or player.classFilename
 				d.role = player.role
-				d.valuetext = Skada:FormatNumber(dps)
-				if dps > max then
-					max = dps
-				end
+				d.order = nr
 
 				nr = nr + 1
 			end
 		end
 
-		win.metadata.maxvalue = max
+		win.metadata.maxvalue = hasSecretValues and (1000 - 1) or max
 	end
 
 	function mod:OnEnable()
@@ -263,13 +395,15 @@ Skada:AddLoadableModule("Damage", nil, function(Skada, L)
 			if Skada.current then
 				local player = Skada:find_player(Skada.current, UnitGUID("player"))
 				if player then
-					return Skada:FormatNumber(getDPS(Skada.current, player)).." "..L["DPS"]
+					local dps = getDPS(Skada.current, player)
+					return Skada:FormatNumberSecret(dps).." "..L["DPS"]
 				end
 			end
 		end)
 		Skada:AddFeed(L["Damage: Raid DPS"], function()
 			if Skada.current then
-				return Skada:FormatNumber(getRaidDPS(Skada.current)).." "..L["RDPS"]
+				local raidDps = getRaidDPS(Skada.current)
+				return Skada:FormatNumberSecret(raidDps).." "..L["RDPS"]
 			end
 		end)
 		Skada:AddMode(self, L["Damage"])
@@ -290,28 +424,36 @@ Skada:AddLoadableModule("Damage", nil, function(Skada, L)
 	end
 
 	function mod:AddToTooltip(set, tooltip)
-		GameTooltip:AddDoubleLine(L["DPS"], Skada:FormatNumber(getRaidDPS(set)), 1,1,1)
+		local raidDps = getRaidDPS(set)
+		GameTooltip:AddDoubleLine(L["DPS"], Skada:FormatNumberSecret(raidDps), 1,1,1)
 	end
 
 	function mod:FormatSetSummary(datasetItem,set)
 		-- Calculate total damage from session view
 		local totalDamage = 0
+		local raidDps = 0
 		if set then
+			raidDps = getRaidDPS(set)
 			-- 0 = DamageDone
 			local view = Skada.NativeAPI:GetSessionView(set, 0)
 			if view then
 				local sources = view.combatSources or {}
 				for _, player in pairs(sources) do
-					local damage = player.damage or player.totalAmount or 0
-					totalDamage = totalDamage + Skada:SafeNumber(damage)
+					local damageVal = player.totalAmount or 0
+					if issecretvalue and issecretvalue(damageVal) then
+						-- If we find a secret value, the whole total is effectively secret
+						totalDamage = damageVal
+						break
+					end
+					totalDamage = totalDamage + (tonumber(damageVal) or 0)
 				end
 			end
 		end
 		
 		Skada:FormatValueText(
 			datasetItem,
-			Skada:FormatNumber(totalDamage), self.metadata.columns.Damage,
-			Skada:FormatNumber(getRaidDPS(set)), self.metadata.columns.DPS
+			Skada:FormatNumberSecret(totalDamage), self.metadata.columns.Damage,
+			Skada:FormatNumberSecret(raidDps), self.metadata.columns.DPS
 		)
 	end
 
