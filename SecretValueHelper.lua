@@ -138,3 +138,160 @@ function SecretHelper:FormatNumber(value)
 		return string.format("%.0f", num)
 	end
 end
+
+--[[
+	MODULE-SPECIFIC HELPERS
+	These functions handle common patterns in Skada modules
+]]--
+
+--[[
+	Check if WoW 12.0 secret API is available
+	@return boolean - true if issecretvalue function exists
+]]
+function SecretHelper:HasSecretAPI()
+	return hasSecretAPI
+end
+
+--[[
+	Detect secrets in a data table and calculate total
+	This combines the common "first pass" pattern into one function
+	@param dataTable - Table of items to check (e.g., sources, spells)
+	@param valueKey - Key to check for secret values (e.g., "totalAmount", "healing")
+	@return hasSecrets, total - Boolean indicating if any secrets found, and numeric total
+]]
+function SecretHelper:DetectSecrets(dataTable, valueKey)
+	local hasSecrets = false
+	local total = 0
+	
+	if not dataTable then return false, 0 end
+	
+	for _, item in pairs(dataTable) do
+		if type(item) == "table" then
+			local value = item[valueKey]
+			if value then
+				if hasSecretAPI and issecretvalue(value) then
+					hasSecrets = true
+				else
+					total = total + (tonumber(value) or 0)
+				end
+			end
+		end
+	end
+	
+	return hasSecrets, total
+end
+
+--[[
+	Get player name safely, handling secret values
+	@param player - Player table from NativeAPI
+	@return string - Player name (formatted if secret)
+]]
+function SecretHelper:GetPlayerName(player)
+	if not player then return nil end
+	
+	local rawName = player.name or player.unitName
+	if not rawName then return nil end
+	
+	if hasSecretAPI and issecretvalue(rawName) then
+		return string.format("%s", rawName)
+	elseif type(rawName) == "string" then
+		return rawName
+	end
+	
+	return nil
+end
+
+--[[
+	Get player class safely
+	@param player - Player table from NativeAPI
+	@return string - Player class or nil
+]]
+function SecretHelper:GetPlayerClass(player)
+	if not player then return nil end
+	
+	local rawClass = player.class or player.classFilename
+	if rawClass and type(rawClass) == "string" then
+		return rawClass
+	end
+	
+	return nil
+end
+
+--[[
+	Update window metadata for secret state changes
+	Handles the common pattern of wiping window and setting metadata
+	@param win - Window object
+	@param hasSecrets - Boolean indicating if current data has secrets
+]]
+function SecretHelper:UpdateWindowMetadata(win, hasSecrets)
+	if not win or not win.metadata then return end
+	
+	-- Wipe window if secret state changed
+	if win.metadata.wasSecretValues ~= nil and win.metadata.wasSecretValues ~= hasSecrets then
+		win:Wipe()
+	end
+	
+	win.metadata.wasSecretValues = hasSecrets
+	win.metadata.ordersort = hasSecrets
+end
+
+--[[
+	Get display value for a bar, handling secrets
+	@param value - The actual value (may be secret)
+	@param order - Order/index for fallback when secret
+	@return number - Value to use for bar sizing
+]]
+function SecretHelper:GetDisplayValue(value, order)
+	if hasSecretAPI and value and issecretvalue(value) then
+		return 1000 - (order or 1)
+	end
+	return tonumber(value) or 0
+end
+
+--[[
+	Get max value for window metadata
+	@param hasSecrets - Boolean indicating if data has secrets
+	@param max - Calculated max value (for non-secret case)
+	@param count - Number of items (for secret case)
+	@return number - Max value for metadata
+]]
+function SecretHelper:GetMaxValue(hasSecrets, max, count)
+	if hasSecrets then
+		return 1000 - 1
+	end
+	return (max > 0 and max or 1)
+end
+
+--[[
+	Safe tonumber that returns 0 for secrets instead of crashing
+	@param value - Value to convert
+	@return number - 0 if secret or nil, otherwise tonumber result
+]]
+function SecretHelper:SafeNumber(value)
+	if value == nil then return 0 end
+	if hasSecretAPI and issecretvalue(value) then return 0 end
+	return tonumber(value) or 0
+end
+
+--[[
+	Format a value for display with optional percentage
+	@param value - The value to format
+	@param includePercent - Whether to include percentage
+	@param total - Total for percentage calculation
+	@return string - Formatted text
+]]
+function SecretHelper:FormatValueText(value, includePercent, total)
+	if hasSecretAPI and value and issecretvalue(value) then
+		return Skada:FormatNumberSecret(value)
+	end
+	
+	local num = tonumber(value) or 0
+	local text = Skada:FormatNumber(num)
+	
+	if includePercent and total and total > 0 then
+		local percent = (num / total) * 100
+		text = text .. string.format(" (%02.1f%%)", percent)
+	end
+	
+	return text
+end

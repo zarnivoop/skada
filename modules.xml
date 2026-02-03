@@ -2,8 +2,10 @@
 ..\FrameXML\UI.xsd">
 
 <Script file="modules\Damage.lua"/>
+<Script file="modules\DPS.lua"/>
 <Script file="modules\Threat.lua"/>
 <Script file="modules\Healing.lua"/>
+<Script file="modules\HPS.lua"/>
 <Script file="modules\DamageTaken.lua"/>
 <Script file="modules\Dispels.lua"/>
 <Script file="modules\Interrupts.lua"/>

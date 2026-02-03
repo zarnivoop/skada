@@ -1,179 +1,32 @@
 local _, Skada = ...
+local ModuleBase = Skada.ModuleBase
+local SecretHelper = Skada.SecretHelper
+
 Skada:AddLoadableModule("Dispels", nil, function(Skada, L)
 	if Skada.db.profile.modulesBlocked.Dispels then return end
 
 	local mod = Skada:NewModule(L["Dispels"])
 	local playermod = Skada:NewModule(L["Dispels spell list"])
-
-	local function getSetTotal(set)
-		if not set then return 0 end
-		-- 6 = Dispels
-		local view = Skada.NativeAPI:GetSessionView(set, 6)
-		if not view then return 0 end
-		
-		local total = 0
-		local sources = view.combatSources or view.participants or {}
-		for _, p in pairs(sources) do
-			local amount = p.dispels or p.totalAmount or 0
-			if issecretvalue and issecretvalue(amount) then
-				return amount -- If any secret, total is secret
-			end
-			total = total + (tonumber(amount) or 0)
-		end
-		return total
-	end
+	local DAMAGE_TYPE = 6 -- Dispels
 
 	function playermod:Enter(win, id, label)
 		playermod.playerid = id
-		playermod.title = label..L["'s Dispels"]
+		playermod.title = label .. L["'s Dispels"]
 	end
 
 	function playermod:Update(win, set)
-		-- 6 = Dispels
-		local view = Skada.NativeAPI:GetSessionView(set, 6)
-		if not view then return end
-		
-		local source = Skada.NativeAPI:GetPlayerSpells(self.playerid, view, 6)
-		if not source then return end
-		
-		local spells = source.combatSpells
-		if not spells then return end
-		
-		local hasSecretAPI = issecretvalue ~= nil
-		local hasSecretValues = false
-		local max = 0
-		local nr = 1
-		local totalDispels = 0
-		
-		for _, spell in pairs(spells) do
-			local amount = spell.totalAmount or 0
-			if hasSecretAPI and issecretvalue(amount) then
-				hasSecretValues = true
-			else
-				totalDispels = totalDispels + (tonumber(amount) or 0)
-			end
-		end
-		
-		for _, spell in pairs(spells) do
-			local rawAmount = spell.totalAmount or 0
-			local isSecretAmt = hasSecretAPI and rawAmount and issecretvalue(rawAmount)
-			
-			if rawAmount ~= 0 or isSecretAmt then
-				local d = win.dataset[nr] or {}
-				win.dataset[nr] = d
-				d.id = spell.spellID
-				local spellID = spell.spellID or 0
-				local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
-				d.label = spellInfo and spellInfo.name or ("Spell " .. spell.spellID)
-				
-				if isSecretAmt then
-					d.value = 1000 - nr
-					d.valuetext = Skada:FormatNumberSecret(rawAmount)
-				else
-					local amount = tonumber(rawAmount) or 0
-					d.value = amount
-					d.valuetext = Skada:FormatNumber(amount)..(" (%02.1f%%)"):format(amount / math.max(1, totalDispels) * 100)
-					if amount > max then
-						max = amount
-					end
-				end
-				d.icon = Skada:GetSpellIcon(spell.spellID)
-				nr = nr + 1
-			end
-		end
-		win.metadata.maxvalue = hasSecretValues and (1000 - 1) or max
+		ModuleBase:UpdateSpellList(win, self.playerid, set, DAMAGE_TYPE)
 	end
 
 	function mod:Update(win, set)
-		-- 6 = Dispels
-		local view = Skada.NativeAPI:GetSessionView(set, 6)
-		if not view then return end
-		
-		local sources = view.combatSources or {}
-		
-		-- Check for WoW 12.0 issecretvalue function
-		local hasSecretAPI = issecretvalue ~= nil
-		
-		-- Detect if any values are secret (during combat)
-		local hasSecretValues = false
-		local max = 0
-		local nr = 1
-		
-		-- First pass: detect secrets
-		local setTotal = 0
-		for _, player in pairs(sources) do
-			local amount = player.totalAmount
-			if amount then
-				if hasSecretAPI and issecretvalue(amount) then
-					hasSecretValues = true
-				else
-					local num = tonumber(amount) or 0
-					setTotal = setTotal + num
-				end
-			end
-		end
-		set.dispels = setTotal
-		
-		-- If secret state changed, wipe the window
-		if win.metadata.wasSecretValues ~= nil and win.metadata.wasSecretValues ~= hasSecretValues then
-			win:Wipe()
-		end
-		win.metadata.wasSecretValues = hasSecretValues
-		win.metadata.ordersort = hasSecretValues
-
-		for _, player in pairs(sources) do
-			-- Get player name
-			local playerName = nil
-			local rawName = player.name or player.unitName
-			if rawName then
-				if hasSecretAPI and issecretvalue(rawName) then
-					playerName = string.format("%s", rawName)
-				elseif type(rawName) == "string" then
-					playerName = rawName
-				end
-			end
-			
-			if playerName then
-				local rawDispels = player.totalAmount
-				local dispels = 0
-				local isSecretDispels = hasSecretAPI and rawDispels and issecretvalue(rawDispels)
-				
-				if rawDispels and not isSecretDispels then
-					dispels = tonumber(rawDispels) or 0
-				end
-				
-				local d = win.dataset[nr] or {}
-				win.dataset[nr] = d
-
-				-- Use real GUID for detail view navigation
-				d.id = player.sourceGUID or playerName
-				
-				if hasSecretValues then
-					d.value = 1000 - nr
-					d.valuetext = Skada:FormatNumberSecret(rawDispels)
-				else
-					d.value = dispels
-					d.valuetext = Skada:FormatNumber(dispels)
-					if dispels > max then
-						max = dispels
-					end
-				end
-				
-				d.label = playerName
-				d.class = player.class or player.classFilename
-				d.role = player.role
-				d.order = nr
-
-				nr = nr + 1
-			end
-		end
-
-		win.metadata.maxvalue = hasSecretValues and (1000 - 1) or max
+		ModuleBase:UpdateSimpleList(win, set, {
+			damageType = DAMAGE_TYPE,
+			valueKey = "totalAmount"
+		})
 	end
 
 	function mod:OnEnable()
 		mod.metadata = {click1 = playermod, showspots = true, icon = "Interface\\Icons\\Spell_holy_dispelmagic"}
-
 		Skada:AddMode(self)
 	end
 
@@ -182,20 +35,12 @@ Skada:AddLoadableModule("Dispels", nil, function(Skada, L)
 	end
 
 	function mod:AddToTooltip(set, tooltip)
-		local total = getSetTotal(set)
-		GameTooltip:AddDoubleLine(L["Dispels"], Skada:FormatNumberSecret(total), 1,1,1)
-	end
-
-	-- Called by Skada when a new player is added to a set.
-	function mod:AddPlayerAttributes(player)
-	end
-
-	-- Called by Skada when a new set is created.
-	function mod:AddSetAttributes(set)
+		local total = ModuleBase:GetSetTotal(set, DAMAGE_TYPE)
+		GameTooltip:AddDoubleLine(L["Dispels"], Skada:FormatNumberSecret(total), 1, 1, 1)
 	end
 
 	function mod:FormatSetSummary(datasetItem, set)
-		local total = getSetTotal(set)
+		local total = ModuleBase:GetSetTotal(set, DAMAGE_TYPE)
 		Skada:FormatValueText(datasetItem, Skada:FormatNumberSecret(total), true)
 	end
 end)

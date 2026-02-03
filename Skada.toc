@@ -51,6 +51,7 @@ locale\zhTW.lua
 
 NativeAPI.lua
 SecretValueHelper.lua
+ModuleBase.lua
 Skada.lua
 Menus.lua
 Options.lua
