@@ -1582,10 +1582,9 @@ end
 
 -- Format a number that may be a WoW 12.0 secret value.
 function Skada:FormatNumberSecret(number)
-	-- For secret values, just use tostring which gives the cleanest representation
-	-- The game handles the display formatting for secret values internally
+	-- For secret values, use string.format with %.0f to limit decimals
 	if issecretvalue and issecretvalue(number) then
-		local success, s = pcall(tostring, number)
+		local success, s = pcall(string.format, "%.0f", number)
 		if success then return s end
 		return "?"
 	end
