@@ -1553,30 +1553,9 @@ function Skada:FormatNumber(number)
 	
 	-- Check for WoW 12.0 secret value FIRST to avoid comparison errors
 	if issecretvalue and issecretvalue(number) then
-		if self.db.profile.debug then
-			self:Debug("FormatNumber Secret encountered:", type(number))
-		end
-
-		-- Try multiple formatting patterns
-		local success, s
-		for _, pattern in ipairs({"%s", "%d", "%.0f"}) do
-			success, s = pcall(string.format, pattern, number)
-			if success and s and s ~= "" then 
-				if self.db.profile.debug then
-					self:Debug("  Pattern", pattern, "worked:", s)
-				end
-				return s 
-			end
-		end
-		
-		-- Last ditch fallback: tostring
-		success, s = pcall(tostring, number)
-		if success and s and s ~= "" then return s end
-		
-		if self.db.profile.debug then
-			self:Debug("  All formatting patterns failed for secret value")
-		end
-		return ""
+		-- Secret values should be formatted with FormatNumberSecret, not here
+		-- Return a placeholder to indicate misuse
+		return "?"
 	end
 	
 	-- Now it is safe to perform comparisons
@@ -1603,6 +1582,14 @@ end
 
 -- Format a number that may be a WoW 12.0 secret value.
 function Skada:FormatNumberSecret(number)
+	-- For secret values, just use tostring which gives the cleanest representation
+	-- The game handles the display formatting for secret values internally
+	if issecretvalue and issecretvalue(number) then
+		local success, s = pcall(tostring, number)
+		if success then return s end
+		return "?"
+	end
+	-- For normal values, use regular formatting
 	return self:FormatNumber(number)
 end
 

@@ -85,7 +85,13 @@ function ModuleBase:UpdatePlayerList(win, set, options)
 			local d = win.dataset[nr] or {}
 			win.dataset[nr] = d
 			
-			d.id = player.sourceGUID or playerName
+			-- During combat with secret values, use order-based IDs
+			if hasSecretValues then
+				d.id = "combat_" .. nr
+			else
+				d.id = player.sourceGUID or playerName
+			end
+			
 			d.label = playerName
 			d.class = SecretHelper:GetPlayerClass(player)
 			d.role = player.role
@@ -184,7 +190,13 @@ function ModuleBase:UpdateSimpleList(win, set, options)
 				local d = win.dataset[nr] or {}
 				win.dataset[nr] = d
 				
-				d.id = player.sourceGUID or playerName
+				-- During combat with secret values, use order-based IDs
+				if hasSecretValues then
+					d.id = "combat_" .. nr
+				else
+					d.id = player.sourceGUID or playerName
+				end
+				
 				d.label = playerName
 				d.class = SecretHelper:GetPlayerClass(player)
 				d.role = player.role

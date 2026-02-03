@@ -19,7 +19,10 @@ Skada:AddLoadableModule("Damage", nil, function(Skada, L)
 	end
 
 	function mod:Update(win, set)
-		ModuleBase:UpdatePlayerList(win, set, {
+		if not set then return end
+		
+		-- Wrap ModuleBase call in pcall to catch errors during combat
+		local success, err = pcall(ModuleBase.UpdatePlayerList, ModuleBase, win, set, {
 			damageType = DAMAGE_TYPE,
 			valueKey = "totalAmount",
 			rateKey = "amountPerSecond",
@@ -27,6 +30,12 @@ Skada:AddLoadableModule("Damage", nil, function(Skada, L)
 			getRateFunc = function(s, p) return ModuleBase:GetPlayerRate(s, p, 1) end,
 			includePercent = true
 		})
+		
+		if not success then
+			-- Print error to chat frame directly
+			print("SKADA ERROR:", err)
+			DEFAULT_CHAT_FRAME:AddMessage("|cFFFF0000SKADA ERROR:|r " .. tostring(err))
+		end
 	end
 
 	local function dps_tooltip(win, id, label, tooltip)
