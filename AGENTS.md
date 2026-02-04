@@ -10,7 +10,7 @@ WoW 12.0 introduces **Secret Values**. These are special data types returned by 
 - **Math Crashes**: Adding, subtracting, or multiplying a secret value (e.g., `val + 0`) will cause a hard script crash.
 - **Comparison Crashes**: Using `>` or `<` on secret values will cause a hard script crash.
 - **Indexing Crashes**: If a table *itself* is a secret value (Blizzard restricts the whole object), attempting to index it (e.g., `s.spellID`) will cause a hard script crash.
-- **Format Safety**: `string.format("%s", secretValue)` and `FontString:SetText(secretValue)` are the only safe ways to display restricted data.
+- **Format Safety**: `string.format()` with most patterns works with secret values (e.g., `%.0f`, `%d`, `%s`). `FontString:SetText(secretValue)` also works. However, you cannot compare the result of string.format with secret values using `==` or `~=`.
 
 ### Developing Safely
 Always use the `SecretHelper` (localized from `Skada.SecretHelper`):

@@ -29,59 +29,15 @@ Skada:AddLoadableModule("Healing", nil, function(Skada, L)
 		})
 	end
 
-	local function hps_tooltip(win, id, label, tooltip)
-		local set = win:get_selected_set()
-		if not set then return end
-		local player = Skada:find_player(set, id)
-		if not player then return end
-
-		local view = Skada.NativeAPI:GetSessionView(set, DAMAGE_TYPE)
-		if not view then return end
-
-		local totaltime = Skada:GetSetTime(view)
-		local rawAmount = player.totalAmount or 0
-		local rawHps = player.amountPerSecond or 0
-
-		tooltip:AddLine((player.name or label) .. " - " .. L["HPS"])
-		tooltip:AddDoubleLine(L["Segment time"], totaltime .. "s", 1, 1, 1, 1, 1, 1)
-		tooltip:AddDoubleLine(L["Healing done"], Skada:FormatNumberSecret(rawAmount), 1, 1, 1, 1, 1, 1)
-		tooltip:AddDoubleLine(L["HPS"], Skada:FormatNumberSecret(rawHps), 1, 1, 1, 1, 1, 1)
-
-		-- Add top 3 spells
-		local spells = Skada.NativeAPI:GetPlayerSpells(id, view, DAMAGE_TYPE)
-		if spells then
-			local sorted = {}
-			for _, s in pairs(spells) do
-				if type(s) == "table" and s.totalAmount then
-					table.insert(sorted, s)
-				end
-			end
-			table.sort(sorted, function(a, b)
-				return SecretHelper:SafeNumber(a.totalAmount) > SecretHelper:SafeNumber(b.totalAmount)
-			end)
-
-			if #sorted > 0 then
-				tooltip:AddLine(" ")
-				tooltip:AddLine(L["Top Spells"])
-				for i = 1, math.min(3, #sorted) do
-					local s = sorted[i]
-					local spellID = s.spellID or 0
-					local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
-					local name = spellInfo and spellInfo.name or ("Spell " .. tostring(spellID))
-					local rawVal = s.totalAmount or 0
-
-					if SecretHelper:HasSecretAPI() and issecretvalue(rawVal) then
-						tooltip:AddDoubleLine(name, Skada:FormatNumberSecret(rawVal), 1, 1, 1, 1, 1, 1)
-					else
-						local val = tonumber(rawVal) or 0
-						local playerVal = SecretHelper:SafeNumber(rawAmount)
-						local percent = playerVal > 0 and (val / playerVal) * 100 or 0
-						tooltip:AddDoubleLine(name, Skada:FormatNumber(val) .. " (" .. string.format("%02.1f%%", percent) .. ")", 1, 1, 1, 1, 1, 1)
-					end
-				end
-			end
-		end
-	end
+	-- Use shared tooltip function from ModuleBase
+	local hps_tooltip = ModuleBase:CreatePlayerTooltip({
+		damageType = DAMAGE_TYPE,
+		valueKey = "totalAmount",
+		rateKey = "amountPerSecond",
+		labelDamage = L["Healing done"],
+		labelRate = L["HPS"],
+		spellValueKey = "totalAmount"
+	})
 
 	function mod:OnEnable()
 		playermod.metadata = {tooltip = hps_tooltip}

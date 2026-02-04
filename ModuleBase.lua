@@ -404,15 +404,17 @@ function ModuleBase:CreatePlayerTooltip(options)
 			local spellValueKey = options.spellValueKey or "totalAmount"
 			
 			for _, s in pairs(spells) do
-				if type(s) == "table" and s[spellValueKey] then
-					table.insert(sorted, s)
+				-- Check if spell entry itself is not secret and is a table
+				if type(s) == "table" and not SecretHelper:IsSecret(s) then
+					local rawAmount = s[spellValueKey]
+					if rawAmount and not SecretHelper:IsSecret(rawAmount) then
+						table.insert(sorted, s)
+					end
 				end
 			end
 			
 			table.sort(sorted, function(a, b)
-				local aVal = SecretHelper:SafeNumber(a[spellValueKey])
-				local bVal = SecretHelper:SafeNumber(b[spellValueKey])
-				return aVal > bVal
+				return SecretHelper:SafeNumber(a[spellValueKey]) > SecretHelper:SafeNumber(b[spellValueKey])
 			end)
 			
 			if #sorted > 0 then
@@ -421,14 +423,17 @@ function ModuleBase:CreatePlayerTooltip(options)
 				
 				for i = 1, math.min(3, #sorted) do
 					local s = sorted[i]
-					local spellID = s.spellID or 0
+					-- Safely get spell properties with pcall
+					local success_spellID, spellID = pcall(function() return s.spellID end)
+					spellID = success_spellID and spellID or 0
+					
 					local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
 					local name = spellInfo and spellInfo.name or ("Spell " .. tostring(spellID))
 					
-					local rawVal = s[spellValueKey] or 0
-					local isSecretVal = SecretHelper:HasSecretAPI() and issecretvalue(rawVal)
+					local success_val, rawVal = pcall(function() return s[spellValueKey] end)
+					rawVal = success_val and rawVal or 0
 					
-					if isSecretVal then
+					if SecretHelper:HasSecretAPI() and issecretvalue(rawVal) then
 						tooltip:AddDoubleLine(name, Skada:FormatNumberSecret(rawVal), 1, 1, 1, 1, 1, 1)
 					else
 						local val = tonumber(rawVal) or 0
@@ -457,6 +462,46 @@ function ModuleBase:CreateSimpleTooltip(labelTotal)
 		if player then
 			local rawValue = player.totalAmount or 0
 			tooltip:AddDoubleLine(labelTotal, Skada:FormatNumberSecret(rawValue), 1, 1, 1, 1, 1, 1)
+		end
+	end
+end
+
+--[[
+	Create a damage share tooltip handler (post-tooltip)
+	Shows what percentage of total damage/healing the player contributed
+	
+	@param options - Table with configuration:
+		- damageType: NativeAPI damage type constant
+		- labelShare: Label for share line (e.g., L["Damage share"])
+	@return function - Tooltip handler function
+]]
+function ModuleBase:CreateDamageShareTooltip(options)
+	return function(win, id, label, tooltip)
+		local set = win:get_selected_set()
+		if not set then return end
+		
+		local player = Skada:find_player(set, id)
+		if not player then return end
+		
+		local rawPlayerValue = player.totalAmount or 0
+		if SecretHelper:HasSecretAPI() and issecretvalue(rawPlayerValue) then
+			return
+		end
+		
+		local playerValue = tonumber(rawPlayerValue) or 0
+		local totalValue = 0
+		
+		local view = Skada.NativeAPI:GetSessionView(set, options.damageType)
+		if view then
+			local sources = view.combatSources or view.participants or {}
+			for _, p in pairs(sources) do
+				totalValue = totalValue + SecretHelper:SafeNumber(p.totalAmount)
+			end
+		end
+		
+		if totalValue > 0 then
+			local percent = (playerValue / totalValue) * 100
+			tooltip:AddDoubleLine(options.labelShare, ("%02.1f%%"):format(percent), 255, 255, 255, 255, 255, 255)
 		end
 	end
 end

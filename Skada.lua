@@ -1582,7 +1582,7 @@ end
 
 -- Format a number that may be a WoW 12.0 secret value.
 function Skada:FormatNumberSecret(number)
-	-- For secret values, use string.format with %.0f to limit decimals
+	-- For secret values, use string.format with %.0f for clean whole numbers
 	if issecretvalue and issecretvalue(number) then
 		local success, s = pcall(string.format, "%.0f", number)
 		if success then return s end
