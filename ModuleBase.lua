@@ -236,8 +236,21 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 	options = options or {}
 	local valueKey = options.valueKey or "totalAmount"
 	
-	local spells = Skada.NativeAPI:GetPlayerSpells(playerid, set, damageType)
-	if not spells then return end
+	local view = Skada.NativeAPI:GetSessionView(set, damageType)
+	local player = Skada:find_player_in_session(view, playerid)
+	
+	if not player then
+		player = Skada:find_player(set, playerid)
+	end
+	
+	if not player then return end
+	
+	local realID = player.sourceGUID or player.guid or player.unitGUID or player.id or playerid
+	local spells = Skada.NativeAPI:GetPlayerSpells(realID, view or set, damageType)
+	
+	if not spells or SecretHelper:IsSecret(spells) then 
+		return 
+	end
 	
 	local hasSecretAPI = SecretHelper:HasSecretAPI()
 	
@@ -278,7 +291,7 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 					d.label = spellInfo and spellInfo.name or ("Spell " .. tostring(spellID))
 					
 					if isSecret then
-						d.value = 1000 - nr
+						d.value = SecretHelper:GetDisplayValue(rawValue, nr)
 						d.valuetext = Skada:FormatNumberSecret(rawValue)
 					else
 						local value = tonumber(rawValue) or 0
@@ -382,11 +395,16 @@ function ModuleBase:CreatePlayerTooltip(options)
 		local set = win:get_selected_set()
 		if not set then return end
 		
-		local player = Skada:find_player(set, id)
-		if not player then return end
-		
 		local view = Skada.NativeAPI:GetSessionView(set, options.damageType)
 		if not view then return end
+		
+		-- Resolve player (crucial for artificial IDs)
+		local player = Skada:find_player_in_session(view, id)
+		if not player then
+			player = Skada:find_player(set, id)
+		end
+		
+		if not player then return end
 		
 		local totaltime = Skada:GetSetTime(view)
 		local rawValue = player[options.valueKey] or player.totalAmount or 0
@@ -398,7 +416,8 @@ function ModuleBase:CreatePlayerTooltip(options)
 		tooltip:AddDoubleLine(options.labelRate, Skada:FormatNumberSecret(rawRate), 1, 1, 1, 1, 1, 1)
 		
 		-- Add top spells
-		local spells = Skada.NativeAPI:GetPlayerSpells(id, view, options.damageType)
+		local realID = player.sourceGUID or player.guid or player.unitGUID or player.id or id
+		local spells = Skada.NativeAPI:GetPlayerSpells(realID, view, options.damageType)
 		if spells then
 			local sorted = {}
 			local spellValueKey = options.spellValueKey or "totalAmount"

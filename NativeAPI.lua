@@ -68,10 +68,17 @@ end
 function NativeAPI:GetSessionSource(sourceGUID, sessionType, damageType)
 	if not sourceGUID then return nil end
 	
-	-- Try standard arguments first
+	-- 1. Try FromType
 	local success, result = pcall(C_DamageMeter.GetCombatSessionSourceFromType, sessionType, damageType, sourceGUID)
 	if success and result then return result end
 	
+	-- 2. Try FromID if sessionID is available
+	local success_view, view = pcall(C_DamageMeter.GetCombatSessionFromType, sessionType, damageType)
+	if success_view and view and view.sessionID then
+		local success_id, res_id = pcall(C_DamageMeter.GetCombatSessionSourceFromID, view.sessionID, sourceGUID)
+		if success_id and res_id then return res_id end
+	end
+
 	return nil
 end
 

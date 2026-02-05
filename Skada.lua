@@ -1229,10 +1229,27 @@ end
 function Skada:find_player_in_session(session, playerGUID)
 	if not session or not playerGUID then return nil end
 	local sources = session.combatSources or session.participants or {}
-	for _, p in pairs(sources) do
-		-- Secret values cannot be compared directly, wrap in pcall
+	
+	local idType = type(playerGUID)
+	local idIsSecret = (issecretvalue and issecretvalue(playerGUID))
+
+	-- Handle artificial combat IDs
+	if idType == "string" and not idIsSecret and playerGUID:sub(1, 7) == "combat_" then
+		local index = tonumber(playerGUID:sub(8))
+		if index then
+			local nr = 1
+			for k, p in pairs(sources) do
+				if nr == index then return p end
+				nr = nr + 1
+			end
+		end
+		return nil
+	end
+	
+	for k, p in pairs(sources) do
 		local success, matches = pcall(function()
-			return (p.sourceGUID == playerGUID) or (p.guid == playerGUID) or (p.unitGUID == playerGUID)
+			-- Also check for .id if it exists
+			return (p.sourceGUID == playerGUID) or (k == playerGUID) or (p.guid == playerGUID) or (p.unitGUID == playerGUID) or (p.id == playerGUID)
 		end)
 		if success and matches then
 			return p
