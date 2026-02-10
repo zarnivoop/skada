@@ -3,7 +3,7 @@ name: Release Addon
 on:
   push:
     tags:
-      - '*'
+      - 'v*'
   workflow_dispatch:
     inputs:
       dry_run:

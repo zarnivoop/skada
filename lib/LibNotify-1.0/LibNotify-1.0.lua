@@ -130,14 +130,15 @@ showNotification = function()
         frame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -20, 20)
         frame:SetFrameStrata("DIALOG")
         frame:SetBackdrop({
-            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
-            edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-            tile = true,
-            tileSize = 32,
-            edgeSize = 32,
-            insets = { left = 11, right = 12, top = 12, bottom = 11 }
+            bgFile = "Interface\\Buttons\\WHITE8X8",
+            edgeFile = "Interface\\Buttons\\WHITE8X8",
+            tile = false,
+            tileSize = 0,
+            edgeSize = 1,
+            insets = { left = 0, right = 0, top = 0, bottom = 0 }
         })
-        frame:SetBackdropColor(0, 0, 0, 1)
+        frame:SetBackdropColor(0, 0, 0, 0.8)
+        frame:SetBackdropBorderColor(0.5, 0.5, 0.5, 0.5)
         
         -- Create an icon
         local iconTexture = frame:CreateTexture(nil, "ARTWORK")
@@ -252,14 +253,27 @@ showDetailedPopup = function(notificationData)
         messageFrame:SetPoint("CENTER", UIParent, "CENTER")
         messageFrame:SetFrameStrata("DIALOG")
         messageFrame:SetBackdrop({
-            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
-            edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-            tile = true,
-            tileSize = 32,
-            edgeSize = 32,
-            insets = { left = 11, right = 12, top = 12, bottom = 11 }
+            bgFile = "Interface\\Buttons\\WHITE8X8",
+            edgeFile = "Interface\\Buttons\\WHITE8X8",
+            tile = false,
+            tileSize = 0,
+            edgeSize = 1,
+            insets = { left = 0, right = 0, top = 0, bottom = 0 }
         })
-        messageFrame:SetBackdropColor(0, 0, 0, 1)
+        messageFrame:SetBackdropColor(0, 0, 0, 0.9)
+        messageFrame:SetBackdropBorderColor(0.5, 0.5, 0.5, 0.8)
+        
+        -- Header Bar
+        local header = messageFrame:CreateTexture(nil, "BACKGROUND")
+        header:SetHeight(30)
+        header:SetPoint("TOPLEFT", messageFrame, "TOPLEFT", 1, -1)
+        header:SetPoint("TOPRIGHT", messageFrame, "TOPRIGHT", -1, -1)
+        header:SetColorTexture(0.1, 0.1, 0.1, 1)
+        
+        local headerText = messageFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        headerText:SetPoint("LEFT", header, "LEFT", 10, 0)
+        headerText:SetText("Skada Version History")
+        messageFrame.headerText = headerText
         messageFrame:EnableMouse(true)
         messageFrame:SetMovable(true)
         messageFrame:RegisterForDrag("LeftButton")
@@ -268,8 +282,8 @@ showDetailedPopup = function(notificationData)
         
         -- Create a scrollframe for the content
         local scrollframe = CreateFrame("ScrollFrame", nil, messageFrame, "UIPanelScrollFrameTemplate")
-        scrollframe:SetPoint("TOPLEFT", messageFrame, "TOPLEFT", 30, -30)
-        scrollframe:SetPoint("BOTTOMRIGHT", messageFrame, "BOTTOMRIGHT", -30, 50)
+        scrollframe:SetPoint("TOPLEFT", messageFrame, "TOPLEFT", 15, -45)
+        scrollframe:SetPoint("BOTTOMRIGHT", messageFrame, "BOTTOMRIGHT", -35, 50)
         
         -- Create the content frame
         local content = CreateFrame("Frame", nil, scrollframe)
@@ -322,13 +336,13 @@ showDetailedPopup = function(notificationData)
                     displayText = displayText .. " - |cFFFFFFFF" .. version.message .. "|r"
                 end
                 
-                displayText = displayText .. "\n\n"
+                displayText = displayText .. "\n"
             end
             
             -- Add changes as a bulleted list in white
             if version.changes and #version.changes > 0 then
                 for _, change in ipairs(version.changes) do
-                    displayText = displayText .. "|cFFFFFFFF• " .. change .. "|r\n"
+                    displayText = displayText .. "   |cFFCCCCCC - " .. change .. "|r\n"
                 end
                 
                 -- Add a blank line between versions (except after the last one)
@@ -363,9 +377,9 @@ showDetailedPopup = function(notificationData)
         
         -- Add changes as a bulleted list in white
         if notificationData.changes and #notificationData.changes > 0 then
-            displayText = displayText .. "\n\n"
+            displayText = displayText .. "\n"
             for _, change in ipairs(notificationData.changes) do
-                displayText = displayText .. "|cFFFFFFFF• " .. change .. "|r\n"
+                displayText = displayText .. "   |cFFCCCCCC - " .. change .. "|r\n"
             end
         end
         

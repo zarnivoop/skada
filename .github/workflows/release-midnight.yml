@@ -2,8 +2,8 @@ name: Release Addon (Midnight)
 
 on:
   push:
-    branches:
-      - midnight
+    tags:
+      - 'midnight-*'
   workflow_dispatch:
     inputs:
       dry_run:
