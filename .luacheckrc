@@ -1,143 +1,64 @@
+-- .luacheckrc for Skada
 std = "lua51"
-max_line_length = false
-codes = true
-exclude_files = {
-	".luacheckrc",
-	"lib",
-	".release",
-}
-ignore = {
-	"11./SLASH_.*", -- Setting an undefined (Slash handler) global variable
-	"11./BINDING_.*", -- Setting an undefined (Keybinding header) global variable
-	"211", -- Unused local variable
-	"212", -- Unused argument
-	"213", -- Unused loop variable
-	"311", -- Value assigned to a local variable is unused
-	"312", -- Value of an argument is unused
-	"42.", -- Shadowing a local variable, an argument, a loop variable.
-	"43.", -- Shadowing an upvalue, an upvalue argument, an upvalue loop variable.
-}
+
 globals = {
-	-- Third-party
-	"LibStub",
-	"Skada",
-	"SkadaPerCharDB",
-	"AceGUIWidgetLSMlists",
-	"CUSTOM_CLASS_COLORS",
-	"ElvUI",
+    -- WoW Globals
+    "issecretvalue", "canaccessvalue", "C_DamageMeter", "ChatFontNormal",
+    "IsInPVP", "UIParent", "CreateFrame", "LibStub", "UnitGUID", "C_Spell",
+    "NORMAL_FONT_COLOR", "GameTooltip", "InterfaceOptionsFrame_OpenToCategory",
+    "Settings", "GetSpellInfo", "GetSpellLink", "GetSpellTexture", "wipe",
+    "tinsert", "tremove", "unpack", "Enum", "GetPowerTypeInfo", "UnitPower",
+    "UnitPowerMax", "UnitPowerType", "GetSpellCount", "GetSpellPowerCost",
+    "GetSpellBaseDamage", "CLASS_ICON_TCOORDS", "GetCursorPosition",
+    "IsShiftKeyDown", "IsControlKeyDown", "UnitName", "UnitClass",
+    "UnitIsPlayer", "UnitLevel", "InCombatLockdown", "GetTime", "time",
+    "GetScreenWidth", "GetScreenHeight", "GetBuildInfo", "GetNumSubgroupMembers",
+    "GetNumGroupMembers", "UnitExists", "UnitIsUnit", "UnitInParty",
+    "UnitInRaid", "UnitIsDeadOrGhost", "UnitIsFriend", "UnitIsEnemy",
+    "UnitAffectingCombat", "GetZoneText", "GetInstanceInfo", "SlashCmdList",
+    "hash_Servant22", "BackdropTemplateMixin", "GetUnitName", "UnitHealth",
+    "UnitHealthMax", "UnitGroupRolesAssigned", "UnitCastingInfo", "UnitChannelInfo",
+    "GetManaRegen", "GetCombatRating", "GetCombatRatingBonus", "GetCritChance",
+    "GetSpellCritChance", "GetRangedCritChance", "GetMeleeHaste", "GetRangedHaste",
+    "GetSpellHaste", "GetMasteryEffect", "GetArmorPenetration", "GetVersatilityBonus",
+    "GetItemInfo", "GetItemIcon", "GetInventoryItemLink", "GetInventoryItemID",
+    "GetInventoryItemTexture", "GetInventoryItemCount", "GetContainerItemLink", "GetContainerItemID",
+    "GetContainerItemTexture", "StaticPopup_Show", "StaticPopup_Hide",
+    "PlaySound", "PlaySoundFile", "UIFrameFadeIn", "UIFrameFadeOut", "GetAddOnMetadata",
+    "IsInInstance", "IsInRaid", "GetRaidRosterInfo", "SendChatMessage", "UnitIsFeignDeath",
+    "DEFAULT_CHAT_FRAME", "UnitDetailedThreatSituation", "WorldFrame", "AceGUIWidgetLSMlists",
+    "ChatEdit_GetActiveWindow", "ChatEdit_InsertLink", "ChatFrame_OpenChat",
+    "CombatLog_Color_ColorArrayBySchool", "CreateFont", "RAID_CLASS_COLORS", "ElvUI",
+    "GetScreenResolutions", "GetCurrentResolution", "UIDropDownMenu_CreateInfo",
+    "UIDropDownMenu_AddButton", "ToggleDropDownMenu", "GetBindingFromClick",
+    "BATTLENET_OPTIONS_LABEL", "GetChannelList", "strlenutf8", "strtrim",
+    "BNet_GetBNetIDAccount", "APPLY", "ReloadUI", "InterfaceOptions_AddCategory",
+    "IsInGroup", "SecondsToTime", "date", "UpdateAddOnCPUUsage", "GetFunctionCPUUsage",
+    "LE_PARTY_CATEGORY_INSTANCE", "BNSendWhisper", "SkadaPerCharDB", "CloseWindows",
+    "SLASH_SKADA1", "CUSTOM_CLASS_COLORS", "math", "floor", "min", "max",
+    "CLOSE", "CloseDropDownMenus", "UIDROPDOWNMENU_MENU_VALUE",
+    "_G", "setmetatable", "getmetatable", "rawequal", "rawget", "rawset",
 
-	-- Old style enum
-	"LE_PARTY_CATEGORY_INSTANCE",
+    -- Skada specific
+    "Skada",
+    "L"
+}
 
-	-- Frames/tables
-	"DEFAULT_CHAT_FRAME",
-	"GameTooltip",
-	"RAID_CLASS_COLORS",
-	"SlashCmdList",
-	"UIParent",
-	"UIDROPDOWNMENU_MENU_VALUE",
-	"WorldFrame",
+-- Ignore noise
+ignore = {
+    "111", -- Setting non-standard global
+    "611", -- Whitespace only lines
+    "612", -- Trailing whitespace
+    "631", -- Line too long
+    "211", -- Unused variable
+    "212", -- Unused argument
+    "213", -- Unused loop variable
+    "311", -- Unused value
+    "4..", -- All shadowing
+    "542", -- Empty if branch
+}
 
-	-- Functions
-	"BNet_GetBNetIDAccount",
-	"BNSendWhisper",
-	"C_TooltipInfo",
-	"ChatEdit_GetActiveWindow",
-	"ChatEdit_InsertLink",
-	"ChatFrame_OpenChat",
-	"CloseDropDownMenus",
-	"CloseWindows",
-	"CombatLogGetCurrentEventInfo",
-	"CombatLog_Color_ColorArrayBySchool",
-	"CreateFont",
-	"CreateFrame",
-	"DeclineName",
-	"GetAddOnMemoryUsage",
-	"GetBindingFromClick",
-	"GetBuildInfo",
-	"GetChannelList",
-	"GetCurrentResolution",
-	"GetCursorPosition",
-	"GetFunctionCPUUsage",
-	"GetNumDeclensionSets",
-	"GetNumGroupMembers",
-	"GetPlayerInfoByGUID",
-	"GetRaidRosterInfo",
-	"GetSchoolString",
-	"GetScreenHeight",
-	"GetScreenResolutions",
-	"GetScreenWidth",
-	"GetSpellInfo",
-	"GetSpellLink",
-	"GetTime",
-	"GetZonePVPInfo",
-	"InCombatLockdown",
-	"InterfaceOptions_AddCategory",
-	"IsControlKeyDown",
-	"IsInGroup",
-	"IsInInstance",
-	"IsInRaid",
-	"IsShiftKeyDown",
-	"PlaySoundFile",
-	"ReloadUI",
-	"SecondsToTime",
-	"SendChatMessage",
-	"ToggleDropDownMenu",
-	"TooltipUtil",
-	"UIDropDownMenu_AddButton",
-	"UIDropDownMenu_CreateInfo",
-	"UnitAffectingCombat",
-	"UnitClass",
-	"UnitDetailedThreatSituation",
-	"UnitExists",
-	"UnitGroupRolesAssigned",
-	"UnitGUID",
-	"UnitHealth",
-	"UnitHealthMax",
-	"UnitInRaid",
-	"UnitIsDeadOrGhost",
-	"UnitIsFeignDeath",
-	"UnitIsFriend",
-	"UnitName",
-	"UnitSex",
-	"UpdateAddOnCPUUsage",
-	"UpdateAddOnMemoryUsage",
-	"bit",
-	"date",
-	"math",
-	"max",
-	"min",
-	"random",
-	"string",
-	"strlenutf8",
-	"strtrim",
-	"time",
-	"tinsert",
-	"table",
-	"tremove",
-	"wipe",
-	"floor",
-	"ceil",
-
-	-- Strings
-	"ABSORB",
-	"APPLY",
-	"BATTLENET_OPTIONS_LABEL",
-	"CLASS_ICON_TCOORDS",
-	"CLOSE",
-	"COMBATLOG_OBJECT_AFFILIATION_MINE",
-	"COMBATLOG_OBJECT_AFFILIATION_OUTSIDER",
-	"COMBATLOG_OBJECT_AFFILIATION_PARTY",
-	"COMBATLOG_OBJECT_AFFILIATION_RAID",
-	"COMBATLOG_OBJECT_CONTROL_PLAYER",
-	"COMBATLOG_OBJECT_REACTION_FRIENDLY",
-	"COMBATLOG_OBJECT_REACTION_MASK",
-	"COMBATLOG_OBJECT_TYPE_GUARDIAN",
-	"COMBATLOG_OBJECT_TYPE_PET",
-	"UNKNOWN",
-	"Enum",
-	"C_Spell",
-	"GetPowerTypeInfo",
-	"Settings",
-	"NORMAL_FONT_COLOR"
+exclude_files = {
+    "lib/",
+    "modules/legacy/"
 }
