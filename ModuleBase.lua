@@ -426,7 +426,7 @@ function ModuleBase:CreatePlayerTooltip(options)
 				-- Check if spell entry itself is not secret and is a table
 				if type(s) == "table" and not SecretHelper:IsSecret(s) then
 					local rawAmount = s[spellValueKey]
-					if rawAmount and not SecretHelper:IsSecret(rawAmount) then
+					if rawAmount then
 						table.insert(sorted, s)
 					end
 				end

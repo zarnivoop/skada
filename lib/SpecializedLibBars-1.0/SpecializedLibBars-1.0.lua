@@ -1460,26 +1460,36 @@ function barPrototype:UpdateOrientationLayout()
 		t:SetPoint("TOPLEFT", self, "TOPLEFT")
 		t:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT")
 
-		t = self.label
+		-- Position columns from right to left
+		-- Column 3 (rightmost, primary value)
+		t = self.columns[3]
 		t:ClearAllPoints()
-		t:SetPoint("LEFT", self, "LEFT", ((self.showIcon and self.icon:IsShown()) and self.thickness or 0) + lib.COLUMN_MIN_PADDING, 0)
-		t:SetJustifyH("LEFT")
+		t:SetPoint("RIGHT", self, "RIGHT", -lib.COLUMN_MIN_PADDING, 0)
+		t:SetJustifyH("RIGHT")
 		t:SetJustifyV("MIDDLE")
 
-		-- Position columns from right to left with font-size aware spacing
-		local lastPoint = self
-		for i = 3, 1, -1 do
-			t = self.columns[i]
-			t:ClearAllPoints()
-			local spacing = i == 3 and lib.COLUMN_MIN_PADDING or lib:GetColumnSpacing(t)
-			t:SetPoint("RIGHT", lastPoint, "RIGHT", -spacing, 0)
-			t:SetJustifyH("RIGHT")
-			t:SetJustifyV("MIDDLE")
-			lastPoint = t
-		end
+		-- Column 2 (middle)
+		t = self.columns[2]
+		t:ClearAllPoints()
+		local spacing2 = lib:GetColumnSpacing(t)
+		t:SetPoint("RIGHT", self.columns[3], "LEFT", -spacing2, 0)
+		t:SetJustifyH("RIGHT")
+		t:SetJustifyV("MIDDLE")
 
-		-- Set label width to fill remaining space
+		-- Column 1 (leftmost column, nearest to label)
+		t = self.columns[1]
+		t:ClearAllPoints()
+		local spacing1 = lib:GetColumnSpacing(t)
+		t:SetPoint("RIGHT", self.columns[2], "LEFT", -spacing1, 0)
+		t:SetJustifyH("RIGHT")
+		t:SetJustifyV("MIDDLE")
+
+		-- Set label to fill remaining space between icon and column 1
+		self.label:ClearAllPoints()
+		self.label:SetPoint("LEFT", self, "LEFT", ((self.showIcon and self.icon:IsShown()) and self.thickness or 0) + lib.COLUMN_MIN_PADDING, 0)
 		self.label:SetPoint("RIGHT", self.columns[1], "LEFT", -lib.COLUMN_MIN_PADDING, 0)
+		self.label:SetJustifyH("LEFT")
+		self.label:SetJustifyV("MIDDLE")
 
 		self.bgtexture:SetTexCoord(0, 1, 0, 1)
 	elseif o == lib.BOTTOM_TO_TOP then
@@ -1492,25 +1502,9 @@ function barPrototype:UpdateOrientationLayout()
 		t:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT")
 		t:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT")
 
-		t = self.label
-		t:ClearAllPoints()
-		t:SetPoint("BOTTOM", self, "BOTTOM", 0, lib.COLUMN_MIN_PADDING)
-		t:SetJustifyH("CENTER")
-		t:SetJustifyV("BOTTOM")
-
-		-- Position columns from top to bottom with font-size aware spacing
-		local lastPoint = self
-		for i = 3, 1, -1 do
-			t = self.columns[i]
-			t:ClearAllPoints()
-			local spacing = i == 3 and lib.COLUMN_MIN_PADDING or lib:GetColumnSpacing(t)
-			t:SetPoint("TOP", lastPoint, "TOP", 0, -spacing)
-			t:SetJustifyH("CENTER")
-			t:SetJustifyV("TOP")
-			lastPoint = t
-		end
-
 		-- Set label height to fill remaining space
+		self.label:ClearAllPoints()
+		self.label:SetPoint("BOTTOM", self, "BOTTOM", 0, lib.COLUMN_MIN_PADDING)
 		self.label:SetPoint("TOP", self.columns[1], "BOTTOM", 0, -lib.COLUMN_MIN_PADDING)
 
 		self.bgtexture:SetTexCoord(0, 1, 1, 1, 0, 0, 1, 0)
@@ -1548,6 +1542,13 @@ function barPrototype:UpdateOrientationLayout()
 		t:SetJustifyH("LEFT")
 		t:SetJustifyV("MIDDLE")
 
+		-- Set label width to fill remaining space
+		self.label:ClearAllPoints()
+		self.label:SetPoint("RIGHT", self, "RIGHT", ((self.showIcon and self.icon:IsShown()) and -self.thickness or 0) - lib.COLUMN_MIN_PADDING, 0)
+		self.label:SetPoint("LEFT", self.columns[3], "RIGHT", lib.COLUMN_MIN_PADDING, 0)
+		self.label:SetJustifyH("RIGHT")
+		self.label:SetJustifyV("MIDDLE")
+
 		self.bgtexture:SetTexCoord(0, 1, 0, 1)
 	elseif o == lib.TOP_TO_BOTTOM then
 		self.icon:ClearAllPoints()
@@ -1559,25 +1560,9 @@ function barPrototype:UpdateOrientationLayout()
 		t:SetPoint("TOPLEFT", self, "TOPLEFT")
 		t:SetPoint("TOPRIGHT", self, "TOPRIGHT")
 
-		t = self.label
-		t:ClearAllPoints()
-		t:SetPoint("TOP", self, "TOP", 0, -lib.COLUMN_MIN_PADDING)
-		t:SetJustifyH("CENTER")
-		t:SetJustifyV("TOP")
-
-		-- Position columns from bottom to top
-		local lastPoint = self
-		for i = 1, 3 do
-			t = self.columns[i]
-			t:ClearAllPoints()
-			local spacing = i == 1 and lib.COLUMN_MIN_PADDING or lib:GetColumnSpacing(t)
-			t:SetPoint("BOTTOM", lastPoint, "BOTTOM", 0, spacing)
-			t:SetJustifyH("CENTER")
-			t:SetJustifyV("BOTTOM")
-			lastPoint = t
-		end
-
 		-- Set label height to fill remaining space
+		self.label:ClearAllPoints()
+		self.label:SetPoint("TOP", self, "TOP", 0, -lib.COLUMN_MIN_PADDING)
 		self.label:SetPoint("BOTTOM", self.columns[3], "TOP", 0, lib.COLUMN_MIN_PADDING)
 
 		self.bgtexture:SetTexCoord(0, 0, 0, 1, 1, 0, 1, 1)

@@ -92,16 +92,16 @@ do
 	end)
 
 	popup:SetBackdrop({
-		bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
-		edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-		tile = true,
-		tileSize = 16,
-		edgeSize = 16,
-		insets = { left = 1, right = 1, top = 1, bottom = 1 }
+		bgFile = "Interface\\Buttons\\WHITE8X8",
+		edgeFile = "Interface\\Buttons\\WHITE8X8",
+		tile = true, tileSize = 0, edgeSize = 1,
+		insets = { left = 0, right = 0, top = 0, bottom = 0 }
 	})
-	popup:SetSize(250, 100)
+	popup:SetBackdropColor(0.05, 0.05, 0.05, 0.9)
+	popup:SetBackdropBorderColor(0.3, 0.3, 0.3, 1)
+	popup:SetSize(300, 120)
 	popup:SetPoint("CENTER", UIParent, "CENTER")
-	popup:SetFrameStrata("DIALOG")
+	popup:SetFrameStrata("TOOLTIP")
 	popup:Hide()
 
 	popup:EnableKeyboard(true)
@@ -112,25 +112,51 @@ do
 		end
 	end)
 
-	local text = popup:CreateFontString(nil, "ARTWORK", "ChatFontNormal")
-	text:SetPoint("TOP", popup, "TOP", 0, -15)
+	local text = popup:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+	text:SetPoint("TOP", popup, "TOP", 0, -25)
 	text:SetText(L["Do you want to reset Skada?"])
 
-	local accept = CreateFrame("Button", nil, popup)
-	accept:SetNormalTexture("Interface\\Buttons\\UI-CheckBox-Check")
-	accept:SetHighlightTexture("Interface\\Buttons\\UI-CheckBox-Highlight", "ADD")
-	accept:SetSize(50, 50)
-	accept:SetPoint("BOTTOM", popup, "BOTTOM", -50, 5)
+	local accept = CreateFrame("Button", nil, popup, "BackdropTemplate")
+	accept:SetSize(100, 30)
+	accept:SetPoint("BOTTOMLEFT", popup, "BOTTOMLEFT", 40, 20)
+	
+	accept:SetBackdrop({
+		bgFile = "Interface\\Buttons\\WHITE8X8",
+		edgeFile = "Interface\\Buttons\\WHITE8X8",
+		edgeSize = 1,
+	})
+	accept:SetBackdropColor(0.1, 0.4, 0.1, 0.8)
+	accept:SetBackdropBorderColor(0.2, 0.6, 0.2, 1)
+
+	local acceptText = accept:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	acceptText:SetPoint("CENTER")
+	acceptText:SetText(L["Yes"])
+
+	accept:SetScript("OnEnter", function(self) self:SetBackdropColor(0.2, 0.5, 0.2, 1) end)
+	accept:SetScript("OnLeave", function(self) self:SetBackdropColor(0.1, 0.4, 0.1, 0.8) end)
 	accept:SetScript("OnClick", function(f)
 		Skada:Reset()
 		f:GetParent():Hide()
 	end)
 
-	local close = CreateFrame("Button", nil, popup)
-	close:SetNormalTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Up")
-	close:SetHighlightTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight", "ADD")
-	close:SetSize(50, 50)
-	close:SetPoint("BOTTOM", popup, "BOTTOM", 50, 5)
+	local close = CreateFrame("Button", nil, popup, "BackdropTemplate")
+	close:SetSize(100, 30)
+	close:SetPoint("BOTTOMRIGHT", popup, "BOTTOMRIGHT", -40, 20)
+	
+	close:SetBackdrop({
+		bgFile = "Interface\\Buttons\\WHITE8X8",
+		edgeFile = "Interface\\Buttons\\WHITE8X8",
+		edgeSize = 1,
+	})
+	close:SetBackdropColor(0.4, 0.1, 0.1, 0.8)
+	close:SetBackdropBorderColor(0.6, 0.2, 0.2, 1)
+
+	local closeText = close:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	closeText:SetPoint("CENTER")
+	closeText:SetText(L["No"])
+
+	close:SetScript("OnEnter", function(self) self:SetBackdropColor(0.5, 0.2, 0.2, 1) end)
+	close:SetScript("OnLeave", function(self) self:SetBackdropColor(0.4, 0.1, 0.1, 0.8) end)
 	close:SetScript("OnClick", function(f) f:GetParent():Hide() end)
 	function Skada:ShowPopup()
 		popup:SetPropagateKeyboardInput(true)
@@ -1006,8 +1032,6 @@ function Skada:SetActive(enable)
 		end
 	end
 	
-	-- With Native API, window visibility doesn't affect data collection
-	-- The hidedisables setting only controls window visibility
 end
 
 function Skada:CanReset()
@@ -1022,8 +1046,7 @@ function Skada:Reset()
 		self.last = nil
 	end
 
-	-- With Native API, sets are managed by WoW's C_DamageMeter
-	-- No local set management needed
+	self.current = nil
 
 	-- Reset all windows
 	for i, win in ipairs(windows) do
@@ -1039,9 +1062,15 @@ function Skada:Reset()
 		end
 	end
 
-	if self.db.profile.reset.instance then
-		Skada:OnCombatStart()
+	-- Also reset the native damage meter sessions, with re-entry guard
+	-- to prevent loop: Reset() -> ResetAllSessions() -> DAMAGE_METER_RESET -> Reset()
+	if not self._resetting and self.NativeAPI then
+		self._resetting = true
+		self.NativeAPI:ResetAllSessions()
+		self._resetting = nil
 	end
+
+	self:UpdateDisplay(true)
 end
 
 function Skada:DeleteSet(set)
@@ -1312,7 +1341,52 @@ function Skada:DAMAGE_METER_CURRENT_SESSION_UPDATED()
 end
 
 function Skada:DAMAGE_METER_RESET()
+	-- Guard against re-entry: if we initiated the reset ourselves, skip
+	if self._resetting then return end
 	self:Reset()
+end
+
+-- Helper for conditional reset (No=1, Yes=2, Ask=3)
+local function check_reset(setting)
+	if setting == 2 then
+		Skada:Reset()
+	elseif setting == 3 then
+		Skada:ShowPopup()
+	end
+end
+
+function Skada:GROUP_ROSTER_UPDATE()
+	local wasInGroup = self._wasInGroup
+	local inGroup = IsInGroup()
+	self._wasInGroup = inGroup
+
+	-- Skip the initial call (state not yet established)
+	if wasInGroup == nil then return end
+
+	if not wasInGroup and inGroup then
+		-- Joined a group
+		check_reset(self.db.profile.reset.join)
+	elseif wasInGroup and not inGroup then
+		-- Left a group
+		check_reset(self.db.profile.reset.leave)
+	end
+
+	-- Re-apply visibility (handles hidesolo)
+	self:ApplySettings()
+end
+
+function Skada:ZONE_CHANGED_NEW_AREA()
+	local wasInInstance = self._wasInInstance
+	local inInstance = IsInInstance()
+	self._wasInInstance = inInstance
+
+	-- Skip the initial call (state not yet established)
+	if wasInInstance == nil then return end
+
+	if not wasInInstance and inInstance then
+		-- Entered an instance
+		check_reset(self.db.profile.reset.instance)
+	end
 end
 
 
@@ -1432,6 +1506,24 @@ function Skada:UpdateDisplay(force)
 
 				-- Let window display the data.
 				if win.display and win.display.Update then
+					-- Show "No data to display" if empty
+					local has_data = false
+					for _, d in ipairs(win.dataset) do
+						if d.id and d.id ~= "total" and d.id ~= "nodata" then
+							has_data = true
+							break
+						end
+					end
+					if not has_data then
+						tinsert(win.dataset, {
+							id = "nodata",
+							label = L["No data to display"],
+							value = 0,
+							ignore = true,
+							color = {r = 0.5, g = 0.5, b = 0.5, a = 1}
+						})
+					end
+
 					local success, err = pcall(win.display.Update, win.display, win)
 					if not success and Skada.db.profile.debug then
 						Skada:Debug("Display Update Error (Inside Mode):", err)
@@ -1932,10 +2024,10 @@ function Skada:AddSubviewToTooltip(tooltip, win, mode, id, label)
 					label = nr .. ". " .. label
 				end
 
-				if data.labeltext then
+				if data.valuetext then
 					tooltip:AddDoubleLine(label, data.valuetext, color.r, color.g, color.b)
 				else
-					tooltip:AddDoubleLine(label, data.valueText1, color.r, color.g, color.b)
+					tooltip:AddDoubleLine(label, data.valueText1 or "", color.r, color.g, color.b)
 				end
 			end
 		end
@@ -2377,6 +2469,14 @@ function Skada:OnEnable()
 	popup:RegisterEvent("PLAYER_REGEN_ENABLED")
 	popup:RegisterEvent("ENCOUNTER_START")
 	popup:RegisterEvent("ENCOUNTER_END")
+
+	-- Group and zone change events for data reset triggers
+	popup:RegisterEvent("GROUP_ROSTER_UPDATE")
+	popup:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+
+	-- Initialize group/instance state so first transition is detected correctly
+	self._wasInGroup = IsInGroup()
+	self._wasInInstance = IsInInstance()
 
 	if type(CUSTOM_CLASS_COLORS) == "table" then
 		Skada.classcolors = CUSTOM_CLASS_COLORS

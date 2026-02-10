@@ -6,7 +6,7 @@ Skada.versions = {
 		message = "Adapted for WoW 12.0, Midnight. Now using data provided by the built-in damage meter.",
 		changes = {
 			"Basic rework and simplification for WoW 12.0",
-			"Many modules have been disabled for now"
+			"Some modules have been disabled for now"
 		}
 	},
 	{

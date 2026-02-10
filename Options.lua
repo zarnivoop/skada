@@ -82,27 +82,20 @@ Skada:tcopy(windefaultscopy, Skada.windowdefaults)
 Skada.defaults = {
 	profile = {
 		version = 1,
-		reset = { instance = 1, join = 3, leave = 1 },
+		reset = { instance = 1, join = 1, leave = 1 },
 		icon = { hide = false, radius = 80, minimapPos = 195 },
 		numberformat = 1,
 		setformat = 3,
-		setnumber = true,
 		showranks = true,
-		setstokeep = 10,
 		tooltips = true,
 		tooltippos = "smart",
 		tooltiprows = 3,
 		informativetooltips = true,
-		onlykeepbosses = false,
-		tentativecombatstart = false,
 		hidesolo = false,
 		hidepvp = false,
-		hidedisables = false,
 		hidecombat = false,
-		mergepets = true,
 		feed = "",
 		showtotals = false,
-		autostop = false,
 		sortmodesbyusage = true,
 		updatefrequency = 0.25,
 
@@ -292,14 +285,7 @@ Skada.options = {
 					end,
 				},
 
-				mergepets = {
-					type = "toggle",
-					name = L["Merge pets"],
-					desc = L["Merges pets with their owners. Changing this only affects new data."],
-					order = 2,
-					get = function() return Skada.db.profile.mergepets end,
-					set = function() Skada.db.profile.mergepets = not Skada.db.profile.mergepets end,
-				},
+
 
 				showtotals = {
 					type = "toggle",
@@ -310,14 +296,6 @@ Skada.options = {
 					set = function() Skada.db.profile.showtotals = not Skada.db.profile.showtotals end,
 				},
 
-				onlykeepbosses = {
-					type = "toggle",
-					name = L["Only keep boss fighs"],
-					desc = L["Boss fights will be kept with this on, and non-boss fights are discarded."],
-					order = 4,
-					get = function() return Skada.db.profile.onlykeepbosses end,
-					set = function() Skada.db.profile.onlykeepbosses = not Skada.db.profile.onlykeepbosses end,
-				},
 
 				hidesolo = {
 					type = "toggle",
@@ -355,17 +333,6 @@ Skada.options = {
 					end,
 				},
 
-				disablewhenhidden = {
-					type = "toggle",
-					name = L["Disable while hidden"],
-					desc = L["Skada will not collect any data when automatically hidden."],
-					order = 8,
-					get = function() return Skada.db.profile.hidedisables end,
-					set = function()
-						Skada.db.profile.hidedisables = not Skada.db.profile.hidedisables
-						Skada:ApplySettings()
-					end,
-				},
 
 				sortmodesbyusage = {
 					type = "toggle",
@@ -392,24 +359,7 @@ Skada.options = {
 					end,
 				},
 
-				tentativecombatstart = {
-					type = "toggle",
-					name = L["Aggressive combat detection"],
-					desc = L
-					["Skada usually uses a very conservative (simple) combat detection scheme that works best in raids. With this option Skada attempts to emulate other damage meters. Useful for running dungeons. Meaningless on boss encounters."],
-					order = 10,
-					get = function() return Skada.db.profile.tentativecombatstart end,
-					set = function() Skada.db.profile.tentativecombatstart = not Skada.db.profile.tentativecombatstart end,
-				},
 
-				autostop = {
-					type = "toggle",
-					name = L["Autostop"],
-					desc = L["Autostop description"],
-					order = 10,
-					get = function() return Skada.db.profile.autostop end,
-					set = function() Skada.db.profile.autostop = not Skada.db.profile.autostop end,
-				},
 
 				showself = {
 					type = "toggle",
@@ -452,26 +402,7 @@ Skada.options = {
 					order = 14,
 				},
 
-				setstokeep = {
-					type = "range",
-					name = L["Data segments to keep"],
-					desc = L["The number of fight segments to keep. Persistent segments are not included in this."],
-					min = 0,
-					max = 99,
-					step = 1,
-					get = function() return Skada.db.profile.setstokeep end,
-					set = function(self, val) Skada.db.profile.setstokeep = val end,
-					order = 15,
-				},
 
-				setnumber = {
-					type = "toggle",
-					name = L["Number set duplicates"],
-					desc = L["Append a count to set names with duplicate mob names."],
-					order = 16,
-					get = function() return Skada.db.profile.setnumber end,
-					set = function() Skada.db.profile.setnumber = not Skada.db.profile.setnumber end,
-				},
 
 				setformat = {
 					type = "select",

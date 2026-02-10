@@ -312,64 +312,129 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard themes to Skada. Custo
 	local exporttheme = nil
 	local importtext = ""
 
-	-- Helper function to serialize table to string
-	local function SerializeTable(t)
-		local parts = {"{"}
-		for key, value in pairs(t) do
-			if type(key) == "string" then
-				if type(value) == "table" then
-					parts[#parts+1] = key .. " = " .. SerializeTable(value) .. ","
-				elseif type(value) == "string" then
-					parts[#parts+1] = key .. " = \"" .. value .. "\","
-				elseif type(value) == "number" then
-					parts[#parts+1] = key .. " = " .. value .. ","
-				elseif type(value) == "boolean" then
-					parts[#parts+1] = key .. " = " .. tostring(value) .. ","
-				end
-			end
+	-- Base64 encoding/decoding for compact theme strings
+	local b64chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+	local b64lookup = {}
+	for i = 1, 64 do b64lookup[b64chars:sub(i, i)] = i - 1 end
+
+	local function Base64Encode(data)
+		local out = {}
+		local len = #data
+		for i = 1, len, 3 do
+			local b1 = data:byte(i)
+			local b2 = i + 1 <= len and data:byte(i + 1) or 0
+			local b3 = i + 2 <= len and data:byte(i + 2) or 0
+			local n = b1 * 65536 + b2 * 256 + b3
+			out[#out+1] = b64chars:sub(math.floor(n / 262144) % 64 + 1, math.floor(n / 262144) % 64 + 1)
+			out[#out+1] = b64chars:sub(math.floor(n / 4096) % 64 + 1, math.floor(n / 4096) % 64 + 1)
+			out[#out+1] = i + 1 <= len and b64chars:sub(math.floor(n / 64) % 64 + 1, math.floor(n / 64) % 64 + 1) or "="
+			out[#out+1] = i + 2 <= len and b64chars:sub(n % 64 + 1, n % 64 + 1) or "="
 		end
-		parts[#parts+1] = "}"
-		return table.concat(parts, " ")
+		return table.concat(out)
 	end
 
-	-- Helper function to serialize theme to string
-	local function SerializeTheme(theme)
-		local lines = {"{"}
-		for key, value in pairs(theme) do
-			if type(value) == "table" then
-				lines[#lines+1] = "  " .. key .. " = " .. SerializeTable(value) .. ","
-			elseif type(value) == "string" then
-				lines[#lines+1] = "  " .. key .. " = \"" .. value .. "\","
-			elseif type(value) == "number" then
-				lines[#lines+1] = "  " .. key .. " = " .. value .. ","
-			elseif type(value) == "boolean" then
-				lines[#lines+1] = "  " .. key .. " = " .. tostring(value) .. ","
-			end
+	local function Base64Decode(data)
+		data = data:gsub("[^" .. b64chars .. "=]", "")
+		local out = {}
+		for i = 1, #data, 4 do
+			local c1 = b64lookup[data:sub(i, i)] or 0
+			local c2 = b64lookup[data:sub(i+1, i+1)] or 0
+			local c3 = b64lookup[data:sub(i+2, i+2)]
+			local c4 = b64lookup[data:sub(i+3, i+3)]
+			local n = c1 * 262144 + c2 * 4096 + (c3 or 0) * 64 + (c4 or 0)
+			out[#out+1] = string.char(math.floor(n / 65536) % 256)
+			if c3 then out[#out+1] = string.char(math.floor(n / 256) % 256) end
+			if c4 then out[#out+1] = string.char(n % 256) end
 		end
-		lines[#lines+1] = "}"
-		return table.concat(lines, "\n")
+		return table.concat(out)
 	end
 
-	-- Helper function to deserialize theme from string
-	local function DeserializeTheme(str)
-		local func, err = loadstring("return " .. str)
-		if not func then
+	-- Simple recursive serializer (no loadstring needed)
+	local function SerializeValue(v)
+		local t = type(v)
+		if t == "string" then
+			return "s" .. #v .. ":" .. v
+		elseif t == "number" then
+			return "n" .. tostring(v) .. ";"
+		elseif t == "boolean" then
+			return v and "T" or "F"
+		elseif t == "table" then
+			local parts = {"t"}
+			local count = 0
+			for key, val in pairs(v) do
+				parts[#parts+1] = SerializeValue(key) .. SerializeValue(val)
+				count = count + 1
+			end
+			parts[1] = "t" .. count .. ":"
+			return table.concat(parts)
+		end
+		return "Z" -- nil
+	end
+
+	local function DeserializeValue(str, pos)
+		local tag = str:sub(pos, pos)
+		if tag == "s" then
+			local lenEnd = str:find(":", pos + 1)
+			local len = tonumber(str:sub(pos + 1, lenEnd - 1))
+			return str:sub(lenEnd + 1, lenEnd + len), lenEnd + len + 1
+		elseif tag == "n" then
+			local numEnd = str:find(";", pos + 1)
+			return tonumber(str:sub(pos + 1, numEnd - 1)), numEnd + 1
+		elseif tag == "T" then
+			return true, pos + 1
+		elseif tag == "F" then
+			return false, pos + 1
+		elseif tag == "t" then
+			local countEnd = str:find(":", pos + 1)
+			local count = tonumber(str:sub(pos + 1, countEnd - 1))
+			local tbl = {}
+			local p = countEnd + 1
+			for i = 1, count do
+				local key, val
+				key, p = DeserializeValue(str, p)
+				val, p = DeserializeValue(str, p)
+				tbl[key] = val
+			end
+			return tbl, p
+		elseif tag == "Z" then
+			return nil, pos + 1
+		end
+		return nil, pos + 1
+	end
+
+	local THEME_PREFIX = "!Skada!"
+
+	local function EncodeTheme(theme)
+		local serialized = SerializeValue(theme)
+		return THEME_PREFIX .. Base64Encode(serialized)
+	end
+
+	local function DecodeTheme(str)
+		str = str:match("^%s*(.-)%s*$") -- trim
+		if str:sub(1, #THEME_PREFIX) ~= THEME_PREFIX then
 			return false, nil
 		end
-		local success, result = pcall(func)
-		if success and type(result) == "table" then
+		local b64data = str:sub(#THEME_PREFIX + 1)
+		local ok, decoded = pcall(Base64Decode, b64data)
+		if not ok or not decoded or #decoded == 0 then
+			return false, nil
+		end
+		local ok2, result = pcall(DeserializeValue, decoded, 1)
+		if ok2 and type(result) == "table" then
 			return true, result
 		end
 		return false, nil
 	end
 
 	-- Show export dialog with copyable text
+	local exportFrame = nil
 	local function ShowExportDialog(text)
+		if exportFrame then exportFrame:Hide() end
+
 		local frame = CreateFrame("Frame", "SkadaThemeExport", UIParent, "BasicFrameTemplateWithInset")
-		frame:SetSize(500, 400)
-		frame:SetPoint("CENTER")
-		frame:SetFrameStrata("FULLSCREEN_DIALOG")
-		frame:SetFrameLevel(100)
+		frame:SetSize(480, 160)
+		frame:SetPoint("CENTER", UIParent, "CENTER", 0, 100)
+		frame:SetFrameStrata("TOOLTIP")
 		frame:SetMovable(true)
 		frame:EnableMouse(true)
 		frame:RegisterForDrag("LeftButton")
@@ -380,21 +445,24 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard themes to Skada. Custo
 		frame.title:SetPoint("TOP", frame.TitleBg, "TOP", 0, -8)
 		frame.title:SetText(L["Export Theme"])
 
-		local editbox = CreateFrame("EditBox", nil, frame)
-		editbox:SetMultiLine(true)
+		local hint = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+		hint:SetPoint("TOP", frame, "TOP", 0, -38)
+		hint:SetText(L["Copy the string below (Ctrl+C) and share it"])
+		hint:SetTextColor(0.7, 0.7, 0.7)
+
+		local editbox = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
+		editbox:SetSize(430, 30)
+		editbox:SetPoint("CENTER", frame, "CENTER", 0, -10)
 		editbox:SetFontObject(ChatFontNormal)
-		editbox:SetWidth(460)
-		editbox:SetHeight(300)
-		editbox:SetPoint("TOP", frame, "TOP", 0, -40)
 		editbox:SetText(text)
-		editbox:HighlightText()
 		editbox:SetAutoFocus(true)
+		editbox:HighlightText()
+		editbox:SetScript("OnEscapePressed", function() frame:Hide() end)
+		-- Re-highlight on focus so user can always Ctrl+C
+		editbox:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
 
-		local scroll = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
-		scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -40)
-		scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -30, 10)
-		scroll:SetScrollChild(editbox)
-
+		frame:SetScript("OnHide", function(self) self:SetParent(nil) exportFrame = nil end)
+		exportFrame = frame
 		frame:Show()
 	end
 
@@ -618,8 +686,8 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard themes to Skada. Custo
 							end
 						end
 						if thetheme then
-							local serialized = SerializeTheme(thetheme)
-							ShowExportDialog(serialized)
+							local encoded = EncodeTheme(thetheme)
+							ShowExportDialog(encoded)
 						end
 					end
 				end,
@@ -636,7 +704,6 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard themes to Skada. Custo
 				type="input",
 				name=L["Theme data"],
 				desc=L["Paste theme data here to import"],
-				multiline=true,
 				width="full",
 				get=function() return importtext end,
 				set=function(i, val) importtext = val end,
@@ -648,14 +715,14 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard themes to Skada. Custo
 				name=L["Import"],
 				func=function()
 					if importtext and importtext ~= "" then
-						local success, theme = DeserializeTheme(importtext)
+						local success, theme = DecodeTheme(importtext)
 						if success and theme then
 							Skada.db.profile.themes = Skada.db.profile.themes or {}
 							table.insert(Skada.db.profile.themes, theme)
 							Skada:Print(L["Theme imported successfully: "] .. (theme.name or "Unnamed"))
 							importtext = ""
 						else
-							Skada:Print(L["Failed to import theme. Check the data format."])
+							Skada:Print(L["Failed to import theme. Make sure the string starts with !Skada!"])
 						end
 					end
 				end,
