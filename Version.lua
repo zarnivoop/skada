@@ -1,6 +1,16 @@
 local _, Skada = ...
 Skada.versions = {
 	{
+		id = "2.0.1",
+		title = "Skada 2.0.1",
+		message = "Initial Midnight fixes and minor improvements",
+		changes = {
+			"Fixed minimap toggle",
+			"Simplified themes",
+			"Fixed broker and inline display issues"
+		}
+	},
+	{
 		id = "2.0.0",
 		title = "Skada 2.0 (Midnight)",
 		message = "Adapted for WoW 12.0, Midnight. Now using data provided by the built-in damage meter.",
