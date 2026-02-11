@@ -50,7 +50,7 @@ Skada:AddLoadableModule("Threat", nil, function(Skada, L)
 	-- Calculate TPS (Threat Per Second)
 	local function calculate_tps(threat_value)
 		if not Skada.current then return "0" end
-		local total_time = time() - Skada.current.starttime
+		local total_time = time() - (Skada.current.starttime or time())
 		return format_threat(threat_value / math.max(1, total_time))
 	end
 
@@ -181,7 +181,8 @@ Skada:AddLoadableModule("Threat", nil, function(Skada, L)
 			if Skada.current and UnitExists("target") then
 				local _, _, threatpct = UnitDetailedThreatSituation("player", "target")
 				if threatpct then
-					return format("%.1f%%", threatpct)
+					-- Use string.format to avoid concatenation crimes
+					return string.format("%.1f%%", threatpct)
 				end
 			end
 		end)

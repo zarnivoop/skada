@@ -222,12 +222,17 @@ local function BarIconMouseDown(icon) -- shift-click to link spell into chat
 end
 
 local function value_sort(a,b)
-	if not a or a.value == nil then
+	if not a or not a.id then
 		return false
-	elseif not b or b.value == nil then
+	elseif not b or not b.id then
+		return true
+	elseif a.value == nil then
+		return false
+	elseif b.value == nil then
 		return true
 	else
-		return a.value > b.value
+		local ok, result = pcall(function() return a.value > b.value end)
+		return ok and result or false
 	end
 end
 

@@ -1717,7 +1717,10 @@ function Skada:FormatNumberSecret(number)
 	-- For secret values, use string.format with %.0f for clean whole numbers
 	if issecretvalue and issecretvalue(number) then
 		local success, s = pcall(string.format, "%.0f", number)
-		if success then return s end
+		-- Ensure the result is converted to a clean string if it's secret
+		if success and s then
+			return tostring(s) 
+		end
 		return "?"
 	end
 	-- For normal values, use regular formatting
@@ -1983,22 +1986,28 @@ function Skada:FormatValueText(datasetItem, ...)
 end
 
 local function value_sort(a, b)
-	if not a or a.value == nil then
+	if not a or not a.id then
 		return false
-	elseif not b or b.value == nil then
+	elseif not b or not b.id then
+		return true
+	elseif a.value == nil then
+		return false
+	elseif b.value == nil then
 		return true
 	else
-		return a.value > b.value
+		local ok, result = pcall(function() return a.value > b.value end)
+		return ok and result or false
 	end
 end
 
 function Skada.valueid_sort(a, b)
-	if not a or a.value == nil or a.id == nil then
+	if not a or not a.id or a.value == nil then
 		return false
-	elseif not b or b.value == nil or b.id == nil then
+	elseif not b or not b.id or b.value == nil then
 		return true
 	else
-		return a.value > b.value
+		local ok, result = pcall(function() return a.value > b.value end)
+		return ok and result or false
 	end
 end
 

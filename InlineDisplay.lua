@@ -218,7 +218,15 @@ function mod:Wipe(win) end
 
 function mod:SetTitle(win, title)
 	win.frame.fstitle:SetText(title)
-	win.frame.barstartx = leftmargin + win.frame.fstitle:GetStringWidth() + 20
+	
+	-- Safely get title width. Secret strings can return secret widths.
+	local titleWidth = 50 
+	local success, width = pcall(function() return win.frame.fstitle:GetStringWidth() end)
+	if success and width and not Skada.SecretHelper:IsSecret(width) then
+		titleWidth = width
+	end
+	
+	win.frame.barstartx = (leftmargin or 40) + titleWidth + 20
 end
 
 function barlibrary:CreateBar(uuid, win)
@@ -310,20 +318,22 @@ function mod:GetBar(win)
 end
 
 function mod:UpdateBar(bar, bardata, db)
-	local label = bardata.label
-	if db.isusingclasscolors then
-		if bardata.class then
-			label = "|c"
-			label = label..RAID_CLASS_COLORS[bardata.class].colorStr
-			label = label..bardata.label
-			label = label.."|r"
-		end
-	else
-		label = bardata.label
+	-- Build label safely for secret values
+	local label = bardata.label or ""
+	if db.isusingclasscolors and bardata.class and RAID_CLASS_COLORS[bardata.class] then
+		label = string.format("|c%s%s|r", RAID_CLASS_COLORS[bardata.class].colorStr, label)
 	end
-	if bardata.valuetext then
-		if db.isonnewline and db.barfontsize*2 < db.height then label = label.."\n" else label = label.." - " end
-		label = label..bardata.valuetext
+
+	-- Fall back to valueText1 when valuetext is nil (columns-based modules)
+	local vtext = bardata.valuetext or bardata.valueText1
+	
+	-- Use string.format for all concatenation to support secret values
+	if vtext then
+		if db.isonnewline and db.barfontsize*2 < db.height then
+			label = string.format("%s\n%s", label, vtext)
+		else
+			label = string.format("%s - %s", label, vtext)
+		end
 	end
 	bar.label:SetFont(mod:GetFont(db))
 	bar.label:SetText(label)
@@ -365,12 +375,17 @@ function mod:Update(win)
 
 	--sort bars
 	table.sort(mybars, function (bar1, bar2)
-		if not bar1 or bar1.value==nil then
+		if not bar1 or not bar1.valueid then
 			return false
-		elseif not bar2 or bar2.value==nil then
+		elseif not bar2 or not bar2.valueid then
+			return true
+		elseif bar1.value == nil then
+			return false
+		elseif bar2.value == nil then
 			return true
 		else
-			return bar1.value > bar2.value
+			local ok, result = pcall(function() return bar1.value > bar2.value end)
+			return ok and result or false
 		end
 	end)
 
@@ -388,13 +403,21 @@ function mod:Update(win)
 		bar.bg:SetPoint("BOTTOMLEFT", win.frame, "BOTTOMLEFT", left, 0)
 		bar.label:SetHeight(win.db.height)
 		bar.label:SetPoint("BOTTOMLEFT", win.frame, "BOTTOMLEFT", left, 0)
-		bar.bg:SetWidth(bar.label:GetStringWidth())
+		
+		-- Safely get string width. Secret strings cause GetStringWidth to return a secret value.
+		-- Mathematical operations on secret values crash the game.
+		local labelWidth = 50 -- Default fallback
+		local success, width = pcall(function() return bar.label:GetStringWidth() end)
+		if success and width and not Skada.SecretHelper:IsSecret(width) then
+			labelWidth = width
+		end
+		
+		bar.bg:SetWidth(labelWidth)
 		--increment left value
 		if win.db.fixedbarwidth then
-			left = left + win.db.barwidth
+			left = left + (win.db.barwidth or 200)
 		else
-			left = left + bar.label:GetStringWidth()
-			left = left + 15
+			left = left + labelWidth + 15
 		end
 		--show bar
 		if (left + win.frame:GetLeft()) < win.frame:GetRight() then

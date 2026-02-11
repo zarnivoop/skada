@@ -15,34 +15,41 @@ Skada:AddDisplaySystem("broker", mod)
 
 local function sortDataset(win)
 	table.sort(win.dataset, function (a, b)
-		if not a or a.value == nil then
+		if not a or not a.id then
 			return false
-		elseif not b or b.value == nil then
+		elseif not b or not b.id then
+			return true
+		elseif a.value == nil then
+			return false
+		elseif b.value == nil then
 			return true
 		else
-			return a.value > b.value
+			local ok, result = pcall(function() return a.value > b.value end)
+			return ok and result or false
 		end
 	end)
 end
 
 local function formatLabel(win, data)
-	local label = ""
-	if win.db.isusingclasscolors and data.class then
-		label = "|c"
-		label = label..RAID_CLASS_COLORS[data.class].colorStr
-		label = label..data.label
-		label = label.."|r"
+	if not data then return "" end
+	if win.db.isusingclasscolors and data.class and RAID_CLASS_COLORS[data.class] then
+		return string.format("|c%s%s|r", RAID_CLASS_COLORS[data.class].colorStr, data.label or "")
 	else
-		label = data.label
+		return string.format("%s", data.label or "")
 	end
-	return label
 end
 
 local function formatValue(win, data)
+	if not data then return "" end
 	if data.valuetext then
-		return data.valuetext
+		return string.format("%s", data.valuetext)
 	else
-		return data.valueText1
+		-- Use string.format for multiple parts to support secret values
+		if data.valueText1 and data.valueText2 then
+			return string.format("%s %s", data.valueText1, data.valueText2)
+		else
+			return string.format("%s", data.valueText1 or "")
+		end
 	end
 end
 
@@ -202,14 +209,19 @@ function mod:Update(win)
 	sortDataset(win)
 	if #win.dataset > 0 then
 		local data = win.dataset[1]
-		if data.id then
-			local label = (formatLabel(win, data) or "").." - "..(formatValue(win, data) or "")
+		if data and data.id then
+			local labelText = formatLabel(win, data)
+			local valueText = formatValue(win, data)
+			local fullText = string.format("%s - %s", labelText, valueText)
 
 			if win.obj then
-				win.obj.text = label
+				-- LibDataBroker-1.1 often crashes when setting secret values because it performs
+				-- boolean comparisons (old_val ~= new_val) internally.
+				pcall(function() win.obj.text = fullText end)
 			end
 			if win.db.useframe then
-				win.frame.title:SetText(label)
+				-- FontString:SetText is safe with secret values.
+				win.frame.title:SetText(fullText)
 			end
 		end
 	end

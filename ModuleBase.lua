@@ -567,7 +567,8 @@ function ModuleBase:AddStandardFeeds(feedNamePersonal, feedNameRaid, rateType, l
 			local player = Skada:find_player(Skada.current, UnitGUID("player"))
 			if player then
 				local rate = self:GetPlayerRate(Skada.current, player, rateType)
-				return Skada:FormatNumberSecret(rate) .. " " .. label
+				-- Use string.format to avoid concatenation crimes with secret values
+				return string.format("%s %s", Skada:FormatNumberSecret(rate), label or "")
 			end
 		end
 	end)
@@ -575,7 +576,8 @@ function ModuleBase:AddStandardFeeds(feedNamePersonal, feedNameRaid, rateType, l
 	Skada:AddFeed(feedNameRaid, function()
 		if Skada.current then
 			local rate = self:GetRaidRate(Skada.current, rateType)
-			return Skada:FormatNumberSecret(rate) .. " " .. labelRaid
+			-- Use string.format to avoid concatenation crimes with secret values
+			return string.format("%s %s", Skada:FormatNumberSecret(rate), labelRaid or "")
 		end
 	end)
 end
