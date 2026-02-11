@@ -1034,6 +1034,29 @@ function Skada:SetActive(enable)
 	
 end
 
+function Skada:ToggleWindow()
+	local showing = false
+	for i, win in ipairs(windows) do
+		if win:IsShown() then
+			showing = true
+			break
+		end
+	end
+
+	if showing then
+		for i, win in ipairs(windows) do
+			win:Hide()
+		end
+	else
+		for i, win in ipairs(windows) do
+			if not win.db.hidden then
+				win:Show()
+			end
+		end
+	end
+	self:UpdateDisplay(true)
+end
+
 function Skada:CanReset()
 	return true
 end
