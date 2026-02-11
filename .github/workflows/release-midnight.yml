@@ -2,8 +2,8 @@ name: Release Addon (Midnight)
 
 on:
   push:
-    tags:
-      - 'midnight-*'
+    branches:
+      - 'midnight'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -29,16 +29,8 @@ jobs:
     - name: Run Luacheck
       run: luacheck .
     
-    - name: Get version
-      id: version
-      run: |
-        tag=${GITHUB_REF#refs/tags/}
-        echo "version=${tag#midnight-}" >> $GITHUB_OUTPUT
-
     - name: Package and release
       uses: BigWigsMods/packager@v2
-      with:
-        args: -v ${{ steps.version.outputs.version }}
       env:
         CF_API_KEY: ${{ secrets.CF_API_KEY }}
         GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
