@@ -1,8 +1,9 @@
 local _, Skada = ...
-Skada:AddLoadableModule("Themes", "Adds a set of standard themes to Skada. Custom themes can also be used.", function(Skada, L)
+Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada.", function(Skada, L)
 	if Skada.db.profile.modulesBlocked.Themes then return end
 
-	local themes = {
+	-- Built-in theme presets (read-only)
+	Skada.themePresets = {
 		{
 			name = "Midnight",
 			titleset = true,
@@ -16,8 +17,6 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard themes to Skada. Custo
 			wipemode = "",
 			set = "current",
 			hidden = false,
-			y = 40.759735107422,
-			x = -384.59716796875,
 			title = { textcolor = { a = 1, r = 0.9, g = 0.9, b = 0.9, }, color = { a = 1, r = 0.10196079313755, g = 0.23921570181847, b = 0.30196079611778, }, bordercolor = { a = 1, r = 0, g = 0, b = 0, }, barfontsize = 10, font = "ABF", fontsize = 10, height = 18, fontflags = "", bordertexture = "None", borderthickness = 2, texture = "Armory", },
 			display = "bar",
 			barfontflags = "",
@@ -30,9 +29,7 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard themes to Skada. Custo
 			barcolor = { a = 1, r = 0.3, g = 0.3, b = 0.8, },
 			background = { height = 128, bordertexture = "None", borderthickness = 0, tile = false, color = { a = 0.047262098640203, r = 0, g = 0, b = 0, }, bordercolor = { a = 1, r = 0, g = 0, b = 0, }, tilesize = 0, texture = "None", },
 			barfontsize = 10,
-			point = "RIGHT",
 			version = 1,
-			mode = "Damage",
 			roleicons = false,
 			barorientation = 1,
 			snapto = true,
@@ -42,7 +39,7 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard themes to Skada. Custo
 			textcolor = { r = 0.9, g = 0.9, b = 0.9, },
 			buttons = { segment = true, menu = true, mode = true, report = true, reset = true, },
 			bartexture = "Armory",
-			barwidth = 259.56884765625,
+			barwidth = 260,
 			barspacing = 0,
 			reversegrowth = false,
 			smoothing = true,
@@ -102,7 +99,6 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard themes to Skada. Custo
 			snapto = true,
 			version = 1,
 
-			-- Inline exclusive
 			isonnewline = false,
 			isusingclasscolors = true,
 			height = 30,
@@ -112,7 +108,6 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard themes to Skada. Custo
 			issolidbackdrop = false,
 			fixedbarwidth = false,
 
-			-- Broker exclusive
 			textcolor = {r = 0.9, g = 0.9, b = 0.9},
 			useframe = true
 		},
@@ -164,7 +159,6 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard themes to Skada. Custo
 			snapto = true,
 			version = 1,
 
-			-- Inline exclusive
 			isonnewline = false,
 			isusingclasscolors = true,
 			height = 30,
@@ -174,7 +168,6 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard themes to Skada. Custo
 			issolidbackdrop = false,
 			fixedbarwidth = false,
 
-			-- Broker exclusive
 			textcolor = {r = 0.9, g = 0.9, b = 0.9},
 			useframe = true
 		},
@@ -226,7 +219,6 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard themes to Skada. Custo
 			scale = 1,
 			version = 1,
 
-			-- Inline exclusive
 			isonnewline = false,
 			isusingclasscolors = true,
 			height = 30,
@@ -236,7 +228,6 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard themes to Skada. Custo
 			issolidbackdrop = false,
 			fixedbarwidth = false,
 
-			-- Broker exclusive
 			textcolor = {r = 0.9, g = 0.9, b = 0.9},
 			useframe = true
 		},
@@ -288,7 +279,6 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard themes to Skada. Custo
 			snapto = true,
 			version = 1,
 
-			-- Inline exclusive
 			isonnewline = false,
 			isusingclasscolors = true,
 			height = 30,
@@ -298,19 +288,10 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard themes to Skada. Custo
 			issolidbackdrop = false,
 			fixedbarwidth = false,
 
-			-- Broker exclusive
 			textcolor = {r = 0.9, g = 0.9, b = 0.9},
 			useframe = true
 		}
 	}
-
-	local selectedwindow = nil
-	local selectedtheme = nil
-	local savewindow = nil
-	local savename = nil
-	local deletetheme = nil
-	local exporttheme = nil
-	local importtext = ""
 
 	-- Base64 encoding/decoding for compact theme strings
 	local b64chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
@@ -389,7 +370,7 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard themes to Skada. Custo
 			local count = tonumber(str:sub(pos + 1, countEnd - 1))
 			local tbl = {}
 			local p = countEnd + 1
-			for i = 1, count do
+			for _ = 1, count do
 				local key, val
 				key, p = DeserializeValue(str, p)
 				val, p = DeserializeValue(str, p)
@@ -404,12 +385,14 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard themes to Skada. Custo
 
 	local THEME_PREFIX = "!Skada!"
 
-	local function EncodeTheme(theme)
+	-- Encode a theme table into a shareable string
+	function Skada:EncodeTheme(theme)
 		local serialized = SerializeValue(theme)
 		return THEME_PREFIX .. Base64Encode(serialized)
 	end
 
-	local function DecodeTheme(str)
+	-- Decode a theme string into a table. Returns success, theme.
+	function Skada:DecodeTheme(str)
 		str = str:match("^%s*(.-)%s*$") -- trim
 		if str:sub(1, #THEME_PREFIX) ~= THEME_PREFIX then
 			return false, nil
@@ -428,7 +411,7 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard themes to Skada. Custo
 
 	-- Show export dialog with copyable text
 	local exportFrame = nil
-	local function ShowExportDialog(text)
+	function Skada:ShowThemeExportDialog(text)
 		if exportFrame then exportFrame:Hide() end
 
 		local frame = CreateFrame("Frame", "SkadaThemeExport", UIParent, "BasicFrameTemplateWithInset")
@@ -458,7 +441,6 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard themes to Skada. Custo
 		editbox:SetAutoFocus(true)
 		editbox:HighlightText()
 		editbox:SetScript("OnEscapePressed", function() frame:Hide() end)
-		-- Re-highlight on focus so user can always Ctrl+C
 		editbox:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
 
 		frame:SetScript("OnHide", function(self) self:SetParent(nil) exportFrame = nil end)
@@ -466,272 +448,10 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard themes to Skada. Custo
 		frame:Show()
 	end
 
-	local options = {
-		type="group",
-		name=L["Themes"],
-		args={
-			header2 = {
-				type="header",
-				name=L["Apply theme"],
-				order=3,
-			},
-
-			applytheme = {
-				type="select",
-				name=L["Theme"],
-				values=	function()
-					local list = {}
-					-- Add default theme first
-					if Skada.defaulttheme then
-						list[Skada.defaulttheme.name] = Skada.defaulttheme.name
-					end
-					for i, theme in ipairs(themes) do
-						list[theme.name] = theme.name
-					end
-					if Skada.db.profile.themes then
-						for i, theme in ipairs(Skada.db.profile.themes) do
-							list[theme.name] = theme.name
-						end
-					end
-					return list
-				end,
-				get=function() return selectedtheme end,
-				set=function(i, name) selectedtheme = name end,
-				order=3.1,
-			},
-			applywindow = {
-				type="select",
-				name=L["Window"],
-				values=	function()
-					local list = {}
-					for i, win in ipairs(Skada:GetWindows()) do
-						list[win.db.name] = win.db.name
-					end
-					return list
-				end,
-				get=function() return selectedwindow end,
-				set=function(i, name) selectedwindow = name end,
-				order=3.2,
-			},
-			applybutton = {
-				type="execute",
-				name=L["Apply"],
-				func=function()
-					if selectedwindow and selectedtheme then
-						local thetheme = nil
-						-- Check default theme first
-						if Skada.defaulttheme and Skada.defaulttheme.name == selectedtheme then
-							thetheme = Skada.defaulttheme
-						end
-						-- Check built-in themes
-						if not thetheme then
-							for i, theme in ipairs(themes) do
-								if theme.name == selectedtheme then thetheme = theme end
-							end
-						end
-						-- Check custom themes
-						if not thetheme and Skada.db.profile.themes then
-							for i, theme in ipairs(Skada.db.profile.themes) do
-								if theme.name == selectedtheme then thetheme = theme end
-							end
-						end
-
-						if thetheme then
-							for i, win in ipairs(Skada:GetWindows()) do
-								if win.db.name == selectedwindow then
-									Skada:tcopy(win.db, thetheme, {"name", "modeincombat", "display", "set", "mode", "wipemode", "returnaftercombat"})
-									Skada:ApplySettings()
-									Skada:Print(L["Theme applied!"])
-								end
-							end
-						end
-					end
-				end,
-				order=3.3,
-			},
-
-			header3 = {
-				type="header",
-				name=L["Save theme"],
-				order=4,
-			},
-
-			savewindow = {
-				type="select",
-				name=L["Window"],
-				values=	function()
-					local list = {}
-					for i, win in ipairs(Skada:GetWindows()) do
-						list[win.db.name] = win.db.name
-					end
-					return list
-				end,
-				get=function() return savewindow end,
-				set=function(i, name) savewindow = name end,
-				order=4.1,
-			},
-			savenametext = {
-				type="input",
-				name=L["Name"],
-				desc=L["Name of your new theme."],
-				get=function() return savename end,
-				set=function(i, val) savename = val end,
-				order=4.2,
-			},
-			savebutton = {
-				type="execute",
-				name=L["Save"],
-				func=function()
-					for i, win in ipairs(Skada:GetWindows()) do
-						if win.db.name == savewindow then
-							Skada.db.profile.themes = Skada.db.profile.themes or {}
-							local theme = {}
-							Skada:tcopy(theme, win.db)
-							theme.name = savename
-							table.insert(Skada.db.profile.themes, theme)
-						end
-					end
-				end,
-				order=4.3,
-			},
-
-			header4 = {
-				type="header",
-				name=L["Delete theme"],
-				order=5,
-			},
-
-			deltheme = {
-				type="select",
-				name=L["Theme"],
-				values=	function()
-					local list = {}
-					if Skada.db.profile.themes then
-						for i, theme in ipairs(Skada.db.profile.themes) do
-							list[theme.name] = theme.name
-						end
-					end
-					return list
-				end,
-				get=function() return deletetheme end,
-				set=function(i, name) deletetheme = name end,
-				order=5.1,
-			},
-
-		deletebutton = {
-				type="execute",
-				name=L["Delete"],
-				func=function()
-					if Skada.db.profile.themes then
-						for i, theme in ipairs(Skada.db.profile.themes) do
-							if theme.name == deletetheme then
-								table.remove(Skada.db.profile.themes, i)
-							end
-						end
-					end
-				end,
-				order=5.2
-			},
-
-			header5 = {
-				type="header",
-				name=L["Export theme"],
-				order=6,
-			},
-
-			exporttheme = {
-				type="select",
-				name=L["Theme to export"],
-				values=function()
-					local list = {}
-					-- Add default theme
-					if Skada.defaulttheme then
-						list[Skada.defaulttheme.name] = Skada.defaulttheme.name
-					end
-					for i, theme in ipairs(themes) do
-						list[theme.name] = theme.name
-					end
-					if Skada.db.profile.themes then
-						for i, theme in ipairs(Skada.db.profile.themes) do
-							list[theme.name] = theme.name
-						end
-					end
-					return list
-				end,
-				get=function() return exporttheme end,
-				set=function(i, name) exporttheme = name end,
-				order=6.1,
-			},
-
-			exportbutton = {
-				type="execute",
-				name=L["Export"],
-				func=function()
-					if exporttheme then
-						local thetheme = nil
-						-- Check default theme first
-						if Skada.defaulttheme and Skada.defaulttheme.name == exporttheme then
-							thetheme = Skada.defaulttheme
-						end
-						-- Check built-in themes
-						if not thetheme then
-							for i, theme in ipairs(themes) do
-								if theme.name == exporttheme then thetheme = theme end
-							end
-						end
-						-- Check custom themes
-						if not thetheme and Skada.db.profile.themes then
-							for i, theme in ipairs(Skada.db.profile.themes) do
-								if theme.name == exporttheme then thetheme = theme end
-							end
-						end
-						if thetheme then
-							local encoded = EncodeTheme(thetheme)
-							ShowExportDialog(encoded)
-						end
-					end
-				end,
-				order=6.2,
-			},
-
-			header6 = {
-				type="header",
-				name=L["Import theme"],
-				order=7,
-			},
-
-			importtext = {
-				type="input",
-				name=L["Theme data"],
-				desc=L["Paste theme data here to import"],
-				width="full",
-				get=function() return importtext end,
-				set=function(i, val) importtext = val end,
-				order=7.1,
-			},
-
-			importbutton = {
-				type="execute",
-				name=L["Import"],
-				func=function()
-					if importtext and importtext ~= "" then
-						local success, theme = DecodeTheme(importtext)
-						if success and theme then
-							Skada.db.profile.themes = Skada.db.profile.themes or {}
-							table.insert(Skada.db.profile.themes, theme)
-							Skada:Print(L["Theme imported successfully: "] .. (theme.name or "Unnamed"))
-							importtext = ""
-						else
-							Skada:Print(L["Failed to import theme. Make sure the string starts with !Skada!"])
-						end
-					end
-				end,
-				order=7.2,
-			},
-
-		}
-	}
-
-	Skada.options.args['Themes'] = options
+	-- Apply a theme table to a window, preserving identity fields
+	function Skada:ApplyThemeToWindow(win, theme)
+		Skada:tcopy(win.db, theme, {"name", "modeincombat", "display", "set", "mode", "wipemode", "returnaftercombat"})
+		Skada:ApplySettings()
+	end
 
 end)

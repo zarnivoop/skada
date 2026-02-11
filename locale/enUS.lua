@@ -447,10 +447,12 @@ L["Theme data"] = true
 L["Paste theme data here to import"] = true
 L["Copy the string below (Ctrl+C) and share it"] = true
 L["Theme imported successfully: "] = true
+L["Theme imported and applied!"] = true
+L["Export this window's settings as a shareable theme string."] = true
 L["Failed to import theme. Make sure the string starts with !Skada!"] = true
 L["No data to display"] = true
 L["Various tweaks to get around deficiences and problems in the game's combat logs. Carries a small performance penalty."] = true
-L["Adds a set of standard themes to Skada. Custom themes can also be used."] = true
+L["Adds a set of standard theme presets to Skada."] = true
 L["Smart"] = true
 
 L["Minimum"] = true

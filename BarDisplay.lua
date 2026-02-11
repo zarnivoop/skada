@@ -1155,4 +1155,110 @@ function mod:AddDisplayOptions(win, options)
 	}
 
 	options.windowoptions = Skada:FrameSettings(db, false)
+
+	-- Per-window theme options
+	local selectedpreset = nil
+	local importtext = ""
+
+	options.themeoptions = {
+		type = "group",
+		name = L["Themes"],
+		order = 5,
+		args = {
+
+			header1 = {
+				type = "header",
+				name = L["Apply theme"],
+				order = 1,
+			},
+
+			preset = {
+				type = "select",
+				name = L["Theme"],
+				values = function()
+					local list = {}
+					if Skada.themePresets then
+						for _, theme in ipairs(Skada.themePresets) do
+							list[theme.name] = theme.name
+						end
+					end
+					return list
+				end,
+				get = function() return selectedpreset end,
+				set = function(_, name) selectedpreset = name end,
+				order = 1.1,
+			},
+
+			applybutton = {
+				type = "execute",
+				name = L["Apply"],
+				func = function()
+					if selectedpreset and Skada.themePresets then
+						for _, theme in ipairs(Skada.themePresets) do
+							if theme.name == selectedpreset then
+								Skada:ApplyThemeToWindow(win, theme)
+								Skada:Print(L["Theme applied!"])
+								break
+							end
+						end
+					end
+				end,
+				order = 1.2,
+			},
+
+			header2 = {
+				type = "header",
+				name = L["Export theme"],
+				order = 2,
+			},
+
+			exportbutton = {
+				type = "execute",
+				name = L["Export"],
+				desc = L["Export this window's settings as a shareable theme string."],
+				func = function()
+					local themedata = {}
+					Skada:tcopy(themedata, db)
+					themedata.name = db.name or "Exported Theme"
+					local encoded = Skada:EncodeTheme(themedata)
+					Skada:ShowThemeExportDialog(encoded)
+				end,
+				order = 2.1,
+			},
+
+			header3 = {
+				type = "header",
+				name = L["Import theme"],
+				order = 3,
+			},
+
+			importtext = {
+				type = "input",
+				name = L["Theme data"],
+				desc = L["Paste theme data here to import"],
+				width = "full",
+				get = function() return importtext end,
+				set = function(_, val) importtext = val end,
+				order = 3.1,
+			},
+
+			importbutton = {
+				type = "execute",
+				name = L["Import"],
+				func = function()
+					if importtext and importtext ~= "" then
+						local success, theme = Skada:DecodeTheme(importtext)
+						if success and theme then
+							Skada:ApplyThemeToWindow(win, theme)
+							Skada:Print(L["Theme imported and applied!"])
+							importtext = ""
+						else
+							Skada:Print(L["Failed to import theme. Make sure the string starts with !Skada!"])
+						end
+					end
+				end,
+				order = 3.2,
+			},
+		}
+	}
 end
