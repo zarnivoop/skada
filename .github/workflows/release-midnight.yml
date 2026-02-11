@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - 'midnight'
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       dry_run:
