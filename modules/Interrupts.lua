@@ -11,7 +11,7 @@ Skada:AddLoadableModule("Interrupts", nil, function(Skada, L)
 
 	function playermod:Enter(win, id, label)
 		playermod.playerid = id
-		playermod.title = label .. L["'s Interrupts"]
+		playermod.title = tostring(label) .. L["'s Interrupts"]
 	end
 
 	function playermod:Update(win, set)

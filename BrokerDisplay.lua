@@ -19,13 +19,14 @@ local function sortDataset(win)
 			return false
 		elseif not b or not b.id then
 			return true
-		elseif a.value == nil then
-			return false
-		elseif b.value == nil then
-			return true
 		else
-			local ok, result = pcall(function() return a.value > b.value end)
-			return ok and result or false
+			-- Use Skada:SafeNumber for robust comparison, treating nil/non-numeric as 0.
+			-- This ensures nil values are sorted consistently (at the beginning if ascending, end if descending).
+			-- The original logic had nil 'a' come after 'b', and nil 'b' come before 'a'.
+			-- Skada:SafeNumber(nil) returns 0, so 0 > X is false, X > 0 is true.
+			-- This means nil values (0) will appear at the end when sorting descending (a > b).
+			-- This matches the original behavior where nil values were pushed to the end.
+			return Skada:SafeNumber(a.value) > Skada:SafeNumber(b.value)
 		end
 	end)
 end

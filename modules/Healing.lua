@@ -11,7 +11,7 @@ Skada:AddLoadableModule("Healing", nil, function(Skada, L)
 
 	function playermod:Enter(win, id, label)
 		playermod.playerid = id
-		playermod.title = label .. L["'s Healing"]
+		playermod.title = tostring(label) .. L["'s Healing"]
 	end
 
 	function playermod:Update(win, set)

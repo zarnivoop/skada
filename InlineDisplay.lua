@@ -220,9 +220,9 @@ function mod:SetTitle(win, title)
 	win.frame.fstitle:SetText(title)
 	
 	-- Safely get title width. Secret strings can return secret widths.
-	local titleWidth = 50 
-	local success, width = pcall(function() return win.frame.fstitle:GetStringWidth() end)
-	if success and width and not Skada.SecretHelper:IsSecret(width) then
+	local titleWidth = 50 -- Default fallback
+	local width = win.frame.fstitle:GetStringWidth()
+	if width and not Skada.SecretHelper:IsSecret(width) then
 		titleWidth = width
 	end
 	
@@ -384,8 +384,7 @@ function mod:Update(win)
 		elseif bar2.value == nil then
 			return true
 		else
-			local ok, result = pcall(function() return bar1.value > bar2.value end)
-			return ok and result or false
+			return Skada:SafeNumber(bar1.value) > Skada:SafeNumber(bar2.value)
 		end
 	end)
 
@@ -407,8 +406,8 @@ function mod:Update(win)
 		-- Safely get string width. Secret strings cause GetStringWidth to return a secret value.
 		-- Mathematical operations on secret values crash the game.
 		local labelWidth = 50 -- Default fallback
-		local success, width = pcall(function() return bar.label:GetStringWidth() end)
-		if success and width and not Skada.SecretHelper:IsSecret(width) then
+		local width = bar.label:GetStringWidth()
+		if width and not Skada.SecretHelper:IsSecret(width) then
 			labelWidth = width
 		end
 		

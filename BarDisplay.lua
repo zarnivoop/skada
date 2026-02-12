@@ -231,8 +231,8 @@ local function value_sort(a,b)
 	elseif b.value == nil then
 		return true
 	else
-		local ok, result = pcall(function() return a.value > b.value end)
-		return ok and result or false
+		-- Use Skada:SafeNumber for numeric comparison
+		return Skada:SafeNumber(a.value) > Skada:SafeNumber(b.value)
 	end
 end
 
@@ -247,13 +247,25 @@ end
 -- Called by Skada windows when title of window should change.
 function mod:SetTitle(win, title)
 	-- Set title.
-	win.bargroup.button:SetText(title)
+	-- WoW 12.0+ restriction: Button:SetText() does not allow secret values during combat.
+	-- However, FontString:SetText() does allow them. We use the internal FontString to bypass this.
+	local fs = win.bargroup.button:GetFontString()
+	if fs then
+		fs:SetText(title)
+	else
+		win.bargroup.button:SetText(title)
+	end
 end
 
 -- Called by Skada windows when the display should be updated to match the dataset.
 function mod:Update(win)
 	-- Some modes may alter title continously.
-	win.bargroup.button:SetText(win.metadata.title)
+	local fs = win.bargroup.button:GetFontString()
+	if fs then
+		fs:SetText(win.metadata.title)
+	else
+		win.bargroup.button:SetText(win.metadata.title)
+	end
 
 	-- Sort if we are showing spots with "showspots".
 	if win.metadata.showspots then

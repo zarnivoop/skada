@@ -557,7 +557,7 @@ end
 
 function Window:set_mode_title()
 	if not self.selectedmode or not self.selectedset then return end
-	local name = self.selectedmode.title or self.selectedmode:GetName()
+	local name = tostring(self.selectedmode.title or self.selectedmode:GetName())
 
 	-- save window settings for RestoreView after reload
 	self.db.set = self.selectedset
@@ -580,7 +580,7 @@ function Window:set_mode_title()
 			end
 		end
 	if setname then
-		name = name .. ": " .. setname
+		name = tostring(name) .. ": " .. tostring(setname)
 	end
 	end
 	if disabled and (self.selectedset == "current" or self.selectedset == "total") then
@@ -1716,12 +1716,9 @@ end
 function Skada:FormatNumberSecret(number)
 	-- For secret values, use string.format with %.0f for clean whole numbers
 	if issecretvalue and issecretvalue(number) then
-		local success, s = pcall(string.format, "%.0f", number)
-		-- Ensure the result is converted to a clean string if it's secret
-		if success and s then
-			return tostring(s) 
-		end
-		return "?"
+		-- string.format is safe for secret values
+		local s = string.format("%.0f", number)
+		return tostring(s)
 	end
 	-- For normal values, use regular formatting
 	return self:FormatNumber(number)
@@ -1731,35 +1728,13 @@ end
 function Skada:SafeNumber(value)
 	if not value then return 0 end
 	
-	-- Check for WoW 12.0 issecretvalue function
-	if issecretvalue and issecretvalue(value) then
-		return 0 -- Return 0 for arithmetic/sorting safety; the module handles secret display separately
-	end
-	
 	if type(value) ~= "number" then return 0 end
 	
-	-- Try multiple approaches to strip secret status
-	-- First try: string.format (like NativeAPI.sanitizeNumber)
-	local success, s = pcall(string.format, "%f", value)
-	if success then
-		local num = tonumber(s)
-		if num then return num end
-	end
+	-- Check for secret value first
+	if issecretvalue and issecretvalue(value) then return 0 end
 	
-	-- Second try: tostring (might work better with some secret values)
-	local success2, s2 = pcall(tostring, value)
-	if success2 then
-		local num = tonumber(s2)
-		if num then return num end
-	end
-	
-	-- Third try: arithmetic (value + 0)
-	local success3, result = pcall(function() return value + 0 end)
-	if success3 and type(result) == "number" then
-		return result
-	end
-	
-	return value -- Return original value (possibly secret) instead of 0
+	-- If not secret and is a number, return it
+	return value
 end
 
 local function scan_for_columns(mode)
@@ -1995,8 +1970,8 @@ local function value_sort(a, b)
 	elseif b.value == nil then
 		return true
 	else
-		local ok, result = pcall(function() return a.value > b.value end)
-		return ok and result or false
+		-- Use Skada:SafeNumber for numeric comparison
+		return Skada:SafeNumber(a.value) > Skada:SafeNumber(b.value)
 	end
 end
 
@@ -2006,8 +1981,8 @@ function Skada.valueid_sort(a, b)
 	elseif not b or not b.id or b.value == nil then
 		return true
 	else
-		local ok, result = pcall(function() return a.value > b.value end)
-		return ok and result or false
+		-- Use Skada:SafeNumber for numeric comparison
+		return Skada:SafeNumber(a.value) > Skada:SafeNumber(b.value)
 	end
 end
 

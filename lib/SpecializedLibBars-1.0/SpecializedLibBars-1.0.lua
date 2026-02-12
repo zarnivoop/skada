@@ -495,7 +495,12 @@ do
 		myfont:CopyFontObject(ChatFontSmall)
 
 		list.button = CreateFrame("Button", nil, list, "BackdropTemplate")
-		list.button:SetText(name)
+		local bfs = list.button:GetFontString()
+		if bfs then
+			bfs:SetText(name)
+		else
+			list.button:SetText(name)
+		end
 		list.button:SetBackdrop(frame_defaults)
 		list.button:SetNormalFontObject(myfont)
 

@@ -52,14 +52,8 @@ local function sanitizeNumber(val)
 		return val
 	end
 	
-	if type(val) ~= "number" then return val end
-	
-	-- Try to strip secret status by string round-trip
-	local success, s = pcall(string.format, "%f", val)
-	if success then
-		return tonumber(s)
-	end
-	return val -- Return original value (possibly secret) instead of 0
+	-- If not secret, return it (can be number or other type)
+	return val
 end
 
 --[[
@@ -182,20 +176,36 @@ function NativeAPI:GetPlayerSpells(playerID, set, damageType)
 	local spellFields = {"combatSpells", "spells", "abilities", "damageSpells", "healingSpells"}
 	
 	for _, field in ipairs(spellFields) do
-		if source[field] and type(source[field]) == "table" then
+		local val = source[field]
+		if val and (type(val) == "table" or (issecretvalue and issecretvalue(val))) then
 			if Skada.db.profile.debug then
 				Skada:Debug("Found spells in field:", field)
 			end
-			return source[field]
+			return val
 		end
 	end
 	
-	-- If source itself looks like a spells array (array of tables with spell data)
-	local looksLikeSpellsArray = true
+	-- If source itself looks like a spells array
 	local itemCount = 0
+	local success, isSecret = pcall(function() return issecretvalue and issecretvalue(source) end)
+	if success and isSecret then
+		-- If the whole source is secret, we assume it's an iterable secret collection
+		return source
+	end
+	
+	local looksLikeSpellsArray = true
 	for _, v in pairs(source) do
 		itemCount = itemCount + 1
-		if type(v) ~= "table" or (not v.spellID and not v.abilityID and not v.totalAmount) then
+		local isVTable = type(v) == "table"
+		local isVSecret = issecretvalue and issecretvalue(v)
+		
+		if not isVTable and not isVSecret then
+			looksLikeSpellsArray = false
+			break
+		end
+		
+		-- If it's a table, check for expected fields. If it's secret, we can't check fields but assume it's data.
+		if isVTable and (not v.spellID and not v.abilityID and not v.totalAmount) then
 			looksLikeSpellsArray = false
 			break
 		end

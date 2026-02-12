@@ -249,7 +249,7 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 	local realID = player.sourceGUID or player.guid or player.unitGUID or player.id or playerid
 	local spells = Skada.NativeAPI:GetPlayerSpells(realID, view or set, damageType)
 	
-	if not spells or SecretHelper:IsSecret(spells) then 
+	if not spells then 
 		return 
 	end
 	
@@ -259,7 +259,7 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 	local hasSecretValues = false
 	local totalValue = 0
 	for _, spell in pairs(spells) do
-		if type(spell) == "table" then
+		if type(spell) == "table" or (issecretvalue and issecretvalue(spell)) then
 			local value = spell[valueKey]
 			if value then
 				if hasSecretAPI and issecretvalue(value) then
@@ -275,7 +275,7 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 	local nr = 1
 	
 	for _, spell in pairs(spells) do
-		if type(spell) == "table" then
+		if type(spell) == "table" or (issecretvalue and issecretvalue(spell)) then
 			local rawValue = spell[valueKey]
 			if rawValue then
 				local isSecret = hasSecretAPI and issecretvalue(rawValue)
@@ -424,8 +424,8 @@ function ModuleBase:CreatePlayerTooltip(options)
 			local spellValueKey = options.spellValueKey or "totalAmount"
 			
 			for _, s in pairs(spells) do
-				-- Check if spell entry itself is not secret and is a table
-				if type(s) == "table" and not SecretHelper:IsSecret(s) then
+				-- Check if spell entry itself is valid (table or secret)
+				if type(s) == "table" or (issecretvalue and issecretvalue(s)) then
 					local rawAmount = s[spellValueKey]
 					if rawAmount then
 						table.insert(sorted, s)
@@ -443,23 +443,23 @@ function ModuleBase:CreatePlayerTooltip(options)
 				
 				for i = 1, math.min(3, #sorted) do
 					local s = sorted[i]
-					-- Safely get spell properties with pcall
-					local success_spellID, spellID = pcall(function() return s.spellID end)
-					spellID = success_spellID and spellID or 0
 					
-					local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
-					local name = spellInfo and spellInfo.name or ("Spell " .. tostring(spellID))
-					
-					local success_val, rawVal = pcall(function() return s[spellValueKey] end)
-					rawVal = success_val and rawVal or 0
-					
-					if SecretHelper:HasSecretAPI() and issecretvalue(rawVal) then
-						tooltip:AddDoubleLine(name, Skada:FormatNumberSecret(rawVal), 1, 1, 1, 1, 1, 1)
-					else
-						local val = tonumber(rawVal) or 0
-						local playerVal = SecretHelper:SafeNumber(rawValue)
-						local percent = playerVal > 0 and (val / playerVal) * 100 or 0
-						tooltip:AddDoubleLine(name, Skada:FormatNumber(val) .. " (" .. string.format("%02.1f%%", percent) .. ")", 1, 1, 1, 1, 1, 1)
+					-- Data access
+					do
+						local spellID = s.spellID or 0
+						local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
+						local name = spellInfo and spellInfo.name or ("Spell " .. tostring(spellID))
+						
+						local rawVal = s[spellValueKey] or 0
+						
+						if SecretHelper:HasSecretAPI() and issecretvalue(rawVal) then
+							tooltip:AddDoubleLine(name, Skada:FormatNumberSecret(rawVal), 1, 1, 1, 1, 1, 1)
+						else
+							local val = tonumber(rawVal) or 0
+							local playerVal = SecretHelper:SafeNumber(rawValue)
+							local percent = playerVal > 0 and (val / playerVal) * 100 or 0
+							tooltip:AddDoubleLine(name, Skada:FormatNumber(val) .. " (" .. string.format("%02.1f%%", percent) .. ")", 1, 1, 1, 1, 1, 1)
+						end
 					end
 				end
 			end

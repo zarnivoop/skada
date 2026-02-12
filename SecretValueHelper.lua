@@ -101,12 +101,14 @@ function SecretHelper:SafeCompare(a, b)
 			return nil
 		end
 	end
-	-- Safe to compare
-	local success, result = pcall(function() return a > b end)
-	if success then
-		return result
+	
+	-- Not secret, but might still fail if types are incompatible
+	if type(a) ~= type(b) then
+		return nil
 	end
-	return nil
+	
+	-- Safe to compare
+	return a > b
 end
 
 --[[
