@@ -2490,9 +2490,6 @@ function Skada:OnEnable()
 	
 	-- Native API doesn't need polling
 	
-	-- Print info message
-	self:Print("Damage meter powered by native WoW 12.0+ API")
-	
 	-- Test session types to find correct values
 	self.NativeAPI:TestSessionTypes()
 

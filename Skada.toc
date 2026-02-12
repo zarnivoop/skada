@@ -1,5 +1,6 @@
 ## Interface: 120001
 ## Title: Skada
+## IconTexture: Interface\Icons\Spell_Lightning_LightningBolt01
 ## Notes: Modular damage meter.
 ## Notes-deDE: Ein Damage-Meter.
 ## Notes-esES: Un medidor de daño.
