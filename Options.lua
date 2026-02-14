@@ -56,7 +56,6 @@ Skada.windowdefaults = {
 	modeincombat = "",
 	returnaftercombat = false,
 	wipemode = "",
-	smoothing = true,
 
 	hidden = false,
 	enabletitle = true,

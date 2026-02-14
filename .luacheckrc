@@ -11,7 +11,7 @@ globals = {
     "UnitPowerMax", "UnitPowerType", "GetSpellCount", "GetSpellPowerCost",
     "GetSpellBaseDamage", "CLASS_ICON_TCOORDS", "GetCursorPosition",
     "IsShiftKeyDown", "IsControlKeyDown", "UnitName", "UnitClass",
-    "UnitIsPlayer", "UnitLevel", "InCombatLockdown", "GetTime", "time",
+    "CreateColor", "UnitIsPlayer", "UnitLevel", "InCombatLockdown", "GetTime", "time",
     "GetScreenWidth", "GetScreenHeight", "GetBuildInfo", "GetNumSubgroupMembers",
     "GetNumGroupMembers", "UnitExists", "UnitIsUnit", "UnitInParty",
     "UnitInRaid", "UnitIsDeadOrGhost", "UnitIsFriend", "UnitIsEnemy",
