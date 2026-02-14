@@ -1,4 +1,4 @@
-name: Release Addon (Midnight)
+name: Release Addon
 
 on:
   push:
@@ -32,6 +32,8 @@ jobs:
       run: luacheck .
     
     - name: Package and release
+      # Only run the packager/release step if a tag was pushed
+      if: startsWith(github.ref, 'refs/tags/')
       uses: BigWigsMods/packager@v2
       env:
         CF_API_KEY: ${{ secrets.CF_API_KEY }}
