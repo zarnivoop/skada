@@ -1,6 +1,16 @@
 local _, Skada = ...
 Skada.versions = {
 	{
+		id = "2.0.2",
+		title = "Skada 2.0.2",
+		message = "New themes and performance improvements",
+		changes = {
+			"Added several new themes",
+			"Removed old start/stop segment (no longer possible)",
+			"Performance improvements"
+		}
+	},
+	{
 		id = "2.0.1",
 		title = "Skada 2.0.1",
 		message = "Initial Midnight fixes and minor improvements",
