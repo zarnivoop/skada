@@ -115,20 +115,6 @@ function Skada:OpenMenu(window)
 				UIDropDownMenu_AddButton(info, level)
 			end
 
-			info = UIDropDownMenu_CreateInfo()
-			info.text = L["Delete segment"]
-			info.hasArrow = 1
-			info.notCheckable = 1
-			info.value = "delete"
-			UIDropDownMenu_AddButton(info, level)
-
-			info = UIDropDownMenu_CreateInfo()
-			info.text = L["Keep segment"]
-			info.notCheckable = 1
-			info.hasArrow = 1
-			info.value = "keep"
-			UIDropDownMenu_AddButton(info, level)
-
 			-- Add a blank separator
 			info = UIDropDownMenu_CreateInfo()
 			info.disabled = 1
@@ -144,12 +130,6 @@ function Skada:OpenMenu(window)
 			info = UIDropDownMenu_CreateInfo()
 			info.text = L["Reset"]
 			info.func = function() Skada:Reset() end
-			info.notCheckable = 1
-			UIDropDownMenu_AddButton(info, level)
-
-			info = UIDropDownMenu_CreateInfo()
-			info.text = L["Start new segment"]
-			info.func = function() Skada:NewSegment() end
 			info.notCheckable = 1
 			UIDropDownMenu_AddButton(info, level)
 

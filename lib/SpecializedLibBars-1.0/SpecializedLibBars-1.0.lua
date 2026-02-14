@@ -448,6 +448,40 @@ function barListPrototype:SetBarBackgroundColor(r, g, b, a)
 	end
 end
 
+function barListPrototype:SetAlternateRows(enabled, darkenAmount)
+	self.alternateRows = enabled
+	self.alternateDarken = darkenAmount or 0.06
+	self:SortBars()
+end
+
+function barListPrototype:SetSelfHighlight(enabled, color)
+	self.selfHighlight = enabled
+	self.selfHighlightColor = color or {1, 1, 1, 0.12}
+end
+
+function barListPrototype:SetSpark(enabled)
+	self.showSpark = enabled
+end
+
+function barListPrototype:SetIconScale(scale)
+	self.iconScale = scale
+	if bars[self] then
+		for k, v in pairs(bars[self]) do
+			v:ApplyIconScale(scale)
+		end
+	end
+end
+
+function barListPrototype:SetBarInset(inset)
+	self.barInset = inset
+	if bars[self] then
+		for k, v in pairs(bars[self]) do
+			v:SetInset(inset)
+		end
+	end
+end
+
+
 function barListPrototype:ShowButton(title, visible)
 	for i, b in ipairs(self.buttons) do
 		if b.title == title then
@@ -1073,6 +1107,7 @@ do
 		local visibleThisFrame = {}
 		local shown = 0
 		local last_icon = false
+		local visibleIndex = 0
 		for i = start, stop, step do
 			local origTo = to
 			local v = values[i]
@@ -1106,6 +1141,32 @@ do
 				v:SetPoint(from.."RIGHT", lastBar, to.."RIGHT", x2, y2)
 
 				v:Show()
+				visibleIndex = visibleIndex + 1
+
+				-- Alternating row colors
+				if self.alternateRows and self.barbackgroundcolor then
+					local br, bg, bb, ba = unpack(self.barbackgroundcolor)
+					if visibleIndex % 2 == 0 then
+						local d = self.alternateDarken or 0.06
+						v.bgtexture:SetVertexColor(max(0, br - d), max(0, bg - d), max(0, bb - d), min(1, ba + d))
+					else
+						v.bgtexture:SetVertexColor(br, bg, bb, ba)
+					end
+				end
+
+				-- Self highlight overlay
+				if self.selfHighlight and v.isSelfBar then
+					if not v.selfOverlay then
+						v.selfOverlay = v:CreateTexture(nil, "ARTWORK", nil, 2)
+						v.selfOverlay:SetAllPoints()
+					end
+					local sc = self.selfHighlightColor or {1, 1, 1, 0.12}
+					v.selfOverlay:SetColorTexture(sc[1], sc[2], sc[3], sc[4])
+					v.selfOverlay:Show()
+				elseif v.selfOverlay then
+					v.selfOverlay:Hide()
+				end
+
 				shown = shown + 1
 				if v.showIcon then
 					last_icon = true
@@ -1125,6 +1186,40 @@ do
 		end
 
 		self.lastBar = lastBar
+
+		-- Spark: show on the first visible bar only
+		if self.showSpark and bars[self] then
+			local first = true
+			for i = start, stop, step do
+				local v = values[i]
+				if visibleThisFrame[v] then
+					if first then
+						if not v.spark then
+							v.spark = v:CreateTexture(nil, "OVERLAY")
+							v.spark:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark")
+							v.spark:SetBlendMode("ADD")
+							v.spark:SetWidth(12)
+						end
+						v.spark:SetHeight(v:GetHeight() * 2.2)
+						v.spark:ClearAllPoints()
+						if v.texture then
+							v.spark:SetPoint("CENTER", v.texture, "RIGHT", 0, 0)
+						end
+						v.spark:Show()
+						first = false
+					else
+						if v.spark then v.spark:Hide() end
+					end
+				end
+			end
+		else
+			-- Hide all sparks when disabled
+			if bars[self] then
+				for k, v in pairs(bars[self]) do
+					if v.spark then v.spark:Hide() end
+				end
+			end
+		end
 	end
 end
 
@@ -1294,6 +1389,14 @@ function barPrototype:SetFont(newFont, newSize, newFlags)
 	end
 end
 
+function barPrototype:ApplyIconScale(scale)
+	if not scale or scale == 100 then return end
+	local pct = scale / 100
+	local iconSize = self.thickness * pct
+	self.icon:SetWidth(iconSize)
+	self.icon:SetHeight(iconSize)
+end
+
 function barPrototype:SetIconWithCoord(icon, coord)
 	if icon then
 		self.icon:SetTexture(icon)
@@ -1403,6 +1506,11 @@ end
 -- Added by Ulic
 -- Allows for the setting of background colors for a specific bar
 -- Someday I'll figure out to do it at the group level
+function barPrototype:SetInset(inset)
+	self.inset = inset or 0
+	self:UpdateOrientationLayout()
+end
+
 function barPrototype:SetBackgroundColor(r, g, b, a)
 	a = a or .6
 	if r and g and b and a then
@@ -1486,11 +1594,16 @@ function barPrototype:UpdateOrientationLayout()
 		self.icon:ClearAllPoints()
 		self.icon:SetPoint("TOPLEFT", self, "TOPLEFT", 0, 0)
 
+		local inset = self.inset or 0
 		t = self.texture
 		t.SetValue = t.SetWidth
 		t:ClearAllPoints()
-		t:SetPoint("TOPLEFT", self, "TOPLEFT")
-		t:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT")
+		t:SetPoint("TOPLEFT", self, "TOPLEFT", inset, -inset)
+		t:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT", inset, inset)
+
+		self.bgtexture:ClearAllPoints()
+		self.bgtexture:SetPoint("TOPLEFT", self, "TOPLEFT", inset, -inset)
+		self.bgtexture:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -inset, inset)
 
 		-- Position columns from right to left
 		-- Column 3 (rightmost, primary value)
@@ -1528,11 +1641,16 @@ function barPrototype:UpdateOrientationLayout()
 		self.icon:ClearAllPoints()
 		self.icon:SetPoint("TOP", self, "TOP", 0, 0)
 
+		local inset = self.inset or 0
 		t = self.texture
 		t.SetValue = t.SetHeight
 		t:ClearAllPoints()
-		t:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT")
-		t:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT")
+		t:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT", inset, inset)
+		t:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -inset, inset)
+
+		self.bgtexture:ClearAllPoints()
+		self.bgtexture:SetPoint("TOPLEFT", self, "TOPLEFT", inset, -inset)
+		self.bgtexture:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -inset, inset)
 
 		-- Set label height to fill remaining space
 		self.label:ClearAllPoints()
@@ -1544,11 +1662,16 @@ function barPrototype:UpdateOrientationLayout()
 		self.icon:ClearAllPoints()
 		self.icon:SetPoint("TOPRIGHT", self, "TOPRIGHT", 0, 0)
 
+		local inset = self.inset or 0
 		t = self.texture
 		t.SetValue = t.SetWidth
 		t:ClearAllPoints()
-		t:SetPoint("TOPRIGHT", self, "TOPRIGHT")
-		t:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT")
+		t:SetPoint("TOPRIGHT", self, "TOPRIGHT", -inset, -inset)
+		t:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -inset, inset)
+
+		self.bgtexture:ClearAllPoints()
+		self.bgtexture:SetPoint("TOPLEFT", self, "TOPLEFT", inset, -inset)
+		self.bgtexture:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -inset, inset)
 		
 		-- Position columns from left to right with font-size aware spacing
 		-- Column 1 (leftmost column)
@@ -1586,11 +1709,16 @@ function barPrototype:UpdateOrientationLayout()
 		self.icon:ClearAllPoints()
 		self.icon:SetPoint("BOTTOM", self, "BOTTOM", 0, 0)
 
+		local inset = self.inset or 0
 		t = self.texture
 		t.SetValue = t.SetHeight
 		t:ClearAllPoints()
-		t:SetPoint("TOPLEFT", self, "TOPLEFT")
-		t:SetPoint("TOPRIGHT", self, "TOPRIGHT")
+		t:SetPoint("TOPLEFT", self, "TOPLEFT", inset, -inset)
+		t:SetPoint("TOPRIGHT", self, "TOPRIGHT", -inset, -inset)
+
+		self.bgtexture:ClearAllPoints()
+		self.bgtexture:SetPoint("TOPLEFT", self, "TOPLEFT", inset, -inset)
+		self.bgtexture:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -inset, inset)
 
 		-- Set label height to fill remaining space
 		self.label:ClearAllPoints()

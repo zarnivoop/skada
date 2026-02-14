@@ -173,7 +173,6 @@ BINDING_HEADER_Skada = "Skada"
 BINDING_NAME_SKADA_TOGGLE = L["Toggle window"]
 BINDING_NAME_SKADA_RESET = L["Reset"]
 BINDING_NAME_SKADA_NEWSEGMENT = L["Start new segment"]
-BINDING_NAME_SKADA_STOP = L["Stop"]
 
 -- The current set
 Skada.current = nil
@@ -767,7 +766,7 @@ function Skada:CreateWindow(name, db, display)
 		db.barbgcolor = { r = 0.3, g = 0.3, b = 0.3, a = 0.6 }
 	end
 	if not db.buttons then
-		db.buttons = { menu = true, reset = true, report = true, mode = true, segment = true, stop = true }
+		db.buttons = { menu = true, reset = true, report = true, mode = true, segment = true }
 	end
 	if not db.scale then
 		db.scale = 1
@@ -776,7 +775,6 @@ function Skada:CreateWindow(name, db, display)
 	if not db.version then
 		-- On changes that needs updates to window data structure, increment version in defaults and handle it after this bit.
 		db.version = 1
-		db.buttons.stop = true
 	end
 
 	local window = Window:new()
@@ -2234,6 +2232,22 @@ function Skada:FrameSettings(db, include_dimensions)
 				order = 1.4
 			},
 
+			opacity = {
+				type = "range",
+				name = L["Opacity"],
+				desc = L["The opacity of the background."],
+				min = 0,
+				max = 1,
+				step = 0.01,
+				isPercent = true,
+				get = function() return db.background.color.a end,
+				set = function(win, val)
+					db.background.color.a = val
+					Skada:ApplySettings()
+				end,
+				order = 1.5
+			},
+
 			borderheader = {
 				type = "header",
 				name = L["Border"],
@@ -2379,6 +2393,9 @@ function Skada:OnInitialize()
 	media:Register("statusbar", "Smooth", [[Interface\Addons\Skada\media\statusbar\Smooth]])
 	media:Register("statusbar", "Round", [[Interface\Addons\Skada\media\statusbar\Round]])
 	media:Register("statusbar", "TukTex", [[Interface\Addons\Skada\media\statusbar\normTex]])
+	media:Register("statusbar", "Skada Modern", [[Interface\Addons\Skada\media\statusbar\SkadaModern]])
+	media:Register("statusbar", "Skada Glass", [[Interface\Addons\Skada\media\statusbar\SkadaGlass]])
+	media:Register("statusbar", "Skada Material", [[Interface\Addons\Skada\media\statusbar\SkadaMaterial]])
 	media:Register("border", "Glow", [[Interface\Addons\Skada\media\border\glowTex]])
 	media:Register("border", "Roth", [[Interface\Addons\Skada\media\border\roth]])
 	media:Register("background", "Copper", [[Interface\Addons\Skada\media\background\copper]])

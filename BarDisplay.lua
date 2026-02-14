@@ -43,13 +43,7 @@ function mod:Create(window)
 		window.bargroup:AddButton(L["Segment"], L["Segment description"], "Interface\\Buttons\\UI-GuildButton-PublicNote-Up", "Interface\\Buttons\\UI-GuildButton-PublicNote-Up", function() Skada:SegmentMenu(bargroup.win) end)
 		window.bargroup:AddButton(L["Mode"], L["Mode description"], "Interface\\GROUPFRAME\\UI-GROUP-MAINASSISTICON", "Interface\\GROUPFRAME\\UI-GROUP-MAINASSISTICON", function() Skada:ModeMenu(bargroup.win) end)
 		window.bargroup:AddButton(L["Report"], L["Report description"], "Interface\\Buttons\\UI-GuildButton-MOTD-Up", "Interface\\Buttons\\UI-GuildButton-MOTD-Up", function() Skada:OpenReportWindow(bargroup.win) end)
-		window.bargroup:AddButton(L["Stop"], L["Stop description"], "Interface\\Buttons\\Arrow-Down-Down", "Interface\\Buttons\\Arrow-Down-Down", function()
-			if Skada.current and Skada.current.stopped then
-				Skada:ResumeSegment();
-			elseif Skada.current then
-				Skada:StopSegment()
-			end
-		end)
+
 	end
 	window.bargroup.win = window
 	window.bargroup.RegisterCallback(mod, "AnchorMoved")
@@ -402,10 +396,15 @@ function mod:Update(win)
 				else
 					-- Default color text.
 					bar.label:SetTextColor(1,1,1,1)
-					-- Apply color to all columns
+					-- Apply value text color or default
+					local vtc = win.db.valuetextcolor
 					for i = 1, 3 do
 						if bar.columns[i] then
-							bar.columns[i]:SetTextColor(1,1,1,1)
+							if vtc then
+								bar.columns[i]:SetTextColor(vtc.r, vtc.g, vtc.b, vtc.a or 1)
+							else
+								bar.columns[i]:SetTextColor(1,1,1,1)
+							end
 						end
 					end
 				end
@@ -413,6 +412,9 @@ function mod:Update(win)
 				if Skada.db.profile.showself and data.id and data.id == UnitGUID("player") then
 					-- Always show self
 					bar.fixed = true
+					bar.isSelfBar = true
+				else
+					bar.isSelfBar = false
 				end
 			end
 
@@ -631,13 +633,32 @@ function mod:ApplySettings(win)
 	end
 	g.button:SetNormalFontObject(fo)
 
-	titlebackdrop.bgFile = media:Fetch("statusbar", p.title.texture)
+	-- Title text alignment
+	local fs = g.button:GetFontString()
+	if fs then
+		fs:SetJustifyH(p.title.textalign or "LEFT")
+	end
+
+	local titleBgFile = media:Fetch("statusbar", p.title.texture)
+	if not titleBgFile or p.title.texture == "None" then
+		titleBgFile = "Interface\\Buttons\\WHITE8X8"
+	end
+	titlebackdrop.bgFile = titleBgFile
 	titlebackdrop.tile = false
 	titlebackdrop.tileSize = 0
 	titlebackdrop.edgeSize = p.title.borderthickness
 	g.button:SetBackdrop(titlebackdrop)
 	local color = p.title.color
 	g.button:SetBackdropColor(color.r, color.g, color.b, color.a or 1)
+
+	-- Title gradient
+	local tex = g.button:GetNormalTexture()
+	if tex and p.title.color and p.title.color2 then
+		tex:SetGradient("HORIZONTAL", CreateColor(p.title.color.r, p.title.color.g, p.title.color.b, p.title.color.a), CreateColor(p.title.color2.r, p.title.color2.g, p.title.color2.b, p.title.color2.a or 1))
+	elseif tex then
+		tex:SetGradient("HORIZONTAL", CreateColor(1,1,1,1), CreateColor(1,1,1,1)) -- Reset if no gradient
+	end
+
 	g.button:SetHeight(p.title.height or 15)
 
 	Skada:ApplyBorder(g.button, p.title.bordertexture, p.title.bordercolor, p.title.borderthickness)
@@ -657,14 +678,18 @@ function mod:ApplySettings(win)
 	g:ShowButton(L["Mode"], p.buttons.mode)
 	g:ShowButton(L["Segment"], p.buttons.segment)
 	g:ShowButton(L["Report"], p.buttons.report)
-	g:ShowButton(L["Stop"], p.buttons.stop)
+	-- g:ShowButton(L["Stop"], p.buttons.stop)
 
 	-- Window
 	local padtop = (p.enabletitle and not p.reversegrowth and p.title.height)
 	local padbottom = (p.enabletitle and p.reversegrowth and p.title.height)
 	Skada:ApplyBorder(g, p.background.bordertexture, p.background.bordercolor, p.background.borderthickness, padtop, padbottom)
 
-	windowbackdrop.bgFile = p.background.texturepath or media:Fetch("background", p.background.texture)
+	local bgFile = p.background.texturepath or media:Fetch("background", p.background.texture)
+	if not bgFile or p.background.texture == "None" then
+		bgFile = "Interface\\Buttons\\WHITE8X8"
+	end
+	windowbackdrop.bgFile = bgFile
 	windowbackdrop.tile = false
 	windowbackdrop.tileSize = 0
 	g:SetBackdrop(windowbackdrop)
@@ -680,6 +705,29 @@ function mod:ApplySettings(win)
 
 	-- Smoothing
 	g:SetSmoothing(p.smoothing)
+
+	-- Bar fill
+	g:SetFill(p.barfill)
+
+	-- Alternating row colors
+	g:SetAlternateRows(p.alternaterows)
+
+	-- Self-highlight
+	if p.highlightself then
+		local sc = p.selfhighlightcolor
+		g:SetSelfHighlight(true, sc and {sc.r, sc.g, sc.b, sc.a})
+	else
+		g:SetSelfHighlight(false)
+	end
+
+	-- Spark on leading bar
+	g:SetSpark(p.spark)
+
+	-- Icon scale
+	g:SetIconScale(p.iconscale or 100)
+
+	-- Bar inset
+	g:SetBarInset(p.barinset or 0)
 
 	libwindow.SavePosition(g)
 
@@ -920,6 +968,121 @@ function mod:AddDisplayOptions(win, options)
 				end,
 			},
 
+			alternaterows = {
+				type="toggle",
+				name=L["Alternate row colors"],
+				desc=L["Slightly darkens every other bar for easier readability."],
+				order=35,
+				get=function() return db.alternaterows end,
+				set=function()
+					db.alternaterows = not db.alternaterows
+					Skada:ApplySettings()
+				end,
+			},
+
+			highlightself = {
+				type="toggle",
+				name=L["Highlight self"],
+				desc=L["Adds a subtle highlight overlay on your own bar to make it easier to spot."],
+				order=36,
+				get=function() return db.highlightself end,
+				set=function()
+					db.highlightself = not db.highlightself
+					Skada:ApplySettings()
+				end,
+			},
+
+			selfhighlightcolor = {
+				type="color",
+				name=L["Self highlight color"],
+				desc=L["The color of the self-highlight overlay."],
+				hasAlpha=true,
+				order=37,
+				get=function(i)
+					local c = db.selfhighlightcolor or {r = 1, g = 1, b = 1, a = 0.12}
+					return c.r, c.g, c.b, c.a
+				end,
+				set=function(i, r,g,b,a)
+					db.selfhighlightcolor = {["r"] = r, ["g"] = g, ["b"] = b, ["a"] = a}
+					Skada:ApplySettings()
+				end,
+			},
+
+			spark = {
+				type="toggle",
+				name=L["Spark effect"],
+				desc=L["Shows a glowing spark on the leading bar's fill edge."],
+				order=38,
+				get=function() return db.spark end,
+				set=function()
+					db.spark = not db.spark
+					Skada:ApplySettings()
+				end,
+			},
+
+			barfill = {
+				type="toggle",
+				name=L["Reverse fill"],
+				desc=L["Bars fill from empty to full instead of shrinking from full."],
+				order=39,
+				get=function() return db.barfill end,
+				set=function()
+					db.barfill = not db.barfill
+					Skada:ApplySettings()
+				end,
+			},
+
+			iconscale = {
+				type="range",
+				name=L["Icon size"],
+				desc=L["Scale the class/spell icons relative to bar height."],
+				min=50,
+				max=150,
+				step=5,
+				isPercent=false,
+				get=function() return db.iconscale or 100 end,
+				set=function(win, val)
+					db.iconscale = val
+					Skada:ApplySettings()
+				end,
+				order=40,
+			},
+
+			barinset = {
+				type="range",
+				name=L["Bar inset"],
+				desc=L["The amount of spacing between the bar fill and the bar frame."],
+				min=0,
+				max=10,
+				step=1,
+				get=function() return db.barinset or 0 end,
+				set=function(win, val)
+					db.barinset = val
+					Skada:ApplySettings()
+				end,
+				order=41,
+			},
+
+			valuetextcolor = {
+				type="color",
+				name=L["Value text color"],
+				desc=L["Sets a custom color for the numeric value columns. Uncheck class color text to see this."],
+				hasAlpha=true,
+				order=41,
+				get=function(i)
+					local c = db.valuetextcolor
+					if c then
+						return c.r, c.g, c.b, c.a or 1
+					else
+						return 1, 1, 1, 1
+					end
+				end,
+				set=function(i, r,g,b,a)
+					db.valuetextcolor = {["r"] = r, ["g"] = g, ["b"] = b, ["a"] = a}
+					Skada:ApplySettings()
+				end,
+			},
+
 		}
 	}
 
@@ -1010,6 +1173,19 @@ function mod:AddDisplayOptions(win, options)
 				order=4,
 			},
 
+			textalign = {
+				type="select",
+				name=L["Text alignment"],
+				desc=L["The alignment of the title text."],
+				values = {["LEFT"] = L["Left"], ["CENTER"] = L["Center"], ["RIGHT"] = L["Right"]},
+				get=function() return db.title.textalign or "LEFT" end,
+				set=function(win, key)
+					db.title.textalign = key
+					Skada:ApplySettings()
+				end,
+				order=4.5,
+			},
+
 			textcolor = {
 				type="color",
 				name=L["Title color"],
@@ -1054,6 +1230,42 @@ function mod:AddDisplayOptions(win, options)
 					Skada:ApplySettings()
 				end,
 				order=5.1,
+			},
+
+			opacity = {
+				type="range",
+				name=L["Opacity"],
+				desc=L["The opacity of the title bar background."],
+				min=0,
+				max=1,
+				step=0.01,
+				isPercent=true,
+				get=function() return db.title.color.a or 1 end,
+				set=function(win, val)
+					db.title.color.a = val
+					Skada:ApplySettings()
+				end,
+				order=5.15,
+			},
+
+			color2 = {
+				type="color",
+				name=L["Gradient color"],
+				desc=L["The secondary background color of the title for gradient effects."],
+				hasAlpha=true,
+				get=function(i)
+					local c = db.title.color2
+					if c then
+						return c.r, c.g, c.b, c.a
+					else
+						return 0, 0, 0, 0
+					end
+				end,
+				set=function(i, r,g,b,a)
+					db.title.color2 = {["r"] = r, ["g"] = g, ["b"] = b, ["a"] = a}
+					Skada:ApplySettings()
+				end,
+				order=5.2,
 			},
 
 			bordertexture = {
@@ -1157,17 +1369,7 @@ function mod:AddDisplayOptions(win, options)
 								Skada:ApplySettings()
 							end,
 					},
-					stop = {
-						type="toggle",
-						name=L["Stop"],
-						description=L["Stop description"],
-						order=5,
-						get=function() return db.buttons.stop end,
-						set=function()
-							db.buttons.stop = not db.buttons.stop
-							Skada:ApplySettings()
-						end,
-					},
+
 				}
 			}
 		}

@@ -7,36 +7,44 @@ Skada.resetoptions = { [1] = L["No"], [2] = L["Yes"], [3] = L["Ask"] }
 Skada.windowdefaults = {
 	name = "Skada",
 
-	barspacing = 0,
-	bartexture = "Armory",
+	barspacing = 2,
+	bartexture = "Skada Glass",
 	barfont = "ABF",
-	barfontflags = "",
-	barfontsize = 10,
-	barheight = 16,
+	barfontflags = "OUTLINE",
+	barfontsize = 11,
+	barheight = 20,
 	barwidth = 260,
 	barorientation = 1,
-	barcolor = { r = 0.3, g = 0.3, b = 0.8, a = 1 },
-	barbgcolor = { r = 0.3, g = 0.3, b = 0.3, a = 0.6 },
+	barcolor = { r = 0.2, g = 0.5, b = 0.9, a = 1 },
+	barbgcolor = { r = 0, g = 0, b = 0, a = 0.3 },
 	barslocked = false,
 	clickthrough = false,
+
+	alternaterows = true,
+	highlightself = true,
+	selfhighlightcolor = { r = 1, g = 1, b = 1, a = 0.15 },
+	spark = true,
+	barfill = false,
+	iconscale = 110,
+	barinset = 1,
 
 	spellschoolcolors = true,
 	classcolorbars = true,
 	classcolortext = false,
 	classicons = true,
-	roleicons = false,
+	roleicons = true,
 	showself = true,
 
 	buttons = { menu = true, reset = true, report = true, mode = true, segment = true },
 
-	title = { textcolor = { r = 0.9, g = 0.9, b = 0.9, a = 1 }, height = 18, font = "ABF", barfontsize = 10, fontsize = 10, texture = "Armory", bordercolor = { r = 0, g = 0, b = 0, a = 1 }, bordertexture = "None", borderthickness = 2, color = { r = 0.10196079313755, g = 0.23921570181847, b = 0.30196079611778, a = 1 }, fontflags = "" },
+	title = { textcolor = { r = 1, g = 1, b = 1, a = 1 }, height = 22, font = "ABF", barfontsize = 11, fontsize = 11, texture = "Skada Glass", bordercolor = { r = 0, g = 0, b = 0, a = 0 }, bordertexture = "None", borderthickness = 0, color = { r = 0.05, g = 0.1, b = 0.2, a = 0.9 }, color2 = { r = 0.1, g = 0.3, b = 0.6, a = 0.9 }, fontflags = "OUTLINE", textalign = "LEFT" },
 	background = {
-		height = 128,
+		height = 200,
 		texture = "None",
-		bordercolor = { r = 0, g = 0, b = 0, a = 1 },
+		bordercolor = { r = 1, g = 1, b = 1, a = 0.1 },
 		bordertexture = "None",
-		borderthickness = 0,
-		color = { r = 0, g = 0, b = 0, a = 0.05 },
+		borderthickness = 1,
+		color = { r = 0, g = 0, b = 0, a = 0.4 },
 		tile = false,
 		tilesize = 0,
 	},
@@ -48,6 +56,7 @@ Skada.windowdefaults = {
 	modeincombat = "",
 	returnaftercombat = false,
 	wipemode = "",
+	smoothing = true,
 
 	hidden = false,
 	enabletitle = true,
@@ -73,6 +82,7 @@ Skada.windowdefaults = {
 
 	-- Broker exclusive
 	textcolor = { r = 0.9, g = 0.9, b = 0.9 },
+	valuetextcolor = nil,
 	useframe = true
 }
 
