@@ -5,7 +5,7 @@ customizable windows. It aims to be highly efficient with memory and CPU.
 
 "Skada" is Swedish for "Damage".
 
-**Note:** I had a tiny break, a decade, but recently started playing Season of Discovery, and decided to see if I could make this old addon of mine work again. It may not work correctly yet.**
+This version supports World of Warcraft 12.0 (Midnight / The War Within).
 
 ## Usage
 
@@ -35,10 +35,10 @@ You can also use window buttons for selecting fight segment and mode directly.
 
 Scrolling in Skada is done with the mousewheel.
 
+## Support
+
+If you find Skada helpful, consider supporting its development through [GitHub Sponsors](https://github.com/sponsors/zarnivoop).
+
 ## Plugins
 
-Skada is easy to extend, and there were once many extra plugin addons out there
-that add functionality. However, with the addon having been dormant for many years, 
-there are likely no working ones out there as of now.
-
-There is a page with [API information here](https://www.wowace.com/projects/skada/pages/API).
+Skada is easy to extend. Extra plugins can add functionality. There is a page with [API information here](API.md).
