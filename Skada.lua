@@ -40,6 +40,10 @@ if not InterfaceOptions_AddCategory then
 end
 
 -- Simple boss detection helpers removed - WoW 12.0+ uses native encounter detection
+
+-- Color constant for "no data" bars
+local nodata_color = {r = 0.5, g = 0.5, b = 0.5, a = 1}
+
 function Skada:GetSpellIcon(spellId)
 	if not spellId or spellId == 0 then return nil end
 	local info = C_Spell.GetSpellInfo(spellId)
@@ -407,8 +411,11 @@ function Window:UpdateDisplay()
 	if not self.metadata.maxvalue then
 		self.metadata.maxvalue = 0
 		for i, data in ipairs(self.dataset) do
-			if data.id and data.value > self.metadata.maxvalue then
-				self.metadata.maxvalue = data.value
+			if data.id then
+				local val = Skada:SafeNumber(data.value)
+				if val > self.metadata.maxvalue then
+					self.metadata.maxvalue = val
+				end
 			end
 		end
 	end
@@ -1277,11 +1284,10 @@ function Skada:find_set(s)
 end
 
 -- Helper to find player in Native API session
--- Note: With WoW 12.0+ secret values, we must use pcall for comparisons
 function Skada:find_player_in_session(session, playerGUID)
 	if not session or not playerGUID then return nil end
 	local sources = session.combatSources or session.participants or {}
-	
+
 	local idType = type(playerGUID)
 	local idIsSecret = (issecretvalue and issecretvalue(playerGUID))
 
@@ -1297,14 +1303,23 @@ function Skada:find_player_in_session(session, playerGUID)
 		end
 		return nil
 	end
-	
-	for k, p in pairs(sources) do
-		local success, matches = pcall(function()
-			-- Also check for .id if it exists
-			return (p.sourceGUID == playerGUID) or (k == playerGUID) or (p.guid == playerGUID) or (p.unitGUID == playerGUID) or (p.id == playerGUID)
-		end)
-		if success and matches then
-			return p
+
+	if idIsSecret then
+		-- Secret value: must use pcall for comparisons
+		for k, p in pairs(sources) do
+			local success, matches = pcall(function()
+				return (p.sourceGUID == playerGUID) or (k == playerGUID) or (p.guid == playerGUID) or (p.unitGUID == playerGUID) or (p.id == playerGUID)
+			end)
+			if success and matches then
+				return p
+			end
+		end
+	else
+		-- Non-secret: direct comparison (fast path)
+		for k, p in pairs(sources) do
+			if (p.sourceGUID == playerGUID) or (k == playerGUID) or (p.guid == playerGUID) or (p.unitGUID == playerGUID) or (p.id == playerGUID) then
+				return p
+			end
 		end
 	end
 	return nil
@@ -1538,13 +1553,23 @@ function Skada:UpdateDisplay(force)
 						end
 					end
 					if not has_data then
-						tinsert(win.dataset, {
-							id = "nodata",
-							label = L["No data to display"],
-							value = 0,
-							ignore = true,
-							color = {r = 0.5, g = 0.5, b = 0.5, a = 1}
-						})
+						-- Find existing nodata entry (marked with _is_nodata to survive UpdateInProgress)
+						local nodata_entry = nil
+						for _, d in ipairs(win.dataset) do
+							if d._is_nodata then
+								nodata_entry = d
+								break
+							end
+						end
+						if not nodata_entry then
+							nodata_entry = {_is_nodata = true}
+							tinsert(win.dataset, nodata_entry)
+						end
+						nodata_entry.id = "nodata"
+						nodata_entry.label = L["No data to display"]
+						nodata_entry.value = 0
+						nodata_entry.ignore = true
+						nodata_entry.color = nodata_color
 					end
 
 					local success, err = pcall(win.display.Update, win.display, win)
@@ -1960,6 +1985,7 @@ function Skada:FormatValueText(datasetItem, ...)
 	end
 end
 
+local SafeNumber = Skada.SafeNumber
 local function value_sort(a, b)
 	if not a or not a.id then
 		return false
@@ -1970,10 +1996,10 @@ local function value_sort(a, b)
 	elseif b.value == nil then
 		return true
 	else
-		-- Use Skada:SafeNumber for numeric comparison
-		return Skada:SafeNumber(a.value) > Skada:SafeNumber(b.value)
+		return SafeNumber(Skada, a.value) > SafeNumber(Skada, b.value)
 	end
 end
+Skada.value_sort = value_sort
 
 function Skada.valueid_sort(a, b)
 	if not a or not a.id or a.value == nil then
@@ -2111,9 +2137,12 @@ function Skada:ShowTooltip(win, id, label)
 	end
 end
 
+-- Pre-allocated border backdrop table (reused per call)
+local borderbackdrop = {}
+
 -- Generic border
 function Skada:ApplyBorder(frame, texture, color, thickness, padtop, padbottom, padleft, padright)
-	local borderbackdrop = {}
+	wipe(borderbackdrop)
 	if not frame.borderFrame then
 		frame.borderFrame = CreateFrame("Frame", nil, frame, "BackdropTemplate")
 		frame.borderFrame:SetFrameLevel(0)

@@ -85,6 +85,7 @@ function ModuleBase:UpdatePlayerList(win, set, options)
 			
 			local d = win.dataset[nr] or {}
 			win.dataset[nr] = d
+			d._is_nodata = nil -- clear nodata marker if this slot was previously used for "no data"
 			
 			-- During combat with secret values, use order-based IDs
 			if hasSecretValues then
@@ -190,6 +191,7 @@ function ModuleBase:UpdateSimpleList(win, set, options)
 			if value > 0 or isSecret then
 				local d = win.dataset[nr] or {}
 				win.dataset[nr] = d
+				d._is_nodata = nil -- clear nodata marker if this slot was previously used for "no data"
 				
 				-- During combat with secret values, use order-based IDs
 				if hasSecretValues then
@@ -284,6 +286,7 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 					local spellID = spell.spellID or 0
 					local d = win.dataset[nr] or {}
 					win.dataset[nr] = d
+					d._is_nodata = nil
 					
 					d.id = spellID
 					

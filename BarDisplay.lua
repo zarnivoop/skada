@@ -221,19 +221,9 @@ local function BarIconMouseDown(icon) -- shift-click to link spell into chat
 	end
 end
 
-local function value_sort(a,b)
-	if not a or not a.id then
-		return false
-	elseif not b or not b.id then
-		return true
-	elseif a.value == nil then
-		return false
-	elseif b.value == nil then
-		return true
-	else
-		-- Use Skada:SafeNumber for numeric comparison
-		return Skada:SafeNumber(a.value) > Skada:SafeNumber(b.value)
-	end
+-- Uses Skada.value_sort (defined in Skada.lua) to avoid duplication
+local function value_sort(a, b)
+	return Skada.value_sort(a, b)
 end
 
 local function bar_order_sort(a,b)
@@ -301,10 +291,12 @@ function mod:Update(win)
 	end
 
 	local nr = 1
+	local activeBarIds = {}
 	for i, data in ipairs(win.dataset) do
 		if data.id then
 			local barid = data.id
 			local barlabel = data.label
+			activeBarIds[barid] = true
 
 			local bar = win.bargroup:GetBar(barid)
 
@@ -486,6 +478,18 @@ function mod:Update(win)
 		end
 	end
 
+	-- Remove bars that are no longer in the current dataset.
+	-- This prevents stale bars from ID scheme transitions (e.g. combat_N <-> GUID)
+	-- from lingering with outdated labels/values.
+	local allBars = win.bargroup:GetBars()
+	if allBars then
+		for name, bar in pairs(allBars) do
+			if not activeBarIds[name] then
+				win.bargroup:RemoveBar(bar)
+			end
+		end
+	end
+
 	-- If we are using "wipestale", remove all unchecked bars.
 	if win.metadata.wipestale then
 		local bars = win.bargroup:GetBars()
@@ -555,10 +559,8 @@ function mod:IsShown(win)
 end
 
 local function getNumberOfBars(win)
-	local bars = win.bargroup:GetBars()
-	local n = 0
-	for i, bar in pairs(bars) do n = n + 1 end
-	return n
+	-- Use barCount maintained by SortBars for O(1) lookup
+	return win.bargroup.barCount or 0
 end
 
 local function OnMouseWheel(frame, direction)

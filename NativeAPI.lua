@@ -44,17 +44,7 @@ local function getKeys(t)
 	return table.concat(keys, ", ")
 end
 
-local function sanitizeNumber(val)
-	if not val then return nil end
-	
-	-- Check for WoW 12.0 issecretvalue function
-	if issecretvalue and issecretvalue(val) then
-		return val
-	end
-	
-	-- If not secret, return it (can be number or other type)
-	return val
-end
+-- sanitizeNumber removed (was a no-op - returned the value unchanged)
 
 --[[
 	Get detailed session source data (spells, etc.)
@@ -102,7 +92,7 @@ end
 
 function NativeAPI:GetPlayerRate(set, player, rateType)
 	if not player then return 0 end
-	return sanitizeNumber(player.amountPerSecond or player.rate or 0)
+	return player.amountPerSecond or player.rate or 0
 end
 
 function NativeAPI:GetRaidRate(set, rateType)
@@ -110,7 +100,7 @@ function NativeAPI:GetRaidRate(set, rateType)
 	
 	local val = set.amountPerSecond or set.rate
 	if val then
-		return sanitizeNumber(val)
+		return val
 	end
 	
 	-- Fallback: sum up participants
@@ -132,43 +122,45 @@ function NativeAPI:GetRaidRate(set, rateType)
 	return totalRate
 end
 
+-- Separate debug helper to keep hot path clean
+local function DebugLogSource(source)
+	Skada:Debug("GetPlayerSpells source type:", type(source))
+	Skada:Debug("GetPlayerSpells source keys:", getKeys(source))
+
+	for k, v in pairs(source) do
+		if type(v) == "table" then
+			Skada:Debug("  "..k.." (table) keys:", getKeys(v))
+			local count = 0
+			for _, item in pairs(v) do
+				count = count + 1
+				if count <= 3 then
+					Skada:Debug("    Item "..count.." type:", type(item))
+					if type(item) == "table" then
+						Skada:Debug("    Item "..count.." keys:", getKeys(item))
+					end
+				else
+					break
+				end
+			end
+		else
+			Skada:Debug("  "..k..":", type(v), v)
+		end
+	end
+end
+
 function NativeAPI:GetPlayerSpells(playerID, set, damageType)
 	local sessionType = set and set.sessionType or 1
 	local source = self:GetSessionSource(playerID, sessionType, damageType)
-	
-	if not source then 
+
+	if not source then
 		if Skada.db.profile.debug then
 			Skada:Debug("GetPlayerSpells: No source found for", playerID, "damageType", damageType)
 		end
-		return nil 
+		return nil
 	end
-	
-	-- Debug: Log source structure for troubleshooting
+
 	if Skada.db.profile.debug then
-		Skada:Debug("GetPlayerSpells source type:", type(source))
-		Skada:Debug("GetPlayerSpells source keys:", getKeys(source))
-		
-		-- Check what fields are available
-		for k, v in pairs(source) do
-			if type(v) == "table" then
-				Skada:Debug("  "..k.." (table) keys:", getKeys(v))
-				-- Check first few items if it's an array
-				local count = 0
-				for _, item in pairs(v) do
-					count = count + 1
-					if count <= 3 then
-						Skada:Debug("    Item "..count.." type:", type(item))
-						if type(item) == "table" then
-							Skada:Debug("    Item "..count.." keys:", getKeys(item))
-						end
-					else
-						break
-					end
-				end
-			else
-				Skada:Debug("  "..k..":", type(v), v)
-			end
-		end
+		DebugLogSource(source)
 	end
 	
 	-- Try to find spells in various possible locations
@@ -369,216 +361,70 @@ end
 	Get current active session (shorthand)
 	According to documentation: sessionType = 1 for Current
 ]]
+--[[
+	Shared session retrieval helper
+	All Get*Session() methods delegate to this.
+]]
+function NativeAPI:GetSessionByParams(sessionType, damageType)
+	local success, result = pcall(C_DamageMeter.GetCombatSessionFromType, sessionType, damageType)
+	if success and result then
+		return result
+	end
+
+	-- Fallback: try Enum values if they exist
+	if Enum and Enum.DamageMeterSessionType then
+		local enumSessionType
+		if sessionType == 1 and Enum.DamageMeterSessionType.Current then
+			enumSessionType = Enum.DamageMeterSessionType.Current
+		elseif sessionType == 0 and Enum.DamageMeterSessionType.Overall then
+			enumSessionType = Enum.DamageMeterSessionType.Overall
+		end
+
+		if enumSessionType then
+			local enumDamageType = damageType
+			if Enum.DamageMeterType then
+				local typeMap = {
+					[0] = Enum.DamageMeterType.DamageDone,
+					[2] = Enum.DamageMeterType.HealingDone,
+					[5] = Enum.DamageMeterType.Interrupts,
+					[6] = Enum.DamageMeterType.Dispels,
+					[7] = Enum.DamageMeterType.DamageTaken,
+				}
+				enumDamageType = typeMap[damageType] or damageType
+			end
+
+			success, result = pcall(C_DamageMeter.GetCombatSessionFromType, enumSessionType, enumDamageType)
+			if success and result then
+				return result
+			end
+		end
+	end
+
+	return nil
+end
+
 function NativeAPI:GetCurrentSession()
-	-- According to documentation:
-	-- sessionType = 1 (Current)
-	-- type = 0 (DamageDone) - most common for damage meters
-	
-	local args = {
-		sessionType = self.sessionTypeCache.current or 1,  -- Current session
-		type = self.sessionTypeCache.currentDamageType or 0 -- DamageDone or discovered type
-	}
-	
-	local success, result = pcall(C_DamageMeter.GetCombatSessionFromType, args.sessionType, args.type)
-	
-	if success and result then
-		return result
-	else
-		-- Try with Enum values if they exist
-		if Enum and Enum.DamageMeterSessionType and Enum.DamageMeterSessionType.Current then
-			local enumArgs = {
-				sessionType = Enum.DamageMeterSessionType.Current,
-				type = Enum.DamageMeterType and Enum.DamageMeterType.DamageDone or 0
-			}
-			
-			success, result = pcall(C_DamageMeter.GetCombatSessionFromType, enumArgs.sessionType, enumArgs.type)
-			if success and result then
-				return result
-			end
-		end
-		
-		return nil
-	end
+	return self:GetSessionByParams(self.sessionTypeCache.current or 1, self.sessionTypeCache.currentDamageType or 0)
 end
 
---[[
-	Get total/overall session (shorthand)
-	According to documentation: sessionType = 0 for Overall
-]]
 function NativeAPI:GetTotalSession()
-	-- According to documentation:
-	-- sessionType = 0 (Overall)
-	-- type = 0 (DamageDone) - most common for damage meters
-	
-	local args = {
-		sessionType = self.sessionTypeCache.total or 0,  -- Overall session
-		type = self.sessionTypeCache.totalDamageType or 0 -- DamageDone or discovered type
-	}
-	
-	local success, result = pcall(C_DamageMeter.GetCombatSessionFromType, args.sessionType, args.type)
-	
-	if success and result then
-		return result
-	else
-		-- Try with Enum values if they exist
-		if Enum and Enum.DamageMeterSessionType and Enum.DamageMeterSessionType.Overall then
-			local enumArgs = {
-				sessionType = Enum.DamageMeterSessionType.Overall,
-				type = Enum.DamageMeterType and Enum.DamageMeterType.DamageDone or 0
-			}
-			
-			success, result = pcall(C_DamageMeter.GetCombatSessionFromType, enumArgs.sessionType, enumArgs.type)
-			if success and result then
-				return result
-			end
-		end
-		
-		return nil
-	end
+	return self:GetSessionByParams(self.sessionTypeCache.total or 0, self.sessionTypeCache.totalDamageType or 0)
 end
 
---[[
-	Get damage taken session
-	According to documentation: type = 7 for DamageTaken
-]]
 function NativeAPI:GetDamageTakenSession()
-	-- According to documentation:
-	-- sessionType = 1 (Current)
-	-- type = 7 (DamageTaken)
-	
-	local args = {
-		sessionType = 1,  -- Current session
-		type = 7          -- DamageTaken
-	}
-	
-	local success, result = pcall(C_DamageMeter.GetCombatSessionFromType, args.sessionType, args.type)
-	
-	if success and result then
-		return result
-	else
-		-- Try with Enum values if they exist
-		if Enum and Enum.DamageMeterSessionType and Enum.DamageMeterSessionType.Current then
-			local enumArgs = {
-				sessionType = Enum.DamageMeterSessionType.Current,
-				type = Enum.DamageMeterType and Enum.DamageMeterType.DamageTaken or 7
-			}
-			
-			success, result = pcall(C_DamageMeter.GetCombatSessionFromType, enumArgs.sessionType, enumArgs.type)
-			if success and result then
-				return result
-			end
-		end
-		
-		return nil
-	end
+	return self:GetSessionByParams(1, 7)
 end
 
---[[
-	Get dispels session
-	According to documentation: type = 6 for Dispels
-]]
 function NativeAPI:GetDispelsSession()
-	-- According to documentation:
-	-- sessionType = 1 (Current)
-	-- type = 6 (Dispels)
-	
-	local args = {
-		sessionType = 1,  -- Current session
-		type = 6          -- Dispels
-	}
-	
-	local success, result = pcall(C_DamageMeter.GetCombatSessionFromType, args.sessionType, args.type)
-	
-	if success and result then
-		return result
-	else
-		-- Try with Enum values if they exist
-		if Enum and Enum.DamageMeterSessionType and Enum.DamageMeterSessionType.Current then
-			local enumArgs = {
-				sessionType = Enum.DamageMeterSessionType.Current,
-				type = Enum.DamageMeterType and Enum.DamageMeterType.Dispels or 6
-			}
-			
-			success, result = pcall(C_DamageMeter.GetCombatSessionFromType, enumArgs.sessionType, enumArgs.type)
-			if success and result then
-				return result
-			end
-		end
-		
-		return nil
-	end
+	return self:GetSessionByParams(1, 6)
 end
 
---[[
-	Get interrupts session
-	According to documentation: type = 5 for Interrupts
-]]
 function NativeAPI:GetInterruptsSession()
-	-- According to documentation:
-	-- sessionType = 1 (Current)
-	-- type = 5 (Interrupts)
-	
-	local args = {
-		sessionType = 1,  -- Current session
-		type = 5          -- Interrupts
-	}
-	
-	local success, result = pcall(C_DamageMeter.GetCombatSessionFromType, args.sessionType, args.type)
-	
-	if success and result then
-		return result
-	else
-		-- Try with Enum values if they exist
-		if Enum and Enum.DamageMeterSessionType and Enum.DamageMeterSessionType.Current then
-			local enumArgs = {
-				sessionType = Enum.DamageMeterSessionType.Current,
-				type = Enum.DamageMeterType and Enum.DamageMeterType.Interrupts or 5
-			}
-			
-			success, result = pcall(C_DamageMeter.GetCombatSessionFromType, enumArgs.sessionType, enumArgs.type)
-			if success and result then
-				return result
-			end
-		end
-		
-		return nil
-	end
+	return self:GetSessionByParams(1, 5)
 end
 
---[[
-	Get healing done session
-	According to documentation: type = 2 for HealingDone
-]]
 function NativeAPI:GetHealingDoneSession()
-	-- According to documentation:
-	-- sessionType = 1 (Current)
-	-- type = 2 (HealingDone)
-	
-	local args = {
-		sessionType = 1,  -- Current session
-		type = 2          -- HealingDone
-	}
-	
-	local success, result = pcall(C_DamageMeter.GetCombatSessionFromType, args.sessionType, args.type)
-	
-	if success and result then
-		return result
-	else
-		-- Try with Enum values if they exist
-		if Enum and Enum.DamageMeterSessionType and Enum.DamageMeterSessionType.Current then
-			local enumArgs = {
-				sessionType = Enum.DamageMeterSessionType.Current,
-				type = Enum.DamageMeterType and Enum.DamageMeterType.HealingDone or 2
-			}
-			
-			success, result = pcall(C_DamageMeter.GetCombatSessionFromType, enumArgs.sessionType, enumArgs.type)
-			if success and result then
-				return result
-			end
-		end
-		
-		return nil
-	end
+	return self:GetSessionByParams(1, 2)
 end
 
 --[[

@@ -11,6 +11,7 @@ local sin, cos, rad = _G.math.sin, _G.math.cos, _G.math.rad
 local abs, min, max, floor = _G.math.abs, _G.math.min, _G.math.max, _G.math.floor
 local table_sort, tinsert, tremove, tconcat = _G.table.sort, tinsert, tremove, _G.table.concat
 local next, pairs, assert, error, type, xpcall = next, pairs, assert, error, type, xpcall
+local issecretvalue = issecretvalue
 
 lib.COLUMN_MIN_PADDING = 6         -- Minimum padding between columns in pixels
 lib.COLUMN_FONT_SCALE_FACTOR = 2.5 -- Scaling factor for additional padding based on font size
@@ -225,13 +226,13 @@ do
 end
 
 function lib:GetBar(name)
-	-- Use pcall in case name is a WoW 12.0 secret value (can't be used as table index)
 	if not bars[self] then return nil end
-	local success, result = pcall(function() return bars[self][name] end)
-	if success then
-		return result
+	-- Only use pcall if name could be a secret value (can't be used as table index)
+	if issecretvalue and issecretvalue(name) then
+		local success, result = pcall(function() return bars[self][name] end)
+		return success and result or nil
 	end
-	return nil
+	return bars[self][name]
 end
 
 function lib:GetBars(name)
@@ -271,11 +272,16 @@ function lib:NewBarFromPrototype(prototype, name, ...)
 	assert(self ~= lib, "You may only call :NewBar as an embedded function")
 	assert(type(prototype) == "table" and type(prototype.metatable) == "table", "Invalid bar prototype")
 	bars[self] = bars[self] or {}
-	
-	-- Use pcall in case name is a WoW 12.0 secret value
-	local success, existingBar = pcall(function() return bars[self][name] end)
-	local bar = success and existingBar or nil
-	
+
+	local nameIsSecret = issecretvalue and issecretvalue(name)
+	local bar
+	if nameIsSecret then
+		local success, existingBar = pcall(function() return bars[self][name] end)
+		bar = success and existingBar or nil
+	else
+		bar = bars[self][name]
+	end
+
 	local isNew = false
 	if not bar then
 		isNew = true
@@ -291,8 +297,11 @@ function lib:NewBarFromPrototype(prototype, name, ...)
 	bar:Create(...)
 	bar:SetFont(self.font, self.fontSize, self.fontFlags)
 
-	-- Use pcall for storing bar in case name is secret
-	pcall(function() bars[self][name] = bar end)
+	if nameIsSecret then
+		pcall(function() bars[self][name] = bar end)
+	else
+		bars[self][name] = bar
+	end
 
 	return bar, isNew
 end
@@ -305,23 +314,29 @@ function lib:ReleaseBar(name)
 	if not bars[self] then return end
 
 	local bar
-	if type(name) == "string" then
-		local success, result = pcall(function() return bars[self][name] end)
-		bar = success and result or nil
-	elseif type(name) == "table" then
-		local success, matches = pcall(function() 
-			return name.name and bars[self][name.name] == name 
-		end)
-		if success and matches then
+	local nameType = type(name)
+	if nameType == "string" then
+		bar = bars[self][name]
+	elseif nameType == "table" then
+		if name.name and bars[self][name.name] == name then
 			bar = name
 		end
+	else
+		-- Could be a secret value - use pcall
+		local success, result = pcall(function() return bars[self][name] end)
+		bar = success and result or nil
 	end
 
 	if bar then
 		bar:SetScript("OnEnter", nil)
 		bar:SetScript("OnLeave", nil)
 		bar:OnBarReleased()
-		pcall(function() bars[self][bar.name] = nil end)
+		local barName = bar.name
+		if issecretvalue and issecretvalue(barName) then
+			pcall(function() bars[self][barName] = nil end)
+		else
+			bars[self][barName] = nil
+		end
 		tinsert(recycledBars, bar)
 	end
 end
@@ -358,11 +373,13 @@ end
 
 function barListPrototype:SetSmoothing(smoothing)
 	self.smoothing = smoothing
+	self.smoothingCount = 0
 
 	if smoothing then
 		self:SetScript("OnUpdate", function()
 
 			if bars[self] then
+				local stillSmoothing = 0
 				for k, v in pairs(bars[self]) do
 					if v.targetamount and v:IsShown() then
 
@@ -375,10 +392,16 @@ function barListPrototype:SetSmoothing(smoothing)
 						v.lastamount = amt
 						if amt == v.targetamount then
 							v.targetamount = nil
+						else
+							stillSmoothing = stillSmoothing + 1
 						end
 						v:SetTextureValue(amt, v.targetdist)
 
 					end
+				end
+				self.smoothingCount = stillSmoothing
+				if stillSmoothing == 0 then
+					self:SetScript("OnUpdate", nil)
 				end
 			end
 
@@ -964,36 +987,29 @@ do
 	local values = {}
 
 	local function sortFunc(a, b)
-		-- WoW 12.0 secret values cannot be used for arithmetic or comparisons
-		-- Use pcall to safely attempt the comparison
-		local success, result = pcall(function()
-			local apct, bpct = a.value / a.maxValue, b.value / b.maxValue
+		local aval, bval = a.value, b.value
+		local amax, bmax = a.maxValue, b.maxValue
+
+		-- Fast path: if no secret values, do direct comparison (most common case)
+		if not issecretvalue or (not issecretvalue(aval) and not issecretvalue(bval)
+			and not issecretvalue(amax) and not issecretvalue(bmax)) then
+			local apct, bpct = aval / amax, bval / bmax
 			if apct == bpct then
-				if a.maxValue == b.maxValue then
+				if amax == bmax then
 					return a.name > b.name
 				else
-					return a.maxValue > b.maxValue
+					return amax > bmax
 				end
 			else
 				return apct > bpct
 			end
-		end)
-		
-		if success then
-			return result
 		end
-		
-		-- Fallback for secret values: use order field if available
+
+		-- Slow path: secret values present, use order field
 		if a.order and b.order then
 			return a.order < b.order
 		end
-		
-		-- Last resort: sort by name
-		local nameSuccess, nameResult = pcall(function() return a.name > b.name end)
-		if nameSuccess then
-			return nameResult
-		end
-		
+
 		return false
 	end
 
@@ -1006,7 +1022,6 @@ do
 		for k, v in pairs(bars[self]) do
 			ct = ct + 1
 			values[ct] = v
-			v:Hide()
 			if v.fixed then
 				has_fixed = true
 			end
@@ -1014,6 +1029,7 @@ do
 		for i = ct + 1, #values do
 			values[i] = nil
 		end
+		self.barCount = ct -- maintain bar count for O(1) lookups
 		if #values == 0 then return end
 
 		table_sort(values, self.sortFunc or sortFunc)
@@ -1053,6 +1069,8 @@ do
 			end
 		end
 
+		-- Build set of bars that will be visible this frame
+		local visibleThisFrame = {}
 		local shown = 0
 		local last_icon = false
 		for i = start, stop, step do
@@ -1081,6 +1099,7 @@ do
 			end
 
 			if shown <= maxbars then
+				visibleThisFrame[v] = true
 				v:ClearAllPoints()
 
 				v:SetPoint(from.."LEFT", lastBar, to.."LEFT", x1, y1)
@@ -1095,6 +1114,14 @@ do
 			end
 
 			to = origTo
+		end
+
+		-- Hide only bars that were visible before but aren't now
+		for i = 1, ct do
+			local v = values[i]
+			if not visibleThisFrame[v] and v:IsShown() then
+				v:Hide()
+			end
 		end
 
 		self.lastBar = lastBar
@@ -1644,6 +1671,11 @@ end
 function barPrototype:SetTextureTarget(amt, dist)
 	self.targetamount = amt
 	self.targetdist = dist
+	-- Re-enable smoothing OnUpdate if it was auto-disabled
+	local group = self.ownerGroup
+	if group and group.smoothing and group.smoothingCount == 0 then
+		group:SetSmoothing(true)
+	end
 end
 
 function barPrototype:SetTextureValue(amt, dist)
