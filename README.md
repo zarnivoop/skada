@@ -1,44 +1,56 @@
-# Skada
+# Skada Damage Meter
 
-Skada is a modular damage meter with various viewing modes, segmented fights and
-customizable windows. It aims to be highly efficient with memory and CPU.
+Skada is a modular damage meter for World of Warcraft with various viewing modes, segmented fights, and customizable windows. It is designed for efficiency with minimal memory and CPU impact.
 
 "Skada" is Swedish for "Damage".
 
-This version supports World of Warcraft 12.0 (Midnight / The War Within).
+---
+
+## Midnight Edition (WoW 12.0+)
+
+This version of Skada is updated for **World of Warcraft: Midnight** and uses Blizzard's new session-based combat systems.
+
+### Features
+
+- **Midnight Optimized**: Uses Blizzard's internal session data for performance and accuracy.
+- **Combat Reliability**: Handles modern combat data restrictions for a stable experience.
+- **Updated UI**: Includes new presets with smooth animations, gradients, and textures.
+- **Dynamic Elements**: Alternating row colors, highlight overlays, spark effects, and icon scaling.
+- **LDB Integration**: Compatible with Data Broker displays such as Titan Panel, ChocolateBar, and ElvUI.
+- **Extensible Architecture**: The API allows developers to create additional plugins.
 
 ## Usage
 
-When you first start using Skada, there will be a window created by default.
-This window can be extensively customized in Skada's configuration panel; click
-the little cog icon to access a menu, and then click _Configure_. Depending on
-your user interface, there may also be a minimap button allowing quick access to
-this menu.
+### Getting Started
+A default window is created upon first load. Access the configuration menu by clicking the **cog icon** on the window title bar or via the minimap button. Select **Configure** to access settings.
 
-Skada supports multiple windows. To create a new window, click _Windows_ in the
-addon's configuration panel. There are three built-in types of windows - Bar,
-Inline, and Data text. _Bar_ is the classic damage meter window, and is very
-customizable. _Inline_ shows the meter in a horizontal line, which can be useful
-for integration in custom user interfaces. _Data text_ shows just one item at a
-time, and can also be displayed by any LDB display addon, such as Titan Panel,
-ChocolateBar, or ElvUI.
+### Multiple Windows
+Skada supports multiple windows. Create new ones under the **Windows** section of the configuration panel. Windows can be:
+- **Bar**: The standard customizable meter.
+- **Inline**: A horizontal line for custom UI setups.
+- **Data Text**: For LDB displays and minimal setups.
 
-In the normal Bar window, you can left click on specific items for more detailed
-information, and right click for less details. At the very "top" is the list of
-all saved fight segments. Some data modes have several detailed information views.
-In this case you choose alternate views by holding certain keys pressed while
-clicking. For example, in Damage mode, you can Shift-click a player to see what
-enemies the player caused damage to. Tooltips will display how to reach the
-different views.
+### Navigation
+- **Left-Click**: View more detailed information.
+- **Right-Click**: Return to the previous view.
+- **Mousewheel**: Scroll through lists.
+- **Tooltips**: Hover over bars to see additional context and shortcut keys (e.g., Shift-click for targets).
 
-You can also use window buttons for selecting fight segment and mode directly.
+### Themes
+Manage window designs with the built-in **Theme Engine**. You can import and export themes by using theme strings.
 
-Scrolling in Skada is done with the mousewheel.
+## Versions
+
+- **Midnight (Default)**: For WoW 12.0+ using the Native API.
+- **[Classic Version](https://github.com/zarnivoop/skada/tree/main)**: The version for older WoW releases.
 
 ## Support
 
 If you find Skada helpful, consider supporting its development through [GitHub Sponsors](https://github.com/sponsors/zarnivoop).
 
-## Plugins
+## Links
 
-Skada is easy to extend. Extra plugins can add functionality. There is a page with [API information here](API.md).
+- [GitHub Repository](https://github.com/zarnivoop/skada/tree/midnight)
+- [API Documentation](https://github.com/zarnivoop/skada/blob/midnight/API.md)
+- [CurseForge](https://www.curseforge.com/wow/addons/skada)
+- [Wago.io](https://addons.wago.io/addons/skada)
