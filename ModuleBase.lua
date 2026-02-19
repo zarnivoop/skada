@@ -41,15 +41,16 @@ function ModuleBase:UpdatePlayerList(win, set, options)
 	local sources = view.combatSources or {}
 	local hasSecretAPI = SecretHelper:HasSecretAPI()
 	
-	-- Detect secrets and calculate total
-	local hasSecretValues = false
+	-- Detect secrets and calculate total (using cached detection)
+	local cacheKey = "playerlist_" .. tostring(set.sessionType or 0) .. "_" .. tostring(options.damageType)
+	local hasSecretValues = SecretHelper:DetectSecretsCached(cacheKey, sources, options.valueKey or "totalAmount")
+	
+	-- Calculate total (only for non-secrets)
 	local totalValue = 0
-	for _, player in pairs(sources) do
-		local value = player[options.valueKey] or player.totalAmount
-		if value then
-			if hasSecretAPI and issecretvalue(value) then
-				hasSecretValues = true
-			else
+	if not hasSecretValues then
+		for _, player in pairs(sources) do
+			local value = player[options.valueKey] or player.totalAmount
+			if value then
 				totalValue = totalValue + (tonumber(value) or 0)
 			end
 		end
@@ -76,8 +77,7 @@ function ModuleBase:UpdatePlayerList(win, set, options)
 					rate = options.getRateFunc(set, player)
 				end
 				
-				local d = win.dataset[nr] or {}
-				win.dataset[nr] = d
+				local d = self:ReuseDatasetEntry(win.dataset, nr)
 				d._is_nodata = nil
 				d.id = "combat_" .. nr
 				d.label = playerName
@@ -110,8 +110,7 @@ function ModuleBase:UpdatePlayerList(win, set, options)
 					rate = options.getRateFunc(set, player)
 				end
 				
-				local d = win.dataset[nr] or {}
-				win.dataset[nr] = d
+				local d = self:ReuseDatasetEntry(win.dataset, nr)
 				d._is_nodata = nil
 				d.id = player.sourceGUID or playerName
 				d.label = playerName
@@ -156,15 +155,9 @@ function ModuleBase:UpdateSimpleList(win, set, options)
 	local sources = view.combatSources or {}
 	local hasSecretAPI = SecretHelper:HasSecretAPI()
 	
-	-- Detect secrets
-	local hasSecretValues = false
-	for _, player in pairs(sources) do
-		local value = player[options.valueKey] or player.totalAmount
-		if value and hasSecretAPI and issecretvalue(value) then
-			hasSecretValues = true
-			break
-		end
-	end
+	-- Detect secrets (using cached detection)
+	local cacheKey = "simplelist_" .. tostring(set.sessionType or 0) .. "_" .. tostring(options.damageType)
+	local hasSecretValues = SecretHelper:DetectSecretsCached(cacheKey, sources, options.valueKey or "totalAmount")
 	
 	-- Update window metadata
 	SecretHelper:UpdateWindowMetadata(win, hasSecretValues)
@@ -182,8 +175,7 @@ function ModuleBase:UpdateSimpleList(win, set, options)
 				local value = SecretHelper:SafeNumber(rawValue)
 				
 				if value > 0 or isSecret then
-					local d = win.dataset[nr] or {}
-					win.dataset[nr] = d
+					local d = self:ReuseDatasetEntry(win.dataset, nr)
 					d._is_nodata = nil
 					d.id = "combat_" .. nr
 					d.label = playerName
@@ -204,8 +196,7 @@ function ModuleBase:UpdateSimpleList(win, set, options)
 				local value = tonumber(player[options.valueKey] or player.totalAmount) or 0
 				
 				if value > 0 then
-					local d = win.dataset[nr] or {}
-					win.dataset[nr] = d
+					local d = self:ReuseDatasetEntry(win.dataset, nr)
 					d._is_nodata = nil
 					d.id = player.sourceGUID or playerName
 					d.label = playerName
@@ -259,16 +250,17 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 	
 	local hasSecretAPI = SecretHelper:HasSecretAPI()
 	
-	-- Detect secrets and calculate total
-	local hasSecretValues = false
+	-- Detect secrets and calculate total (using cached detection)
+	local cacheKey = "spelllist_" .. tostring(set.sessionType or 0) .. "_" .. tostring(damageType)
+	local hasSecretValues = SecretHelper:DetectSecretsCached(cacheKey, spells, valueKey)
+
+	-- Calculate total (only for non-secrets)
 	local totalValue = 0
-	for _, spell in pairs(spells) do
-		if type(spell) == "table" or (issecretvalue and issecretvalue(spell)) then
-			local value = spell[valueKey]
-			if value then
-				if hasSecretAPI and issecretvalue(value) then
-					hasSecretValues = true
-				else
+	if not hasSecretValues then
+		for _, spell in pairs(spells) do
+			if type(spell) == "table" then
+				local value = spell[valueKey]
+				if value then
 					totalValue = totalValue + (tonumber(value) or 0)
 				end
 			end
@@ -287,8 +279,7 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 					local isSecret = hasSecretAPI and issecretvalue(rawValue)
 					if rawValue ~= 0 or isSecret then
 						local spellID = spell.spellID or 0
-						local d = win.dataset[nr] or {}
-						win.dataset[nr] = d
+						local d = self:ReuseDatasetEntry(win.dataset, nr)
 						d._is_nodata = nil
 						d.id = spellID
 						
@@ -311,8 +302,7 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 				local value = tonumber(spell[valueKey]) or 0
 				if value ~= 0 then
 					local spellID = spell.spellID or 0
-					local d = win.dataset[nr] or {}
-					win.dataset[nr] = d
+					local d = self:ReuseDatasetEntry(win.dataset, nr)
 					d._is_nodata = nil
 					d.id = spellID
 					
@@ -608,4 +598,24 @@ end
 function ModuleBase:RemoveStandardFeeds(feedNamePersonal, feedNameRaid)
 	Skada:RemoveFeed(feedNamePersonal)
 	Skada:RemoveFeed(feedNameRaid)
+end
+
+--[[
+	Clear and reuse a dataset entry instead of creating new tables
+	This reduces garbage collection pressure in high-update scenarios
+]]
+function ModuleBase:ReuseDatasetEntry(dataset, index)
+	local entry = dataset[index]
+	if entry then
+		-- Clear all fields but keep the table
+		for k, v in pairs(entry) do
+			entry[k] = nil
+		end
+		return entry
+	else
+		-- Create new only if necessary
+		entry = {}
+		dataset[index] = entry
+		return entry
+	end
 end

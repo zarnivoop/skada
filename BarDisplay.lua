@@ -243,6 +243,11 @@ end
 
 -- Called by Skada windows when the display should be updated to match the dataset.
 function mod:Update(win)
+	-- Lazy sorting: track if we need to sort
+	local prevBarCount = win.bargroup.barCount or 0
+	local prevMaxValue = win.metadata.prevMaxValue
+	local needsSort = false
+
 	-- Some modes may alter title continously.
 	local fs = win.bargroup.button:GetFontString()
 	if fs then
@@ -502,14 +507,25 @@ function mod:Update(win)
 		end
 	end
 
-	-- Sort by the order in the data table if we are using "ordersort".
-	if win.metadata.ordersort then
-		win.bargroup:SetSortFunction(bar_order_sort)
-		win.bargroup:SortBars()
-	else
-		win.bargroup:SetSortFunction(nil)
-		win.bargroup:SortBars()
+	-- Determine if sorting is needed
+	local currentBarCount = win.bargroup.barCount or 0
+	local maxValueChanged = (win.metadata.maxvalue ~= prevMaxValue)
+	
+	-- Sort if: bar count changed, maxvalue changed, or using ordersort
+	if currentBarCount ~= prevBarCount or maxValueChanged or win.metadata.ordersort then
+		-- Sort by the order in the data table if we are using "ordersort".
+		if win.metadata.ordersort then
+			win.bargroup:SetSortFunction(bar_order_sort)
+			win.bargroup:SortBars()
+		else
+			win.bargroup:SetSortFunction(nil)
+			win.bargroup:SortBars()
+		end
+		
+		-- Store values for next update
+		win.metadata.prevMaxValue = win.metadata.maxvalue
 	end
+
 
 end
 

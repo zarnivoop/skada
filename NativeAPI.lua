@@ -20,10 +20,12 @@ local NativeAPI = {}
 Skada.NativeAPI = NativeAPI
 
 -- Cache and state for performance optimization
+-- Using TTL-based caching instead of per-frame wipes
 NativeAPI.cache = {
-	tick = 0,
 	results = {},
-	available = true -- Is C_DamageMeter currently responsive?
+	available = true, -- Is C_DamageMeter currently responsive?
+	ttl = 0.5,        -- Cache TTL in seconds (500ms)
+	lastCheck = 0     -- Last time we checked availability
 }
 
 -- Persistent cache for discovered session types
@@ -64,13 +66,21 @@ function NativeAPI:GetSessionSource(sourceGUID, sessionType, damageType)
 		return Skada.Simulation:GetMockSource(sourceGUID, damageType)
 	end
 	
-	-- 2. Check Frame Cache
+	-- 2. Check Frame Cache with TTL
 	local now = GetTime()
 	local cache = self.cache
-	if cache.tick ~= now then
-		cache.tick = now
-		wipe(cache.results)
+	
+	-- Only check availability periodically, not every frame
+	if now - cache.lastCheck > cache.ttl then
+		cache.lastCheck = now
 		cache.available = C_DamageMeter.IsDamageMeterAvailable()
+		
+		-- Clean up expired cache entries
+		for key, entry in pairs(cache.results) do
+			if entry.expires and now > entry.expires then
+				cache.results[key] = nil
+			end
+		end
 	end
 	
 	if not cache.available then return nil end
@@ -80,26 +90,32 @@ function NativeAPI:GetSessionSource(sourceGUID, sessionType, damageType)
 	local cacheKey
 	if not isSecret then
 		cacheKey = "source_" .. tostring(sessionType) .. "_" .. tostring(damageType) .. "_" .. tostring(sourceGUID)
-		if cache.results[cacheKey] ~= nil then
-			return cache.results[cacheKey]
+		local cached = cache.results[cacheKey]
+		if cached and now < cached.expires then
+			return cached.value
 		end
 	end
 
 	-- 3. Try FromType
 	local success, result = pcall(C_DamageMeter.GetCombatSessionSourceFromType, sessionType, damageType, sourceGUID)
 	if success and result then 
-		if not isSecret then cache.results[cacheKey] = result end
+		if not isSecret then 
+			cache.results[cacheKey] = {value = result, expires = now + cache.ttl}
+		end
 		return result 
 	end
 	
 	-- 4. Try FromID if sessionID is available
 	local viewKey = "view_" .. tostring(sessionType) .. "_" .. tostring(damageType)
-	local view = cache.results[viewKey]
+	local cachedView = cache.results[viewKey]
+	local view
 	
-	if view == nil then
+	if cachedView and now < cachedView.expires then
+		view = cachedView.value
+	else
 		local success_view, res_view = pcall(C_DamageMeter.GetCombatSessionFromType, sessionType, damageType)
 		view = success_view and res_view or false
-		cache.results[viewKey] = view
+		cache.results[viewKey] = {value = view, expires = now + cache.ttl}
 	end
 	
 	if view and view.sessionID then
@@ -107,7 +123,9 @@ function NativeAPI:GetSessionSource(sourceGUID, sessionType, damageType)
 		result = success_id and res_id or nil
 	end
 
-	if not isSecret then cache.results[cacheKey] = result end
+	if not isSecret then 
+		cache.results[cacheKey] = {value = result, expires = now + cache.ttl}
+	end
 	return result
 end
 
@@ -129,30 +147,39 @@ function NativeAPI:GetSessionView(set, damageType)
 		return Skada.Simulation:GetMockSession(sessionType, damageType)
 	end
 	
-	-- 2. Check Frame Cache
+	-- 2. Check Frame Cache with TTL
 	local now = GetTime()
-	if self.cache.tick ~= now then
-		self.cache.tick = now
-		wipe(self.cache.results)
-		self.cache.available = C_DamageMeter.IsDamageMeterAvailable()
+	local cache = self.cache
+	
+	-- Only check availability periodically
+	if now - cache.lastCheck > cache.ttl then
+		cache.lastCheck = now
+		cache.available = C_DamageMeter.IsDamageMeterAvailable()
+		
+		-- Clean up expired entries
+		for key, entry in pairs(cache.results) do
+			if entry.expires and now > entry.expires then
+				cache.results[key] = nil
+			end
+		end
 	end
 	
-	if not self.cache.available then return set end
+	if not cache.available then return set end
 	
 	local cacheKey = "view_"..tostring(sessionType).."_"..tostring(damageType)
-	if self.cache.results[cacheKey] ~= nil then
-		local res = self.cache.results[cacheKey]
-		return res or set -- Return set if cached result was false
+	local cached = cache.results[cacheKey]
+	if cached and now < cached.expires then
+		return cached.value or set
 	end
 
 	-- 3. Try FromType
 	local success, result = pcall(C_DamageMeter.GetCombatSessionFromType, sessionType, damageType)
 	if success and result then
-		self.cache.results[cacheKey] = result
+		cache.results[cacheKey] = {value = result, expires = now + cache.ttl}
 		return result
 	end
 	
-	self.cache.results[cacheKey] = false
+	cache.results[cacheKey] = {value = false, expires = now + cache.ttl}
 	return set
 end
 

@@ -101,102 +101,79 @@ function SecretHelper:SafeCompare(a, b)
 			return nil
 		end
 	end
-	
-	-- Not secret, but might still fail if types are incompatible
-	if type(a) ~= type(b) then
-		return nil
+	-- Use pcall as additional safety
+	local ok, result = pcall(function() return a > b end)
+	if ok then
+		return result
 	end
-	
-	-- Safe to compare
-	return a > b
+	return nil
 end
 
 --[[
-	Format a number with K/M suffixes (only works on non-secret values).
-	For secret values, returns the formatted secret directly.
+	Format a number safely, handling secret values
 	@param value - The value to format
-	@return string - Formatted string
+	@return string - Formatted number or secret representation
 ]]
 function SecretHelper:FormatNumber(value)
 	if value == nil then return "0" end
 	
-	-- Check if secret
 	if hasSecretAPI and issecretvalue(value) then
-		-- Can't format with K/M, just return as-is via string.format
-		return string.format("%s", value)
+		-- Secret values can be passed to SetText but we can't do math on them
+		-- Return as-is, the display layer will handle it
+		return tostring(value)
 	end
 	
-	-- Non-secret: format with K/M abbreviations
 	local num = tonumber(value)
-	if not num then return "0" end
-	
-	if num >= 1000000 then
-		return string.format("%.1fM", num / 1000000)
-	elseif num >= 10000 then
-		return string.format("%.0fK", num / 1000)
-	elseif num >= 1000 then
-		return string.format("%.1fK", num / 1000)
-	else
-		return string.format("%.0f", num)
+	if num then
+		return Skada:FormatNumber(num)
 	end
+	
+	return "0"
 end
 
 --[[
-	MODULE-SPECIFIC HELPERS
-	These functions handle common patterns in Skada modules
-]]--
-
---[[
-	Check if WoW 12.0 secret API is available
-	@return boolean - true if issecretvalue function exists
+	Check if the WoW client has secret API (WoW 12.0+)
+	@return boolean - true if issecretvalue exists
 ]]
 function SecretHelper:HasSecretAPI()
 	return hasSecretAPI
 end
 
 --[[
-	Detect secrets in a data table and calculate total
-	This combines the common "first pass" pattern into one function
-	@param dataTable - Table of items to check (e.g., sources, spells)
-	@param valueKey - Key to check for secret values (e.g., "totalAmount", "healing")
-	@return hasSecrets, total - Boolean indicating if any secrets found, and numeric total
+	Detect if any values in a table are secrets
+	@param dataTable - Table to check
+	@param valueKey - Key to check in each item (default "totalAmount")
+	@return boolean - true if any secret values found
 ]]
 function SecretHelper:DetectSecrets(dataTable, valueKey)
-	local hasSecrets = false
-	local total = 0
+	if not hasSecretAPI then return false end
+	if not dataTable then return false end
 	
-	if not dataTable then return false, 0 end
+	valueKey = valueKey or "totalAmount"
 	
 	for _, item in pairs(dataTable) do
 		if type(item) == "table" then
 			local value = item[valueKey]
-			if value then
-				if hasSecretAPI and issecretvalue(value) then
-					hasSecrets = true
-				else
-					total = total + (tonumber(value) or 0)
-				end
+			if value and issecretvalue(value) then
+				return true
 			end
 		end
 	end
 	
-	return hasSecrets, total
+	return false
 end
 
 --[[
-	Get player name safely, handling secret values
+	Get player name safely
 	@param player - Player table from NativeAPI
-	@return string - Player name (formatted if secret)
+	@return string - Player name or nil
 ]]
 function SecretHelper:GetPlayerName(player)
 	if not player then return nil end
 	
+	-- Handle secret values for name
 	local rawName = player.name or player.unitName
-	if not rawName then return nil end
-	
-	if hasSecretAPI and issecretvalue(rawName) then
-		return string.format("%s", rawName)
-	elseif type(rawName) == "string" then
+	if rawName and type(rawName) == "string" then
 		return rawName
 	end
 	
@@ -296,4 +273,111 @@ function SecretHelper:FormatValueText(value, includePercent, total)
 	end
 	
 	return text
+end
+
+-- Spell cache for performance optimization
+-- Key: spellID, Value: {name, iconID, lastAccess}
+SecretHelper.spellCache = {}
+local spellCacheMaxSize = 500
+local spellCacheTTL = 300  -- 5 minutes TTL
+
+--[[
+	Cached version of Skada:GetSpellIcon that avoids repeated API calls
+]]
+function SecretHelper:GetSpellIcon(spellID)
+	if not spellID or spellID == 0 then return nil end
+	
+	local now = GetTime()
+	local cached = self.spellCache[spellID]
+	
+	-- Return cached result if valid
+	if cached and (now - cached.lastAccess) < spellCacheTTL then
+		cached.lastAccess = now
+		return cached.iconID
+	end
+	
+	-- Fetch from API
+	local info = C_Spell.GetSpellInfo(spellID)
+	if info then
+		-- Cache the result
+		self.spellCache[spellID] = {
+			name = info.name,
+			iconID = info.iconID,
+			lastAccess = now
+		}
+		
+		-- Cleanup old entries if cache is too large (simple LRU: remove 10 oldest)
+		local cacheSize = 0
+		for _ in pairs(self.spellCache) do
+			cacheSize = cacheSize + 1
+		end
+		
+		if cacheSize > spellCacheMaxSize then
+			-- Remove oldest entries
+			local sorted = {}
+			for k, v in pairs(self.spellCache) do
+				table.insert(sorted, {key = k, access = v.lastAccess})
+			end
+			table.sort(sorted, function(a, b) return a.access < b.access end)
+			
+			-- Remove 10% of cache
+			local toRemove = math.floor(spellCacheMaxSize * 0.1)
+			for i = 1, toRemove do
+				if sorted[i] then
+					self.spellCache[sorted[i].key] = nil
+				end
+			end
+		end
+		
+		return info.iconID
+	end
+	
+	return nil
+end
+
+--[[
+	Per-frame cache for secret detection to avoid redundant scans
+	Multiple modules scanning the same data in the same frame is wasteful
+]]
+SecretHelper.secretDetectionCache = {
+	frame = 0,
+	results = {}
+}
+
+--[[
+	Detect secrets with per-frame caching
+	This prevents multiple modules from scanning the same data in one update cycle
+]]
+function SecretHelper:DetectSecretsCached(cacheKey, dataTable, valueKey)
+	local currentFrame = GetTime()
+	local cache = self.secretDetectionCache
+	
+	-- Clear cache if we're in a new frame
+	if currentFrame ~= cache.frame then
+		cache.frame = currentFrame
+		wipe(cache.results)
+	end
+	
+	-- Return cached result if available
+	if cache.results[cacheKey] ~= nil then
+		return cache.results[cacheKey]
+	end
+	
+	-- Perform detection
+	local hasSecrets = false
+	if dataTable and hasSecretAPI then
+		for _, item in pairs(dataTable) do
+			if type(item) == "table" then
+				local value = item[valueKey]
+				if value and issecretvalue(value) then
+					hasSecrets = true
+					break
+				end
+			end
+		end
+	end
+	
+	-- Cache the result
+	cache.results[cacheKey] = hasSecrets
+	return hasSecrets
 end

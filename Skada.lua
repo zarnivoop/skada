@@ -45,14 +45,9 @@ end
 local nodata_color = {r = 0.5, g = 0.5, b = 0.5, a = 1}
 
 function Skada:GetSpellIcon(spellId)
-	if not spellId or spellId == 0 then return nil end
-	local info = C_Spell.GetSpellInfo(spellId)
-	if info then
-		return info.iconID
-	end
-	return nil
+	-- Use cached version from SecretValueHelper for performance
+	return self.SecretHelper:GetSpellIcon(spellId)
 end
-
 function Skada:GetGameVersion()
 	local version = floor((floor(select(4, GetBuildInfo())) / 10000))
 
