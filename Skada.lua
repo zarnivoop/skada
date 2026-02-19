@@ -1329,6 +1329,10 @@ function Skada:find_player(set, playerGUID)
 end
 
 function Skada:PLAYER_REGEN_DISABLED()
+	if self.Simulation and self.Simulation.active then
+		self.Simulation:SetEnabled(false)
+		self:Print(L["Simulation Mode disabled (Combat started)"])
+	end
 	if not self.current then
 		self:OnCombatStart()
 	end
@@ -2509,7 +2513,13 @@ function Skada:OnEnable()
 	popup:RegisterEvent("DAMAGE_METER_CURRENT_SESSION_UPDATED")
 	popup:RegisterEvent("DAMAGE_METER_RESET")
 	
-	-- Native API doesn't need polling
+	-- Native API doesn't need polling, but simulation does
+	self:ScheduleRepeatingTimer(function()
+		if Skada.Simulation and Skada.Simulation.active then
+			Skada.Simulation:Update()
+			Skada:UpdateDisplay(true)
+		end
+	end, 0.5)
 	
 	-- Test session types to find correct values
 	self.NativeAPI:TestSessionTypes()

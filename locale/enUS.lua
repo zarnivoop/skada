@@ -489,3 +489,9 @@ L["Version History"] = true
 L["View the version history of Skada."] = true
 L["Show Version History"] = true
 L["Display the version history using the notification system."] = true
+
+L["Debug & Simulation"] = "Debug & Simulation"
+L["Simulation Mode"] = "Simulation Mode"
+L["Enables simulation mode for performance testing. Auto-disables in real combat."] = "Enables simulation mode for performance testing. Auto-disables in real combat."
+L["Simulation Mode disabled (Combat started)"] = "Simulation Mode disabled (Combat started)"
+L["Simulated Raid"] = "Simulated Raid"

@@ -437,6 +437,43 @@ Skada.options = {
 					set = function(self, opt) Skada.db.profile.updatefrequency = opt end,
 					order = 18,
 					width = "double",
+				},
+
+				simulation = {
+					type = "group",
+					name = L["Debug & Simulation"],
+					order = 100,
+					inline = true,
+					args = {
+						simulation_mode = {
+							type = "toggle",
+							name = L["Simulation Mode"],
+							desc = L["Enables simulation mode for performance testing. Auto-disables in real combat."],
+							get = function() return Skada.Simulation and Skada.Simulation.active end,
+							set = function(self, val) 
+								if Skada.Simulation then
+									Skada.Simulation:SetEnabled(val)
+								end
+							end,
+							order = 1,
+						},
+						simulation_size = {
+							type = "range",
+							name = L["Simulation Group Size"],
+							desc = L["Controls the number of simulated participants."],
+							min = 1,
+							max = 40,
+							step = 1,
+							get = function() return Skada.Simulation and Skada.Simulation.groupSize or 40 end,
+							set = function(self, val)
+								if Skada.Simulation then
+									Skada.Simulation:SetGroupSize(val)
+								end
+							end,
+							order = 2,
+							disabled = function() return not (Skada.Simulation and Skada.Simulation.active) end,
+						},
+					}
 				}
 
 			}

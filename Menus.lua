@@ -141,6 +141,17 @@ function Skada:OpenMenu(window)
 			info.notCheckable = 1
 			UIDropDownMenu_AddButton(info, level)
 
+			-- Simulation Toggle
+			info = UIDropDownMenu_CreateInfo()
+			info.text = L["Simulation Mode"]
+			info.func = function()
+				if Skada.Simulation then
+					Skada.Simulation:SetEnabled(not Skada.Simulation.active)
+				end
+			end
+			info.checked = function() return Skada.Simulation and Skada.Simulation.active end
+			UIDropDownMenu_AddButton(info, level)
+
 			-- Close menu item
 			info = UIDropDownMenu_CreateInfo()
 			info.text = CLOSE

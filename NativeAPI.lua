@@ -52,7 +52,12 @@ end
 function NativeAPI:GetSessionSource(sourceGUID, sessionType, damageType)
 	if not sourceGUID then return nil end
 	
-	-- 1. Try FromType
+	-- 1. Try simulation
+	if Skada.Simulation and Skada.Simulation.active then
+		return Skada.Simulation:GetMockSource(sourceGUID, damageType)
+	end
+
+	-- 2. Try FromType
 	local success, result = pcall(C_DamageMeter.GetCombatSessionSourceFromType, sessionType, damageType, sourceGUID)
 	if success and result then return result end
 	
@@ -81,6 +86,12 @@ function NativeAPI:GetSessionView(set, damageType)
 	-- Fallback to sessionType if available
 	local sessionType = set.sessionType or (set == Skada.total and 0 or 1)
 	
+	-- 1. Try simulation (safety: only out of combat)
+	if Skada.Simulation and Skada.Simulation.active and not InCombatLockdown() then
+		return Skada.Simulation:GetMockSession(sessionType, damageType)
+	end
+
+	-- 2. Try FromType
 	local success, result = pcall(C_DamageMeter.GetCombatSessionFromType, sessionType, damageType)
 	if success and result then
 		return result
@@ -366,6 +377,11 @@ end
 	All Get*Session() methods delegate to this.
 ]]
 function NativeAPI:GetSessionByParams(sessionType, damageType)
+	-- Prioritize simulation (safety: only out of combat)
+	if Skada.Simulation and Skada.Simulation.active and not InCombatLockdown() then
+		return Skada.Simulation:GetMockSession(sessionType, damageType)
+	end
+
 	local success, result = pcall(C_DamageMeter.GetCombatSessionFromType, sessionType, damageType)
 	if success and result then
 		return result

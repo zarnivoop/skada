@@ -51,6 +51,7 @@ locale\zhCN.lua
 locale\zhTW.lua
 
 NativeAPI.lua
+Simulation.lua
 SecretValueHelper.lua
 ModuleBase.lua
 Skada.lua
