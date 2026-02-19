@@ -61,90 +61,81 @@ function ModuleBase:UpdatePlayerList(win, set, options)
 	local max = 0
 	local nr = 1
 	
-	for _, player in pairs(sources) do
-		local playerName = SecretHelper:GetPlayerName(player)
-		if playerName then
-			local rawValue = player[options.valueKey] or player.totalAmount
-			local value = SecretHelper:SafeNumber(rawValue)
-			local isSecretValue = hasSecretAPI and rawValue and issecretvalue(rawValue)
-			
-			-- Get rate value
-			local rawRate = player[options.rateKey] or player.rate
-			local rate = 0
-			local isSecretRate = false
-			
-			if rawRate then
-				isSecretRate = hasSecretAPI and issecretvalue(rawRate)
-				if not isSecretRate then
+	if hasSecretValues then
+		-- SLOW PATH: Multi-mode handling for protected data
+		for _, player in pairs(sources) do
+			local playerName = SecretHelper:GetPlayerName(player)
+			if playerName then
+				local rawValue = player[options.valueKey] or player.totalAmount
+				local rawRate = player[options.rateKey] or player.rate
+				local rate = 0
+				
+				if not (hasSecretAPI and issecretvalue(rawRate)) then
 					rate = tonumber(rawRate) or 0
+				elseif options.getRateFunc then
+					rate = options.getRateFunc(set, player)
 				end
-			elseif options.getRateFunc then
-				rate = options.getRateFunc(set, player)
-				isSecretRate = hasSecretAPI and issecretvalue(rate)
-			end
-			
-			local d = win.dataset[nr] or {}
-			win.dataset[nr] = d
-			d._is_nodata = nil -- clear nodata marker if this slot was previously used for "no data"
-			
-			-- During combat with secret values, use order-based IDs
-			if hasSecretValues then
+				
+				local d = win.dataset[nr] or {}
+				win.dataset[nr] = d
+				d._is_nodata = nil
 				d.id = "combat_" .. nr
-			else
-				d.id = player.sourceGUID or playerName
-			end
-			
-			d.label = playerName
-			d.class = SecretHelper:GetPlayerClass(player)
-			d.role = player.role
-			d.order = nr
-			
-			if hasSecretValues then
+				d.label = playerName
+				d.class = SecretHelper:GetPlayerClass(player)
+				d.role = player.role
+				d.order = nr
 				d.value = SecretHelper:GetDisplayValue(rawValue, nr)
 				
 				local valueText = Skada:FormatNumberSecret(rawValue)
 				local rateText = Skada:FormatNumberSecret(rawRate or rate)
-				local percentText = options.includePercent and "" or nil
 				
 				if options.columns then
-					Skada:FormatValueText(d,
-						valueText, options.columns[1],
-						rateText, options.columns[2],
-						percentText, options.columns[3]
-					)
+					Skada:FormatValueText(d, valueText, options.columns[1], rateText, options.columns[2], "", options.columns[3])
 				else
 					d.valuetext = valueText
 				end
-			else
-				d.value = value
-				if value > max then
-					max = value
+				nr = nr + 1
+			end
+		end
+		win.metadata.maxvalue = 1000 - 1
+	else
+		-- FAST PATH: Standard arithmetic and comparisons (no secrets)
+		for _, player in pairs(sources) do
+			local playerName = player.name or player.unitName
+			if playerName then
+				local value = tonumber(player[options.valueKey] or player.totalAmount) or 0
+				local rate = tonumber(player[options.rateKey] or player.rate) or 0
+				
+				if rate == 0 and options.getRateFunc then
+					rate = options.getRateFunc(set, player)
 				end
+				
+				local d = win.dataset[nr] or {}
+				win.dataset[nr] = d
+				d._is_nodata = nil
+				d.id = player.sourceGUID or playerName
+				d.label = playerName
+				d.class = player.class or player.classFilename
+				d.role = player.role
+				d.order = nr
+				d.value = value
+				
+				if value > max then max = value end
 				
 				local valueText = Skada:FormatNumber(value)
 				local rateText = options.formatRate and options.formatRate(rate) or Skada:FormatNumber(rate)
-				local percentText = nil
-				
-				if options.includePercent and totalValue > 0 then
-					percentText = string.format("%02.1f%%", (value / totalValue) * 100)
-				end
+				local percentText = (options.includePercent and totalValue > 0) and string.format("%02.1f%%", (value / totalValue) * 100) or nil
 				
 				if options.columns then
-					Skada:FormatValueText(d,
-						valueText, options.columns[1],
-						rateText, options.columns[2],
-						percentText, options.columns[3]
-					)
+					Skada:FormatValueText(d, valueText, options.columns[1], rateText, options.columns[2], percentText, options.columns[3])
 				else
 					d.valuetext = valueText
 				end
+				nr = nr + 1
 			end
-			
-			nr = nr + 1
 		end
+		win.metadata.maxvalue = (max > 0 and max or 1)
 	end
-	
-	win.metadata.maxvalue = SecretHelper:GetMaxValue(hasSecretValues, max, nr - 1)
 end
 
 --[[
@@ -181,47 +172,58 @@ function ModuleBase:UpdateSimpleList(win, set, options)
 	local max = 0
 	local nr = 1
 	
-	for _, player in pairs(sources) do
-		local playerName = SecretHelper:GetPlayerName(player)
-		if playerName then
-			local rawValue = player[options.valueKey] or player.totalAmount
-			local value = SecretHelper:SafeNumber(rawValue)
-			local isSecret = hasSecretAPI and rawValue and issecretvalue(rawValue)
-			
-			if value > 0 or isSecret then
-				local d = win.dataset[nr] or {}
-				win.dataset[nr] = d
-				d._is_nodata = nil -- clear nodata marker if this slot was previously used for "no data"
+	if hasSecretValues then
+		-- SLOW PATH
+		for _, player in pairs(sources) do
+			local playerName = SecretHelper:GetPlayerName(player)
+			if playerName then
+				local rawValue = player[options.valueKey] or player.totalAmount
+				local isSecret = hasSecretAPI and rawValue and issecretvalue(rawValue)
+				local value = SecretHelper:SafeNumber(rawValue)
 				
-				-- During combat with secret values, use order-based IDs
-				if hasSecretValues then
+				if value > 0 or isSecret then
+					local d = win.dataset[nr] or {}
+					win.dataset[nr] = d
+					d._is_nodata = nil
 					d.id = "combat_" .. nr
-				else
-					d.id = player.sourceGUID or playerName
-				end
-				
-				d.label = playerName
-				d.class = SecretHelper:GetPlayerClass(player)
-				d.role = player.role
-				d.order = nr
-				
-				if hasSecretValues then
+					d.label = playerName
+					d.class = SecretHelper:GetPlayerClass(player)
+					d.role = player.role
+					d.order = nr
 					d.value = SecretHelper:GetDisplayValue(rawValue, nr)
 					d.valuetext = Skada:FormatNumberSecret(rawValue)
-				else
-					d.value = value
-					d.valuetext = Skada:FormatNumber(value)
-					if value > max then
-						max = value
-					end
+					nr = nr + 1
 				end
-				
-				nr = nr + 1
 			end
 		end
+	else
+		-- FAST PATH
+		for _, player in pairs(sources) do
+			local playerName = player.name or player.unitName
+			if playerName then
+				local value = tonumber(player[options.valueKey] or player.totalAmount) or 0
+				
+				if value > 0 then
+					local d = win.dataset[nr] or {}
+					win.dataset[nr] = d
+					d._is_nodata = nil
+					d.id = player.sourceGUID or playerName
+					d.label = playerName
+					d.class = player.class or player.classFilename
+					d.role = player.role
+					d.order = nr
+					d.value = value
+					d.valuetext = Skada:FormatNumber(value)
+					
+					if value > max then max = value end
+					nr = nr + 1
+				end
+			end
+		end
+		max = (max > 0 and max or 1)
 	end
 	
-	win.metadata.maxvalue = SecretHelper:GetMaxValue(hasSecretValues, max, nr - 1)
+	win.metadata.maxvalue = hasSecretValues and (1000 - 1) or max
 end
 
 --[[
@@ -276,50 +278,62 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 	local max = 0
 	local nr = 1
 	
-	for _, spell in pairs(spells) do
-		if type(spell) == "table" or (issecretvalue and issecretvalue(spell)) then
-			local rawValue = spell[valueKey]
-			if rawValue then
-				local isSecret = hasSecretAPI and issecretvalue(rawValue)
-				
-				if rawValue ~= 0 or isSecret then
+	if hasSecretValues then
+		-- SLOW PATH
+		for _, spell in pairs(spells) do
+			if type(spell) == "table" or (hasSecretAPI and issecretvalue(spell)) then
+				local rawValue = spell[valueKey]
+				if rawValue then
+					local isSecret = hasSecretAPI and issecretvalue(rawValue)
+					if rawValue ~= 0 or isSecret then
+						local spellID = spell.spellID or 0
+						local d = win.dataset[nr] or {}
+						win.dataset[nr] = d
+						d._is_nodata = nil
+						d.id = spellID
+						
+						local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
+						d.label = spellInfo and spellInfo.name or ("Spell " .. tostring(spellID))
+						
+						d.value = SecretHelper:GetDisplayValue(rawValue, nr)
+						d.valuetext = Skada:FormatNumberSecret(rawValue)
+						d.icon = Skada:GetSpellIcon(spellID)
+						nr = nr + 1
+					end
+				end
+			end
+		end
+		win.metadata.maxvalue = 1000 - 1
+	else
+		-- FAST PATH
+		for _, spell in pairs(spells) do
+			if type(spell) == "table" then
+				local value = tonumber(spell[valueKey]) or 0
+				if value ~= 0 then
 					local spellID = spell.spellID or 0
 					local d = win.dataset[nr] or {}
 					win.dataset[nr] = d
 					d._is_nodata = nil
-					
 					d.id = spellID
 					
-					-- Get spell name
 					local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
 					d.label = spellInfo and spellInfo.name or ("Spell " .. tostring(spellID))
 					
-					if isSecret then
-						d.value = SecretHelper:GetDisplayValue(rawValue, nr)
-						d.valuetext = Skada:FormatNumberSecret(rawValue)
-					else
-						local value = tonumber(rawValue) or 0
-						d.value = value
-						
-						if totalValue > 0 then
-							d.valuetext = Skada:FormatNumber(value) .. string.format(" (%02.1f%%)", (value / totalValue) * 100)
-						else
-							d.valuetext = Skada:FormatNumber(value)
-						end
-						
-						if value > max then
-							max = value
-						end
-					end
+					d.value = value
+					if value > max then max = value end
 					
+					if totalValue > 0 then
+						d.valuetext = Skada:FormatNumber(value) .. string.format(" (%02.1f%%)", (value / totalValue) * 100)
+					else
+						d.valuetext = Skada:FormatNumber(value)
+					end
 					d.icon = Skada:GetSpellIcon(spellID)
 					nr = nr + 1
 				end
 			end
 		end
+		win.metadata.maxvalue = (max > 0 and max or 1)
 	end
-	
-	win.metadata.maxvalue = SecretHelper:GetMaxValue(hasSecretValues, max, nr - 1)
 end
 
 --[[

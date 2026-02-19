@@ -19,12 +19,19 @@ local _, Skada = ...
 local NativeAPI = {}
 Skada.NativeAPI = NativeAPI
 
--- Cache for discovered session types
+-- Cache and state for performance optimization
+NativeAPI.cache = {
+	tick = 0,
+	results = {},
+	available = true -- Is C_DamageMeter currently responsive?
+}
+
+-- Persistent cache for discovered session types
 NativeAPI.sessionTypeCache = {
-	current = nil,  -- Cache for current session type
-	total = nil,    -- Cache for total session type
-	currentDamageType = 0, -- Cache for working damage type (current)
-	totalDamageType = 0    -- Cache for working damage type (total)
+	current = nil,
+	total = nil,
+	currentDamageType = 0,
+	totalDamageType = 0
 }
 
 -- Verify C_DamageMeter is available
@@ -56,19 +63,52 @@ function NativeAPI:GetSessionSource(sourceGUID, sessionType, damageType)
 	if Skada.Simulation and Skada.Simulation.active then
 		return Skada.Simulation:GetMockSource(sourceGUID, damageType)
 	end
-
-	-- 2. Try FromType
-	local success, result = pcall(C_DamageMeter.GetCombatSessionSourceFromType, sessionType, damageType, sourceGUID)
-	if success and result then return result end
 	
-	-- 2. Try FromID if sessionID is available
-	local success_view, view = pcall(C_DamageMeter.GetCombatSessionFromType, sessionType, damageType)
-	if success_view and view and view.sessionID then
-		local success_id, res_id = pcall(C_DamageMeter.GetCombatSessionSourceFromID, view.sessionID, sourceGUID)
-		if success_id and res_id then return res_id end
+	-- 2. Check Frame Cache
+	local now = GetTime()
+	local cache = self.cache
+	if cache.tick ~= now then
+		cache.tick = now
+		wipe(cache.results)
+		cache.available = C_DamageMeter.IsDamageMeterAvailable()
+	end
+	
+	if not cache.available then return nil end
+	
+	-- Only cache if sourceGUID is not secret (concatenating secrets makes the key secret)
+	local isSecret = issecretvalue and issecretvalue(sourceGUID)
+	local cacheKey
+	if not isSecret then
+		cacheKey = "source_" .. tostring(sessionType) .. "_" .. tostring(damageType) .. "_" .. tostring(sourceGUID)
+		if cache.results[cacheKey] ~= nil then
+			return cache.results[cacheKey]
+		end
 	end
 
-	return nil
+	-- 3. Try FromType
+	local success, result = pcall(C_DamageMeter.GetCombatSessionSourceFromType, sessionType, damageType, sourceGUID)
+	if success and result then 
+		if not isSecret then cache.results[cacheKey] = result end
+		return result 
+	end
+	
+	-- 4. Try FromID if sessionID is available
+	local viewKey = "view_" .. tostring(sessionType) .. "_" .. tostring(damageType)
+	local view = cache.results[viewKey]
+	
+	if view == nil then
+		local success_view, res_view = pcall(C_DamageMeter.GetCombatSessionFromType, sessionType, damageType)
+		view = success_view and res_view or false
+		cache.results[viewKey] = view
+	end
+	
+	if view and view.sessionID then
+		local success_id, res_id = pcall(C_DamageMeter.GetCombatSessionSourceFromID, view.sessionID, sourceGUID)
+		result = success_id and res_id or nil
+	end
+
+	if not isSecret then cache.results[cacheKey] = result end
+	return result
 end
 
 --[[
@@ -82,22 +122,37 @@ end
 function NativeAPI:GetSessionView(set, damageType)
 	if not set then return nil end
 	
-	-- If set has a sessionID, try to get it directly (though API might not support type change for ID)
-	-- Fallback to sessionType if available
 	local sessionType = set.sessionType or (set == Skada.total and 0 or 1)
 	
 	-- 1. Try simulation (safety: only out of combat)
 	if Skada.Simulation and Skada.Simulation.active and not InCombatLockdown() then
 		return Skada.Simulation:GetMockSession(sessionType, damageType)
 	end
+	
+	-- 2. Check Frame Cache
+	local now = GetTime()
+	if self.cache.tick ~= now then
+		self.cache.tick = now
+		wipe(self.cache.results)
+		self.cache.available = C_DamageMeter.IsDamageMeterAvailable()
+	end
+	
+	if not self.cache.available then return set end
+	
+	local cacheKey = "view_"..tostring(sessionType).."_"..tostring(damageType)
+	if self.cache.results[cacheKey] ~= nil then
+		local res = self.cache.results[cacheKey]
+		return res or set -- Return set if cached result was false
+	end
 
-	-- 2. Try FromType
+	-- 3. Try FromType
 	local success, result = pcall(C_DamageMeter.GetCombatSessionFromType, sessionType, damageType)
 	if success and result then
+		self.cache.results[cacheKey] = result
 		return result
 	end
 	
-	-- If that failed, maybe set IS the view we want if the types match
+	self.cache.results[cacheKey] = false
 	return set
 end
 
@@ -194,6 +249,10 @@ function NativeAPI:GetPlayerSpells(playerID, set, damageType)
 	if success and isSecret then
 		-- If the whole source is secret, we assume it's an iterable secret collection
 		return source
+	end
+	
+	if type(source) ~= "table" then
+		return nil
 	end
 	
 	local looksLikeSpellsArray = true
