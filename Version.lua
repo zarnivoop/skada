@@ -7,7 +7,7 @@ Skada.versions = {
 		changes = {
 			"Added several new themes",
 			"Removed old start/stop segment (no longer possible)",
-			"Performance improvements"
+			"Performance improvements",
 		}
 	},
 	{
@@ -17,16 +17,16 @@ Skada.versions = {
 		changes = {
 			"Fixed minimap toggle",
 			"Simplified themes",
-			"Fixed broker and inline display issues"
+			"Fixed broker and inline display issues",
 		}
 	},
 	{
 		id = "2.0.0",
-		title = "Skada 2.0 (Midnight)",
+		title = "Skada 2.0.0",
 		message = "Adapted for WoW 12.0, Midnight. Now using data provided by the built-in damage meter.",
 		changes = {
 			"Basic rework and simplification for WoW 12.0",
-			"Some modules have been disabled for now"
+			"Some modules have been disabled for now",
 		}
 	},
 	{
@@ -36,7 +36,7 @@ Skada.versions = {
 		changes = {
 			"Value columns reworked into something more readable",
 			"Bar display windows now snap to nearest size",
-			"Power Gains modes reworked into one mode"
+			"Power Gains modes reworked into one mode",
 		}
 	},
 	{
@@ -44,7 +44,7 @@ Skada.versions = {
 		title = "Skada 1.8.0",
 		message = "Updated for 9.0!",
 		changes = {
-			"Pets without a unit will be properly associated with their owner"
+			"Pets without a unit will be properly associated with their owner",
 		}
 	},
 	{
@@ -54,7 +54,7 @@ Skada.versions = {
 		changes = {
 			"Buffs overview mode showing spells used",
 			"Debuffs overview mode showing spells used",
-			"Clicking a spell shows the corresponding players"
+			"Clicking a spell shows the corresponding players",
 		}
 	},
 	{
@@ -63,7 +63,7 @@ Skada.versions = {
 		message = "Quality of life improvements",
 		changes = {
 			"Added a new update frequency option",
-			"Added a new notification system (LibNotify) to display version information unobtrusively"
+			"Added a new notification system (LibNotify) to display version information unobtrusively",
 		}
 	},
 	{
@@ -75,7 +75,7 @@ Skada.versions = {
 			"Mode list is now sorted by how often you use the modes.",
 			"Added spell school color and tooltip info.",
 			"Doubled default update frequency.",
-			"Fixed a compatibility issue for RealUI users."
+			"Fixed a compatibility issue for RealUI users.",
 		}
-	}
+	},
 }
