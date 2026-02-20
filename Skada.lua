@@ -1541,33 +1541,6 @@ function Skada:UpdateDisplay(force)
 
 				-- Let window display the data.
 				if win.display and win.display.Update then
-					-- Show "No data to display" if empty
-					local has_data = false
-					for _, d in ipairs(win.dataset) do
-						if d.id and d.id ~= "total" and d.id ~= "nodata" then
-							has_data = true
-							break
-						end
-					end
-					if not has_data then
-						-- Find existing nodata entry (marked with _is_nodata to survive UpdateInProgress)
-						local nodata_entry = nil
-						for _, d in ipairs(win.dataset) do
-							if d._is_nodata then
-								nodata_entry = d
-								break
-							end
-						end
-						if not nodata_entry then
-							nodata_entry = {_is_nodata = true}
-							tinsert(win.dataset, nodata_entry)
-						end
-						nodata_entry.id = "nodata"
-						nodata_entry.label = L["No data to display"]
-						nodata_entry.value = 0
-						nodata_entry.ignore = true
-						nodata_entry.color = nodata_color
-					end
 
 					local success, err = pcall(win.display.Update, win.display, win)
 					if not success and Skada.db.profile.debug then
