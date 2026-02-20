@@ -212,14 +212,12 @@ function Skada:OpenMenu(window)
 				for i, set in ipairs(Skada:GetSets()) do
 					wipe(info)
 						info.text = Skada:GetSetLabel(set)
+						local setIdentifier = set.sessionID or set.startTime or set.starttime or i
 						info.func = function()
-							window.selectedset = i
+							window.selectedset = setIdentifier
 							Skada:Wipe()
 							Skada:UpdateDisplay(true)
 						end
-						-- For Native API, sets don't have starttime as identifier
-						-- Use sessionID or index instead
-						local setIdentifier = set.sessionID or set.startTime or set.starttime or i
 						info.checked = (window.selectedset == setIdentifier)
 						UIDropDownMenu_AddButton(info, level)
 				end
@@ -300,8 +298,9 @@ function Skada:OpenMenu(window)
 				for i, set in ipairs(Skada:GetSets()) do
 					info = UIDropDownMenu_CreateInfo()
 					info.text = Skada:GetSetLabel(set)
-					info.func = function() Skada.db.profile.report.set = i end
-					info.checked = (Skada.db.profile.report.set == i)
+					local setIdentifier = set.sessionID or set.startTime or set.starttime or i
+					info.func = function() Skada.db.profile.report.set = setIdentifier end
+					info.checked = (Skada.db.profile.report.set == setIdentifier)
 					UIDropDownMenu_AddButton(info, level)
 				end
 			end
@@ -352,12 +351,13 @@ function Skada:SegmentMenu(window)
 		for i, set in ipairs(Skada:GetSets()) do
 			info = UIDropDownMenu_CreateInfo()
 			info.text = Skada:GetSetLabel(set)
+			local setIdentifier = set.sessionID or set.startTime or set.starttime or i
 			info.func = function()
-				window.selectedset = i
+				window.selectedset = setIdentifier
 				Skada:Wipe()
 				Skada:UpdateDisplay(true)
 			end
-			info.checked = (window.selectedset == i)
+			info.checked = (window.selectedset == setIdentifier)
 			UIDropDownMenu_AddButton(info, level)
 		end
 	end
@@ -456,7 +456,8 @@ function Skada:CreateReportWindow(window)
 		setbox:SetLabel(L["Segment"])
 		setbox:SetList({total = L["Total"], current = L["Current"]})
 		for i, set in ipairs(Skada:GetSets()) do
-			setbox:AddItem(i, (Skada:GetSetLabel(set)))
+			local setIdentifier = set.sessionID or set.startTime or set.starttime or i
+			setbox:AddItem(setIdentifier, (Skada:GetSetLabel(set)))
 		end
 		setbox:SetCallback("OnValueChanged", function(f, e, value) Skada.db.profile.report.set = value end)
 		setbox:SetValue(Skada.db.profile.report.set or Skada:GetSets()[1])

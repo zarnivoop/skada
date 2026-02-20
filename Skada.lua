@@ -199,9 +199,6 @@ local selectedfeed = nil
 -- A list of data feeds available. Modules add to it.
 local feeds = {}
 
--- Disabled flag.
-local disabled = false
-
 -- Our windows.
 local windows = {}
 
@@ -584,10 +581,6 @@ function Window:set_mode_title()
 		name = tostring(name) .. ": " .. tostring(setname)
 	end
 	end
-	if disabled and (self.selectedset == "current" or self.selectedset == "total") then
-		-- indicate when data collection is disabled
-		name = name .. "  |cFFFF0000" .. L["DISABLED"] .. "|r"
-	end
 	self.metadata.title = name
 	if self.display and self.display.SetTitle then
 		self.display:SetTitle(self, name)
@@ -918,10 +911,7 @@ local function slashHandler(param)
 		Skada:Print(("%-20s"):format("/skada reset"))
 		Skada:Print(("%-20s"):format("/skada toggle"))
 		Skada:Print(("%-20s"):format("/skada debug"))
-		Skada:Print(("%-20s"):format("/skada newsegment"))
 		Skada:Print(("%-20s"):format("/skada config"))
-		Skada:Print(("%-20s"):format("/skada datatest"))
-		Skada:Print(("%-20s"):format("/skada status"))
 	end
 end
 
@@ -1021,18 +1011,7 @@ end
 
 
 
-function Skada:SetActive(enable)
-	if enable then
-		for i, win in ipairs(windows) do
-			win:Show()
-		end
-	else
-		for i, win in ipairs(windows) do
-			win:Hide()
-		end
-	end
-	
-end
+
 
 function Skada:ToggleWindow()
 	local showing = false
@@ -1112,9 +1091,6 @@ function Skada:ReloadSettings()
 	for i, win in ipairs(self.db.profile.windows) do
 		self:CreateWindow(win.name, win)
 	end
-
-	self.total = self.char.total
-
 	-- Minimap button.
 	if icon and not icon:IsRegistered("Skada") then
 		icon:Register("Skada", dataobj, self.db.profile.icon)
@@ -1132,14 +1108,14 @@ function Skada:ApplySettings()
 		end
 	end
 
-	if (self.db.profile.hidesolo and not IsInGroup()) or (self.db.profile.hidepvp and IsInPVP()) then
-		self:SetActive(false)
-	else
-		self:SetActive(true)
-
-		for i, win in ipairs(windows) do
-			if win.db.hidden and win:IsShown() then
+	for i, win in ipairs(windows) do
+		if (self.db.profile.hidesolo and not IsInGroup()) or (self.db.profile.hidepvp and IsInPVP()) then
+			win:Hide()
+		else
+			if win.db.hidden then
 				win:Hide()
+			else
+				win:Show()
 			end
 		end
 	end
@@ -1270,6 +1246,8 @@ function Skada:find_set(s)
 		local set = self.NativeAPI:GetTotalSession()
 		if set then set.sessionType = 0 end
 		return set
+	elseif type(s) == "number" then
+		return self.NativeAPI:GetSessionByID(s)
 	elseif type(s) == "string" and tonumber(s) then
 		return self.NativeAPI:GetSessionByID(tonumber(s))
 	end
@@ -1638,7 +1616,20 @@ function Skada:UpdateDisplay(force)
 				end
 
 				-- With Native API, historical sessions are managed by WoW
-				-- Not displayed in local menu
+				for i, set in ipairs(self:GetSets()) do
+					nr = nr + 1
+					d = win.dataset[nr] or {}
+					win.dataset[nr] = d
+
+					d.id = set.sessionID or set.startTime or i
+					d.label = self:GetSetLabel(set)
+					d.value = 1
+					if set.gotboss then
+						d.icon = bossicon
+					else
+						d.icon = nonbossicon
+					end
+				end
 
 				win.metadata.ordersort = true
 
@@ -1665,8 +1656,9 @@ Everything below this is OK to use in modes.
 --]]
 
 function Skada:GetSets()
-	-- With Native API, sessions are managed by WoW's C_DamageMeter
-	-- Return empty table for compatibility
+	if self.NativeAPI then
+		return self.NativeAPI:GetAvailableSessions()
+	end
 	return {}
 end
 
@@ -2438,11 +2430,7 @@ function Skada:OnInitialize()
 	self.db.RegisterCallback(self, "OnProfileReset", "ReloadSettings")
 	-- ClearAllIndexes callback removed - method doesn't exist
 
-	if self.db.profile.total then
-		self.db.profile.current = nil
-		self.db.profile.total = nil
-		self.db.profile.sets = nil
-	end
+
 
 	self:SetNotifyIcon("Interface\\Icons\\Spell_Lightning_LightningBolt01")
 	self:SetNotifyStorage(self.db.profile.versions)
@@ -2513,9 +2501,6 @@ function Skada:OnEnable()
 	-- Instead of listening for callbacks on SharedMedia we simply wait a few seconds and then re-apply settings
 	-- to catch any missing media. Lame? Yes.
 	self:ScheduleTimer("ApplySettings", 2)
-	
-	-- With Native API, data collection is always enabled
-	disabled = false
 end
 
 function Skada:AddLoadableModule(name, description, func)
