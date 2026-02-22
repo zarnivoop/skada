@@ -204,13 +204,6 @@ local windows = {}
 
 -- Our display providers.
 Skada.displays = {}
-
--- Timer for updating windows.
-local update_timer = nil
-
--- Timer for checking for combat end.
-local tick_timer = nil
-
 function Skada:GetWindows()
 	return windows
 end
@@ -1130,78 +1123,66 @@ end
 
 -- NewSegment removed - with Native API, sessions are managed by WoW
 
-function Skada:OnCombatEnd()
-	-- Called when Native API detects combat session has ended
-	if not self.current then return end
-	
-	self:Debug("OnCombatEnd")
-	
-	-- Save reference to last session for "Last" view
-	self.last = self.current
-	self.current = nil
-
-	-- Restore window views if configured
-	for i, win in ipairs(windows) do
-		if win.db.returnaftercombat and win.restore_mode and win.restore_set then
-			self:RestoreView(win, win.restore_set, win.restore_mode)
-			win.restore_mode = nil
-			win.restore_set = nil
-		end
-		-- Show windows if they were hidden during combat
-		if not win.db.hidden and self.db.profile.hidecombat and (not self.db.profile.hidesolo or IsInGroup()) then
-			win:Show()
-		end
+-- Main tick function: handles combat transitions and display updates.
+-- Replaces the old OnCombatStart/OnCombatEnd + 6 event handler approach.
+function Skada:Tick()
+	-- Simulation mode: generate mock data and update
+	if self.Simulation and self.Simulation.active then
+		self.Simulation:Update()
+		self:UpdateDisplay(true)
+		return
 	end
 
-	-- Update display and stop combat timer
-	self:UpdateDisplay(true)
-	if update_timer then self:CancelTimer(update_timer) end
-	update_timer = nil
-end
+	local inCombat = InCombatLockdown()
 
-function Skada:OnCombatStart()
-	-- Called when Native API detects active combat session
-	self:Wipe()
+	-- Detect combat start
+	if inCombat and not self.current then
+		self:Wipe()
+		self.current = { name = "Current", sessionType = 1 }
 
-	-- Mark that we are in combat (modules query API directly for data)
-	self.current = { name = "Current", sessionType = 1 }
-	
-	-- Add encounter info if available
-	if self.encounterName and GetTime() < (self.encounterTime or 0) + 15 then
-		self.current.mobname = self.encounterName
-		self.current.gotboss = true
-		self.encounterName = nil
-		self.encounterTime = nil
-	end
-
-	for i, win in ipairs(windows) do
-		-- Store current view for restoration after combat if configured
-		if win.db.returnaftercombat then
-			win.restore_set = win.selectedset
-			win.restore_mode = win.selectedmode and win.selectedmode:GetName()
-		end
-		
-		-- Always switch to current segment when entering combat
-		win.selectedset = "current"
-		
-		-- Switch to combat mode if configured, otherwise just refresh current mode
-		if win.db.modeincombat and win.db.modeincombat ~= "" then
-			local mymode = find_mode(win.db.modeincombat)
-			if mymode then
-				win:DisplayMode(mymode)
+		for i, win in ipairs(windows) do
+			if win.db.returnaftercombat then
+				win.restore_set = win.selectedset
+				win.restore_mode = win.selectedmode and win.selectedmode:GetName()
 			end
-		elseif win.selectedmode then
-			-- Keep current mode but trigger a refresh
-			win.changed = true
+			win.selectedset = "current"
+			if win.db.modeincombat and win.db.modeincombat ~= "" then
+				local mymode = find_mode(win.db.modeincombat)
+				if mymode then
+					win:DisplayMode(mymode)
+				end
+			elseif win.selectedmode then
+				win.changed = true
+			end
+			if not win.db.hidden and self.db.profile.hidecombat then
+				win:Hide()
+			end
 		end
-
-		if not win.db.hidden and self.db.profile.hidecombat then
-			win:Hide()
-		end
+		changed = true
 	end
-	
-	self:UpdateDisplay(true)
-	update_timer = self:ScheduleRepeatingTimer("UpdateDisplay", self.db.profile.updatefrequency or 0.25)
+
+	-- Detect combat end
+	if not inCombat and self.current then
+		self.last = self.current
+		self.current = nil
+
+		for i, win in ipairs(windows) do
+			if win.db.returnaftercombat and win.restore_mode and win.restore_set then
+				self:RestoreView(win, win.restore_set, win.restore_mode)
+				win.restore_mode = nil
+				win.restore_set = nil
+			end
+			if not win.db.hidden and self.db.profile.hidecombat and (not self.db.profile.hidesolo or IsInGroup()) then
+				win:Show()
+			end
+		end
+		changed = true
+	end
+
+	-- Update display if in combat or data changed
+	if inCombat or changed then
+		self:UpdateDisplay(true)
+	end
 end
 
 function Skada:Wipe()
@@ -1301,56 +1282,14 @@ function Skada:find_player(set, playerGUID)
 	return self:find_player_in_session(set, playerGUID)
 end
 
-function Skada:PLAYER_REGEN_DISABLED()
-	if self.Simulation and self.Simulation.active then
-		self.Simulation:SetEnabled(false)
-		self:Print(L["Simulation Mode disabled (Combat started)"])
-	end
-	if not self.current then
-		self:OnCombatStart()
-	end
-end
-
-function Skada:PLAYER_REGEN_ENABLED()
-	-- Only end combat if we're not in an encounter (boss fights use ENCOUNTER_END)
-	if self.current and not self.current.gotboss then
-		self:OnCombatEnd()
-	end
-end
-
-function Skada:ENCOUNTER_START(encounterId, encounterName)
-	self.encounterName = encounterName
-	self.encounterTime = GetTime()
-	if self.current then
-		self.current.mobname = encounterName
-		self.current.gotboss = true
-	end
-end
-
-function Skada:ENCOUNTER_END(encounterId, encounterName)
-	if self.current then
-		self.current.mobname = encounterName
-		self.current.gotboss = true
-		-- End combat after boss encounter ends
-		self:OnCombatEnd()
-	end
-end
-
--- Native API Event Handlers
+-- Native API Event Handlers — just flag that data changed.
+-- The Tick() timer handles combat transitions and display updates.
 function Skada:DAMAGE_METER_COMBAT_SESSION_UPDATED()
-	if self.NativeAPI then
-		local sessionData = self.NativeAPI:GetCurrentSession()
-		if sessionData and not self.current then
-			self:OnCombatStart()
-		end
-		self:UpdateDisplay(true)
-	end
+	changed = true
 end
 
 function Skada:DAMAGE_METER_CURRENT_SESSION_UPDATED()
-	if self.NativeAPI then
-		self:UpdateDisplay(true)
-	end
+	changed = true
 end
 
 function Skada:DAMAGE_METER_RESET()
@@ -2464,27 +2403,16 @@ function Skada:OnEnable()
 		self.moduleList = nil
 	end
 
-	-- Register for native damage meter events
+	-- Register for native damage meter events (just flag data as changed)
 	popup:RegisterEvent("DAMAGE_METER_COMBAT_SESSION_UPDATED")
 	popup:RegisterEvent("DAMAGE_METER_CURRENT_SESSION_UPDATED")
 	popup:RegisterEvent("DAMAGE_METER_RESET")
-	
-	-- Native API doesn't need polling, but simulation does
-	self:ScheduleRepeatingTimer(function()
-		if Skada.Simulation and Skada.Simulation.active then
-			Skada.Simulation:Update()
-			Skada:UpdateDisplay(true)
-		end
-	end, 0.5)
-	
+
 	-- Test session types to find correct values
 	self.NativeAPI:TestSessionTypes()
 
-	-- Only register events that have handlers and are needed with Native API
-	popup:RegisterEvent("PLAYER_REGEN_DISABLED")
-	popup:RegisterEvent("PLAYER_REGEN_ENABLED")
-	popup:RegisterEvent("ENCOUNTER_START")
-	popup:RegisterEvent("ENCOUNTER_END")
+	-- Single repeating timer handles combat transitions, simulation, and display updates
+	self:ScheduleRepeatingTimer("Tick", self.db.profile.updatefrequency or 0.25)
 
 	-- Group and zone change events for data reset triggers
 	popup:RegisterEvent("GROUP_ROSTER_UPDATE")
