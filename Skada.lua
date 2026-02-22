@@ -2392,7 +2392,6 @@ function Skada:OnEnable()
 	-- Register for native damage meter events (just flag data as changed)
 	self:RegisterEvent("DAMAGE_METER_COMBAT_SESSION_UPDATED")
 	self:RegisterEvent("DAMAGE_METER_CURRENT_SESSION_UPDATED")
-	self:RegisterEvent("DAMAGE_METER_RESET")
 
 	-- Test session types to find correct values
 	self.NativeAPI:TestSessionTypes()
