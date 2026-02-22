@@ -1,6 +1,6 @@
 local _, addon = ...
 
-local Skada = LibStub("AceAddon-3.0"):NewAddon(addon, "Skada", "AceTimer-3.0", "LibNotify-1.0")
+local Skada = LibStub("AceAddon-3.0"):NewAddon(addon, "Skada", "AceTimer-3.0", "AceEvent-3.0", "LibNotify-1.0")
 _G.Skada = Skada
 
 local L = LibStub("AceLocale-3.0"):GetLocale("Skada", true)
@@ -39,11 +39,6 @@ if not InterfaceOptions_AddCategory then
 	end
 end
 
--- Simple boss detection helpers removed - WoW 12.0+ uses native encounter detection
-
--- Color constant for "no data" bars
-local nodata_color = {r = 0.5, g = 0.5, b = 0.5, a = 1}
-
 function Skada:GetSpellIcon(spellId)
 	-- Use cached version from SecretValueHelper for performance
 	return self.SecretHelper:GetSpellIcon(spellId)
@@ -79,16 +74,7 @@ function Skada:GetGroupTypeAndCount()
 end
 
 do
-	popup = CreateFrame("Frame", nil, UIParent, "BackdropTemplate") -- Recycle the popup frame as an event handler.
-	popup:SetScript("OnEvent", function(frame, event, ...)
-		local handler = Skada[event]
-		if handler then
-			handler(Skada, ...)
-		else
-			-- Some events are registered for compatibility but don't have handlers with Native API
-			Skada:Debug("Unhandled event:", event)
-		end
-	end)
+	popup = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
 
 	popup:SetBackdrop({
 		bgFile = "Interface\\Buttons\\WHITE8X8",
@@ -2404,9 +2390,9 @@ function Skada:OnEnable()
 	end
 
 	-- Register for native damage meter events (just flag data as changed)
-	popup:RegisterEvent("DAMAGE_METER_COMBAT_SESSION_UPDATED")
-	popup:RegisterEvent("DAMAGE_METER_CURRENT_SESSION_UPDATED")
-	popup:RegisterEvent("DAMAGE_METER_RESET")
+	self:RegisterEvent("DAMAGE_METER_COMBAT_SESSION_UPDATED")
+	self:RegisterEvent("DAMAGE_METER_CURRENT_SESSION_UPDATED")
+	self:RegisterEvent("DAMAGE_METER_RESET")
 
 	-- Test session types to find correct values
 	self.NativeAPI:TestSessionTypes()
@@ -2415,16 +2401,12 @@ function Skada:OnEnable()
 	self:ScheduleRepeatingTimer("Tick", self.db.profile.updatefrequency or 0.25)
 
 	-- Group and zone change events for data reset triggers
-	popup:RegisterEvent("GROUP_ROSTER_UPDATE")
-	popup:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+	self:RegisterEvent("GROUP_ROSTER_UPDATE")
+	self:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 
 	-- Initialize group/instance state so first transition is detected correctly
 	self._wasInGroup = IsInGroup()
 	self._wasInInstance = IsInInstance()
-
-	if type(CUSTOM_CLASS_COLORS) == "table" then
-		Skada.classcolors = CUSTOM_CLASS_COLORS
-	end
 
 	-- Instead of listening for callbacks on SharedMedia we simply wait a few seconds and then re-apply settings
 	-- to catch any missing media. Lame? Yes.
