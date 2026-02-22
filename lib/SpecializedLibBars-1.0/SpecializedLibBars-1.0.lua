@@ -1030,7 +1030,7 @@ do
 			local apct, bpct = aval / amax, bval / bmax
 			if apct == bpct then
 				if amax == bmax then
-					return a.name > b.name
+					return tostring(a.name) > tostring(b.name)
 				else
 					return amax > bmax
 				end
