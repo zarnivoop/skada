@@ -56,6 +56,12 @@ local tsort, tinsert, tremove = table.sort, table.insert, table.remove
 local next, pairs, ipairs, type = next, pairs, ipairs, type
 -- bit.band no longer needed with Native API
 
+-- Check if the player is in a PvP instance (battleground or arena).
+local function IsInPVP()
+	local _, instanceType = IsInInstance()
+	return instanceType == "pvp" or instanceType == "arena"
+end
+
 -- Returns the group type (i.e., "party" or "raid") and the size of the group.
 function Skada:GetGroupTypeAndCount()
 	local groupType
