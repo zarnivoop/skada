@@ -205,9 +205,10 @@ end
 function SecretHelper:UpdateWindowMetadata(win, hasSecrets)
 	if not win or not win.metadata then return end
 	
-	-- Wipe window if secret state changed
+	-- Wipe window if secret state changed and force refresh
 	if win.metadata.wasSecretValues ~= nil and win.metadata.wasSecretValues ~= hasSecrets then
 		win:Wipe()
+		win.changed = true
 	end
 	
 	win.metadata.wasSecretValues = hasSecrets

@@ -13,8 +13,8 @@ local table_sort, tinsert, tremove, tconcat = _G.table.sort, tinsert, tremove, _
 local next, pairs, assert, error, type, xpcall = next, pairs, assert, error, type, xpcall
 local issecretvalue = issecretvalue
 
-lib.COLUMN_MIN_PADDING = 6         -- Minimum padding between columns in pixels
-lib.COLUMN_FONT_SCALE_FACTOR = 2.5 -- Scaling factor for additional padding based on font size
+lib.COLUMN_MIN_PADDING = 4         -- Minimum padding between columns in pixels
+lib.COLUMN_FONT_SCALE_FACTOR = 1.5 -- Scaling factor for additional padding based on font size
 
 function lib:GetColumnSpacing(fontObject)
     local _, fontSize = fontObject:GetFont()
@@ -1552,6 +1552,7 @@ end
 
 function barPrototype:SetColumnText(column, text)
 	if not self.columns or column < 1 or column > 3 then return end
+		
 	self.columns[column]:SetText(text)
 	-- Use pcall for comparison in case text is a WoW 12.0 secret value
 	local isEmpty = false

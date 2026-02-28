@@ -2413,9 +2413,13 @@ function Skada:OnEnable()
 	self._wasInGroup = IsInGroup()
 	self._wasInInstance = IsInInstance()
 
-	-- Instead of listening for callbacks on SharedMedia we simply wait a few seconds and then re-apply settings
-	-- to catch any missing media. Lame? Yes.
-	self:ScheduleTimer("ApplySettings", 2)
+	-- Register callback for SharedMedia to re-apply settings when new media is registered
+	media.RegisterCallback(self, "LibSharedMedia_Registered", "OnMediaRegistered")
+end
+
+function Skada:OnMediaRegistered(event, mediaType, key)
+	-- Re-apply settings when new media is registered to ensure fonts/textures are updated
+	self:ApplySettings()
 end
 
 function Skada:AddLoadableModule(name, description, func)
