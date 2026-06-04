@@ -1274,13 +1274,16 @@ function Skada:find_player(set, playerGUID)
 	return self:find_player_in_session(set, playerGUID)
 end
 
--- Native API Event Handlers — just flag that data changed.
+-- Native API Event Handlers — invalidate any cached session snapshots so the
+-- next Tick() reads fresh data, then flag that data changed.
 -- The Tick() timer handles combat transitions and display updates.
 function Skada:DAMAGE_METER_COMBAT_SESSION_UPDATED()
+	if self.NativeAPI then self.NativeAPI:InvalidateCache() end
 	changed = true
 end
 
 function Skada:DAMAGE_METER_CURRENT_SESSION_UPDATED()
+	if self.NativeAPI then self.NativeAPI:InvalidateCache() end
 	changed = true
 end
 
