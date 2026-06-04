@@ -2406,7 +2406,7 @@ function Skada:OnEnable()
 	self.NativeAPI:TestSessionTypes()
 
 	-- Single repeating timer handles combat transitions, simulation, and display updates
-	self:ScheduleRepeatingTimer("Tick", self.db.profile.updatefrequency or 0.25)
+	self.tickTimer = self:ScheduleRepeatingTimer("Tick", self.db.profile.updatefrequency or 0.25)
 
 	-- Group and zone change events for data reset triggers
 	self:RegisterEvent("GROUP_ROSTER_UPDATE")
@@ -2423,6 +2423,16 @@ end
 function Skada:OnMediaRegistered(event, mediaType, key)
 	-- Re-apply settings when new media is registered to ensure fonts/textures are updated
 	self:ApplySettings()
+end
+
+-- Reschedule the Tick timer when the user changes updatefrequency in Options.
+-- Without this the new value only took effect after /reload.
+function Skada:ApplyUpdateFrequency()
+	if self.tickTimer then
+		self:CancelTimer(self.tickTimer)
+		self.tickTimer = nil
+	end
+	self.tickTimer = self:ScheduleRepeatingTimer("Tick", self.db.profile.updatefrequency or 0.25)
 end
 
 function Skada:AddLoadableModule(name, description, func)
