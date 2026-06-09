@@ -434,7 +434,10 @@ Skada.options = {
 					max = 1,
 					step = 0.05,
 					get = function() return Skada.db.profile.updatefrequency end,
-					set = function(self, opt) Skada.db.profile.updatefrequency = opt end,
+					set = function(self, opt)
+						Skada.db.profile.updatefrequency = opt
+						Skada:ApplyUpdateFrequency()
+					end,
 					order = 18,
 					width = "double",
 				},

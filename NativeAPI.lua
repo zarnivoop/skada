@@ -20,13 +20,28 @@ local NativeAPI = {}
 Skada.NativeAPI = NativeAPI
 
 -- Cache and state for performance optimization
--- Using TTL-based caching instead of per-frame wipes
+-- TTL must be <= the Skada Tick interval (default 0.25s) so the UI never
+-- shows stale snapshots between ticks. We also explicitly invalidate on
+-- DAMAGE_METER_*_UPDATED events from Skada.lua, which is the authoritative
+-- signal that Blizzard's snapshot has changed.
 NativeAPI.cache = {
 	results = {},
 	available = true, -- Is C_DamageMeter currently responsive?
-	ttl = 0.5,        -- Cache TTL in seconds (500ms)
+	ttl = 0.1,        -- Cache TTL in seconds (100ms) - smaller than Tick interval
 	lastCheck = 0     -- Last time we checked availability
 }
+
+--[[
+	Invalidate all cached session/source views.
+	Called from DAMAGE_METER_COMBAT_SESSION_UPDATED and
+	DAMAGE_METER_CURRENT_SESSION_UPDATED so the next read returns fresh data
+	instead of the previous tick's snapshot.
+]]
+function NativeAPI:InvalidateCache()
+	if self.cache and self.cache.results then
+		wipe(self.cache.results)
+	end
+end
 
 -- Persistent cache for discovered session types
 NativeAPI.sessionTypeCache = {
