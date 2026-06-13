@@ -1,4 +1,4 @@
-## Interface: 90001
+## Interface: 120005, 120002, 120001
 ## Version: 14
 
 ## Title: Lib: Notify-1.0

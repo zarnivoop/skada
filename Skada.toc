@@ -1,4 +1,4 @@
-## Interface: 120001
+## Interface: 120005, 120002, 120001
 ## Title: Skada
 ## IconTexture: Interface\Icons\Spell_Lightning_LightningBolt01
 ## Notes: Modular damage meter.

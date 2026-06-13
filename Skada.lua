@@ -484,7 +484,7 @@ local function SetLabelFormat(name, starttime, endtime, fmt)
 	if fmt < 1 or fmt > numsetfmts then fmt = 3 end
 	local timelabel = ""
 	if starttime and endtime and fmt > 1 then
-		local duration = SecondsToTime(endtime - starttime, false, false, 2)
+		local duration = SecondsToTimeAbbrev(endtime - starttime)
 		-- translate locale time abbreviations, whose escape sequences are not legal in chat
 		Skada.getsetlabel_fs = Skada.getsetlabel_fs or UIParent:CreateFontString(nil, "ARTWORK", "ChatFontNormal")
 		Skada.getsetlabel_fs:SetText(duration)
@@ -968,7 +968,7 @@ function Skada:Report(channel, chantype, report_mode_name, report_set_name, max,
 	local nr = 1
 	for i, data in ipairs(report_table.dataset) do
 		if data.id then
-			local label = data.reportlabel or (data.spellid and GetSpellLink(data.spellid)) or data.label
+			local label = data.reportlabel or (data.spellid and C_Spell.GetSpellLink(data.spellid)) or data.label
 			local value = data.valuetext or data.valueText1
 			if report_mode.metadata and report_mode.metadata.showspots then
 				sendchat(("%2u. %s   %s"):format(nr, label, value), channel, chantype)

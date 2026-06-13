@@ -364,9 +364,17 @@ function mod:Update(win)
 					-- Explicit color from dataset.
 					bar:SetColorAt(0, data.color.r, data.color.g, data.color.b, data.color.a or 1)
 				elseif data.spellschool and win.db.spellschoolcolors then
-					local colorfunc = CombatLog_Color_ColorArrayBySchool
-					if colorfunc then
-						local color = colorfunc(data.spellschool)
+					local school_colors = {
+						[1] = {r = 1, g = 0.82, b = 0.17},
+						[2] = {r = 0.96, g = 0.91, b = 0.11},
+						[4] = {r = 0.89, g = 0.33, b = 0.10},
+						[8] = {r = 0.31, g = 0.81, b = 0.19},
+						[16] = {r = 0.40, g = 0.86, b = 0.96},
+						[32] = {r = 0.61, g = 0.39, b = 0.76},
+						[64] = {r = 0.92, g = 0.47, b = 0.88},
+					}
+					local color = school_colors[data.spellschool]
+					if color then
 						bar:SetColorAt(0, color.r, color.g, color.b, color.a or 1)
 					end
 				elseif data.class and win.db.classcolorbars then

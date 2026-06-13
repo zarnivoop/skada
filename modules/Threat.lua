@@ -9,7 +9,7 @@ Skada:AddLoadableModule("Threat", nil, function(Skada, L)
 	local UnitExists = UnitExists
 	local UnitName = UnitName
 	local UnitIsFriend = UnitIsFriend
-	local UnitDetailedThreatSituation = UnitDetailedThreatSituation
+	local UnitThreatSituation = UnitThreatSituation
 	local PlaySoundFile = PlaySoundFile
 	local CreateFrame = CreateFrame
 	local UIParent = UIParent
@@ -40,25 +40,14 @@ Skada:AddLoadableModule("Threat", nil, function(Skada, L)
 
 	-- Format threat values for display
 	local function format_threat(value)
-		value = tonumber(value) or 0
-		if value >= 100000 then
-			return format("%.1fk", value / 100000)
-		end
-		return format("%d", value / 100)
-	end
-
-	-- Calculate TPS (Threat Per Second)
-	local function calculate_tps(threat_value)
-		if not Skada.current then return "0" end
-		local total_time = time() - (Skada.current.starttime or time())
-		return format_threat(threat_value / math.max(1, total_time))
+		return format("%.1f%%", tonumber(value) or 0)
 	end
 
 	-- Add unit's threat data to the dataset
 	local function add_threat_data(win, unit, target)
 		if not unit or not UnitExists(unit) then return end
 
-		local isTanking, status, threatpct, rawthreatpct, threatvalue = UnitDetailedThreatSituation(unit, target)
+		local isTanking, status, threatpct = UnitThreatSituation(unit, target)
 		if not threatpct then return end
 
 		local d = win.dataset[dataset_index] or {}
@@ -69,9 +58,9 @@ Skada:AddLoadableModule("Threat", nil, function(Skada, L)
 		d.class = select(2, UnitClass(unit))
 		d.role = UnitGroupRolesAssigned(unit)
 		d.isTanking = isTanking
-		d.value = Skada.db.profile.modules.threatraw and threatvalue or threatpct
-		d.threat = threatvalue
-		d.tps = calculate_tps(threatvalue)
+		d.value = threatpct
+		d.threat = threatpct
+		d.tps = ""
 
 		dataset_index = dataset_index + 1
 		return d.value
@@ -84,10 +73,6 @@ Skada:AddLoadableModule("Threat", nil, function(Skada, L)
 		if data.label == UnitName("player") then
 			local treshold = Skada.db.profile.modules.threattreshold or 100
 			local percent = data.value
-			if Skada.db.profile.modules.threatraw then
-				-- Convert raw threat to percentage for warning check
-				percent = (data.value / maxvalue) * 100
-			end
 
 			if percent >= treshold and
 				(not data.isTanking or not Skada.db.profile.modules.notankwarnings) then
@@ -141,20 +126,19 @@ Skada:AddLoadableModule("Threat", nil, function(Skada, L)
 			if value then max_value = math.max(max_value, value) end
 		end
 
-		win.metadata.maxvalue = Skada.db.profile.modules.threatraw and max_value or 100
+		win.metadata.maxvalue = 100
 
 		-- Format display values and check warnings
 		for i, data in ipairs(win.dataset) do
 			if data.id then
-				if data.threat and data.threat > 0 then
-					local percent = (data.value / win.metadata.maxvalue) * 100
+				if data.value and data.value > 0 then
 					Skada:FormatValueText(
 						data,
-						format_threat(data.threat),
+						format_threat(data.value),
 						self.metadata.columns.Threat,
 						data.tps,
 						self.metadata.columns.TPS,
-						format("%.1f%%", percent),
+						format("%.1f%%", data.value),
 						self.metadata.columns.Percent
 					)
 					check_threat_warning(self, data, win.metadata.maxvalue)
@@ -179,7 +163,7 @@ Skada:AddLoadableModule("Threat", nil, function(Skada, L)
 
 		Skada:AddFeed(L["Threat: Personal Threat"], function()
 			if Skada.current and UnitExists("target") then
-				local _, _, threatpct = UnitDetailedThreatSituation("player", "target")
+				local _, _, threatpct = UnitThreatSituation("player", "target")
 				if threatpct then
 					-- Use string.format to avoid concatenation crimes
 					return string.format("%.1f%%", threatpct)
@@ -260,14 +244,6 @@ Skada:AddLoadableModule("Threat", nil, function(Skada, L)
 							order = 6,
 						},
 					},
-				},
-				rawthreat = {
-					type = "toggle",
-					name = L["Show raw threat"],
-					desc = L["Shows raw threat percentage relative to tank instead of modified for range."],
-					get = function() return Skada.db.profile.modules.threatraw end,
-					set = function(_, val) Skada.db.profile.modules.threatraw = val end,
-					order = 2,
 				},
 				focustarget = {
 					type = "toggle",
