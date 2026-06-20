@@ -231,25 +231,40 @@ end
 function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 	options = options or {}
 	local valueKey = options.valueKey or "totalAmount"
-	
+
 	local view = Skada.NativeAPI:GetSessionView(set, damageType)
 	local player = Skada:find_player_in_session(view, playerid)
-	
+
 	if not player then
 		player = Skada:find_player(set, playerid)
 	end
-	
+
 	if not player then return end
-	
+
 	local realID = player.sourceGUID or player.guid or player.unitGUID or player.id or playerid
 	local spells = Skada.NativeAPI:GetPlayerSpells(realID, view or set, damageType)
-	
-	if not spells then 
-		return 
+
+	if not spells then
+		return
 	end
-	
+
 	local hasSecretAPI = SecretHelper:HasSecretAPI()
-	
+
+	-- If the spells collection itself is a secret value, we cannot iterate
+	-- it with pairs() or index it. The C_DamageMeter API marks spell source
+	-- data as SecretWhenInCombat — this is a Blizzard restriction that
+	-- prevents addons from reading spell details during active combat.
+	if hasSecretAPI and issecretvalue(spells) then
+		local d = self:ReuseDatasetEntry(win.dataset, 1)
+		d._is_nodata = nil
+		d.id = "secret_spells"
+		d.label = L["Spell details available after combat"]
+		d.value = 999
+		d.valuetext = "?"
+		win.metadata.maxvalue = 1000 - 1
+		return
+	end
+
 	-- Detect secrets and calculate total (using cached detection)
 	local cacheKey = "spelllist_" .. tostring(set.sessionType or 0) .. "_" .. tostring(damageType)
 	local hasSecretValues = SecretHelper:DetectSecretsCached(cacheKey, spells, valueKey)
@@ -260,37 +275,40 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 		for _, spell in pairs(spells) do
 			if type(spell) == "table" then
 				local value = spell[valueKey]
-				if value then
-					totalValue = totalValue + (tonumber(value) or 0)
+				if value and type(value) == "number" then
+					totalValue = totalValue + value
 				end
 			end
 		end
 	end
-	
+
 	local max = 0
 	local nr = 1
-	
+
 	if hasSecretValues then
-		-- SLOW PATH
+		-- SLOW PATH: spell values are secret; we cannot do arithmetic or
+		-- comparisons on them, but we CAN pass them to string.format and
+		-- FontString:SetText for display.
 		for _, spell in pairs(spells) do
-			if type(spell) == "table" or (hasSecretAPI and issecretvalue(spell)) then
+			if type(spell) == "table" then
 				local rawValue = spell[valueKey]
-				if rawValue then
-					local isSecret = hasSecretAPI and issecretvalue(rawValue)
-					if rawValue ~= 0 or isSecret then
-						local spellID = spell.spellID or 0
-						local d = self:ReuseDatasetEntry(win.dataset, nr)
-						d._is_nodata = nil
-						d.id = spellID
-						
-						local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
-						d.label = spellInfo and spellInfo.name or ("Spell " .. tostring(spellID))
-						
-						d.value = SecretHelper:GetDisplayValue(rawValue, nr)
-						d.valuetext = Skada:FormatNumberSecret(rawValue)
-						d.icon = Skada:GetSpellIcon(spellID)
-						nr = nr + 1
-					end
+				-- Check type() before any comparison — type() is safe on
+				-- secrets, but ~= crashes on them.
+				local isSecret = hasSecretAPI and rawValue and issecretvalue(rawValue)
+				local isNonZeroNumber = (type(rawValue) == "number") and (rawValue ~= 0)
+				if isSecret or isNonZeroNumber then
+					local spellID = spell.spellID or 0
+					local d = self:ReuseDatasetEntry(win.dataset, nr)
+					d._is_nodata = nil
+					d.id = spellID
+
+					local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
+					d.label = spellInfo and spellInfo.name or ("Spell " .. tostring(spellID))
+
+					d.value = SecretHelper:GetDisplayValue(rawValue, nr)
+					d.valuetext = Skada:FormatNumberSecret(rawValue)
+					d.icon = Skada:GetSpellIcon(spellID)
+					nr = nr + 1
 				end
 			end
 		end
@@ -305,13 +323,13 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 					local d = self:ReuseDatasetEntry(win.dataset, nr)
 					d._is_nodata = nil
 					d.id = spellID
-					
+
 					local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
 					d.label = spellInfo and spellInfo.name or ("Spell " .. tostring(spellID))
-					
+
 					d.value = value
 					if value > max then max = value end
-					
+
 					if totalValue > 0 then
 						d.valuetext = Skada:FormatNumber(value) .. string.format(" (%02.1f%%)", (value / totalValue) * 100)
 					else
@@ -429,10 +447,10 @@ function ModuleBase:CreatePlayerTooltip(options)
 		if spells then
 			local sorted = {}
 			local spellValueKey = options.spellValueKey or "totalAmount"
-			
+
 			for _, s in pairs(spells) do
-				-- Check if spell entry itself is valid (table or secret)
-				if type(s) == "table" or (issecretvalue and issecretvalue(s)) then
+				-- Only index if it's a real table; indexing a secret crashes
+				if type(s) == "table" then
 					local rawAmount = s[spellValueKey]
 					if rawAmount then
 						table.insert(sorted, s)

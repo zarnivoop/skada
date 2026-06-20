@@ -16,7 +16,6 @@
 <!-- <Script file="modules\Debuffs.lua"/> -->
 <!-- <Script file="modules\Enemies.lua"/> -->
 <!-- <Script file="modules\Power.lua"/> -->
-<!-- <Script file="modules\Tweaks.lua"/> -->
 <Script file="modules\Themes.lua"/>
 <!-- <Script file="modules\FriendlyFire.lua"/> -->
 

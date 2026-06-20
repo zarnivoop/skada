@@ -233,6 +233,15 @@ end
 -- Separate debug helper to keep hot path clean
 local function DebugLogSource(source)
 	Skada:Debug("GetPlayerSpells source type:", type(source))
+
+	-- Don't try to iterate secret values — pairs() crashes on them
+	if issecretvalue and issecretvalue(source) then
+		Skada:Debug("GetPlayerSpells source is SECRET — cannot inspect fields")
+		return
+	end
+
+	if type(source) ~= "table" then return end
+
 	Skada:Debug("GetPlayerSpells source keys:", getKeys(source))
 
 	for k, v in pairs(source) do
@@ -256,6 +265,55 @@ local function DebugLogSource(source)
 	end
 end
 
+-- Extract spell data from a source object without making an API call.
+-- Returns the spells collection (table or secret value) or nil.
+local function ExtractSpellsFromSource(source)
+	if not source then return nil end
+
+	-- If the source itself is a secret value, we cannot index or iterate it.
+	if issecretvalue and issecretvalue(source) then
+		return source
+	end
+
+	if type(source) ~= "table" then return nil end
+
+	-- Try to find spells in various possible locations
+	local spellFields = {"combatSpells", "spells", "abilities", "damageSpells", "healingSpells"}
+	for _, field in ipairs(spellFields) do
+		local val = source[field]
+		if type(val) == "table" then
+			return val
+		elseif val and issecretvalue and issecretvalue(val) then
+			return val
+		end
+	end
+
+	-- Check if source itself looks like a spells array
+	local looksLikeSpellsArray = true
+	local itemCount = 0
+	for _, v in pairs(source) do
+		itemCount = itemCount + 1
+		local isVTable = type(v) == "table"
+		local isVSecret = issecretvalue and issecretvalue(v)
+
+		if not isVTable and not isVSecret then
+			looksLikeSpellsArray = false
+			break
+		end
+
+		if isVTable and (not v.spellID and not v.abilityID and not v.totalAmount) then
+			looksLikeSpellsArray = false
+			break
+		end
+	end
+
+	if looksLikeSpellsArray and itemCount > 0 then
+		return source
+	end
+
+	return nil
+end
+
 function NativeAPI:GetPlayerSpells(playerID, set, damageType)
 	local sessionType = set and set.sessionType or 1
 	local source = self:GetSessionSource(playerID, sessionType, damageType)
@@ -270,63 +328,8 @@ function NativeAPI:GetPlayerSpells(playerID, set, damageType)
 	if Skada.db.profile.debug then
 		DebugLogSource(source)
 	end
-	
-	-- Try to find spells in various possible locations
-	-- Common field names based on WoW API patterns
-	local spellFields = {"combatSpells", "spells", "abilities", "damageSpells", "healingSpells"}
-	
-	for _, field in ipairs(spellFields) do
-		local val = source[field]
-		if val and (type(val) == "table" or (issecretvalue and issecretvalue(val))) then
-			if Skada.db.profile.debug then
-				Skada:Debug("Found spells in field:", field)
-			end
-			return val
-		end
-	end
-	
-	-- If source itself looks like a spells array
-	local itemCount = 0
-	local success, isSecret = pcall(function() return issecretvalue and issecretvalue(source) end)
-	if success and isSecret then
-		-- If the whole source is secret, we assume it's an iterable secret collection
-		return source
-	end
-	
-	if type(source) ~= "table" then
-		return nil
-	end
-	
-	local looksLikeSpellsArray = true
-	for _, v in pairs(source) do
-		itemCount = itemCount + 1
-		local isVTable = type(v) == "table"
-		local isVSecret = issecretvalue and issecretvalue(v)
-		
-		if not isVTable and not isVSecret then
-			looksLikeSpellsArray = false
-			break
-		end
-		
-		-- If it's a table, check for expected fields. If it's secret, we can't check fields but assume it's data.
-		if isVTable and (not v.spellID and not v.abilityID and not v.totalAmount) then
-			looksLikeSpellsArray = false
-			break
-		end
-	end
-	
-	if looksLikeSpellsArray and itemCount > 0 then
-		if Skada.db.profile.debug then
-			Skada:Debug("Source appears to be spells array with", itemCount, "items")
-		end
-		return source
-	end
-	
-	-- No spells found
-	if Skada.db.profile.debug then
-		Skada:Debug("No spells found in source")
-	end
-	return nil
+
+	return ExtractSpellsFromSource(source)
 end
 
 function NativeAPI:GetPlayerSpell(playerID, set, damageType, spellID)

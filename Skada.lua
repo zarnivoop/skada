@@ -530,12 +530,22 @@ end
 
 function Skada:GetSetLabel(set) -- return a nicely-formatted label for a set
 	if not set then return "" end
-	
+
+	-- Prefer the encounter name (e.g. "Hogger") when the Native API provides one;
+	-- fall back to the session's generic name or "Unknown".
+	-- Use type() to guard against secret values during combat — type() is safe
+	-- to call on secrets, and a secret value will not be "string".
+	local name = set.name or "Unknown"
+	local encounter = set.encounterName
+	if type(encounter) == "string" and encounter ~= "" then
+		name = encounter
+	end
+
 	-- Handle Native API session fields (capital T)
 	local startTime = set.startTime or set.starttime
 	local endTime = set.endTime or set.endtime or time()
-	
-	return SetLabelFormat(set.name or "Unknown", startTime, endTime)
+
+	return SetLabelFormat(name, startTime, endTime)
 end
 
 function Window:set_mode_title()
@@ -554,8 +564,20 @@ function Window:set_mode_title()
 		local setname
 		if self.selectedset == "current" then
 			setname = L["Current"]
+			-- Append encounter name if the Native API session has one.
+			-- Use type() to avoid crashing on secret values during combat.
+			local set = self:get_selected_set()
+			local encounter = set and set.encounterName
+			if type(encounter) == "string" and encounter ~= "" then
+				setname = setname .. " (" .. encounter .. ")"
+			end
 		elseif self.selectedset == "total" then
 			setname = L["Total"]
+			local set = self:get_selected_set()
+			local encounter = set and set.encounterName
+			if type(encounter) == "string" and encounter ~= "" then
+				setname = setname .. " (" .. encounter .. ")"
+			end
 		else
 			local set = self:get_selected_set()
 			if set then
@@ -825,9 +847,7 @@ end
 local function slashHandler(param)
 	local reportusage =
 	"/skada report [raid|party|instance|guild|officer|say] [current||total|set_num] [mode] [max_lines]"
-	if param == "pets" then
-		Skada:PetDebug()
-	elseif param == "cpu" then
+	if param == "cpu" then
 		local funcs = {}
 		UpdateAddOnCPUUsage()
 		for k, v in pairs(Skada) do
@@ -1171,10 +1191,10 @@ function Skada:Tick()
 		changed = true
 	end
 
-	-- Update display if in combat or data changed
-	if inCombat or changed then
-		self:UpdateDisplay(true)
-	end
+	-- Always update: the set list view needs to pick up sessions that load after
+	-- the initial render, and the per-window guard in UpdateDisplay prevents
+	-- unnecessary rebuilds for mode views that haven't changed.
+	self:UpdateDisplay(inCombat or changed)
 end
 
 function Skada:Wipe()
@@ -1404,8 +1424,9 @@ function Skada:UpdateDisplay(force)
 	end
 
 	for i, win in ipairs(windows) do
-		-- Update window if forced, if window state changed, or if in combat (to refresh bars/feeds)
-		if changed or win.changed or self.current then
+		-- Update window if forced, if window state changed, if in combat (to refresh bars/feeds),
+		-- or if showing the set list (which must re-query available sessions every tick).
+		if changed or win.changed or self.current or (not win.selectedmode and not win.selectedset) then
 			win.changed = false
 			if win.selectedmode then -- Force mode display for display systems which do not handle navigation.
 				win:set_mode_title()
@@ -1415,12 +1436,15 @@ function Skada:UpdateDisplay(force)
 					-- Inform window that a data update will take place.
 					win:UpdateInProgress()
 
-					-- Let mode update data.
-					if win.selectedmode.Update then
-						win.selectedmode:Update(win, set)
-					else
-						self:Print("Mode " .. win.selectedmode:GetName() .. " does not have an Update function!")
+				-- Let mode update data.
+				if win.selectedmode.Update then
+					local ok, err = pcall(win.selectedmode.Update, win.selectedmode, win, set)
+					if not ok and self.db.profile.debug then
+						self:Debug("Mode Update Error:", win.selectedmode:GetName(), err)
 					end
+				else
+					self:Print("Mode " .. win.selectedmode:GetName() .. " does not have an Update function!")
+				end
 
 					-- Add a total bar using the mode summaries optionally.
 					if self.db.profile.showtotals and win.selectedmode.FormatSetSummary then
@@ -1549,7 +1573,7 @@ function Skada:UpdateDisplay(force)
 					d.icon = nonbossicon
 				end
 
-				-- With Native API, historical sessions are managed by WoW
+			-- With Native API, historical sessions are managed by WoW
 				for i, set in ipairs(self:GetSets()) do
 					nr = nr + 1
 					d = win.dataset[nr] or {}
@@ -1558,10 +1582,19 @@ function Skada:UpdateDisplay(force)
 					d.id = set.sessionID or set.startTime or i
 					d.label = self:GetSetLabel(set)
 					d.value = 1
-					if set.gotboss then
+					local encounter = set.encounterName
+					if set.gotboss or (type(encounter) == "string" and encounter ~= "") then
 						d.icon = bossicon
 					else
 						d.icon = nonbossicon
+					end
+				end
+
+				-- Clear stale entries beyond the current set list so removed
+				-- sessions don't leave orphan bars.
+				for i = nr + 1, #win.dataset do
+					if win.dataset[i] then
+						win.dataset[i].id = nil
 					end
 				end
 
@@ -1601,6 +1634,18 @@ function Skada:GetModes(sortfunc)
 end
 
 -- Formats a number into human readable form.
+-- Adds thousands separators to a non-negative integer for the "Detailed" format.
+local function GroupThousands(n)
+	n = math.floor(n)
+	if n < 1000 then return tostring(n) end
+	local formatted = ""
+	while n >= 1000 do
+		formatted = string.format(",%03d", n % 1000) .. formatted
+		n = math.floor(n / 1000)
+	end
+	return tostring(n) .. formatted
+end
+
 function Skada:FormatNumber(number)
 	if not number then return "" end
 	
@@ -1615,6 +1660,7 @@ function Skada:FormatNumber(number)
 	if number == 0 then return "" end
 
 	if self.db.profile.numberformat == 1 then
+		-- Condensed format (K/M/B)
 		if number > 1000000000 then
 			return ("%dB"):format(number / 1000000000)
 		elseif number > 100000000 then
@@ -1628,6 +1674,10 @@ function Skada:FormatNumber(number)
 		elseif number > 999 then
 			return ("%02.1fK"):format(number / 1000)
 		end
+		return tostring(math.floor(number))
+	elseif self.db.profile.numberformat == 2 then
+		-- Detailed format: full number with thousands separators
+		return GroupThousands(number)
 	end
 	
 	return tostring(math.floor(number))
@@ -1745,7 +1795,12 @@ end
 
 -- Unregister a mode.
 function Skada:RemoveMode(mode)
-	tremove(modes, mode)
+	for i = 1, #modes do
+		if modes[i] == mode then
+			tremove(modes, i)
+			return
+		end
+	end
 end
 
 function Skada:GetFeeds()
@@ -1759,11 +1814,7 @@ end
 
 -- Unregister a data feed.
 function Skada:RemoveFeed(name, func)
-	for i, feed in ipairs(feeds) do
-		if feed.name == name then
-			tremove(feeds, i)
-		end
-	end
+	feeds[name] = nil
 end
 
 --[[
@@ -1945,7 +1996,7 @@ function Skada:AddSubviewToTooltip(tooltip, win, mode, id, label)
 					color = data.color
 				elseif data.class then
 					-- Class color.
-					local color = Skada.classcolors[data.class]
+					color = Skada.classcolors[data.class] or white
 				end
 
 				local label = data.label

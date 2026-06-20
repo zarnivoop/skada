@@ -19,10 +19,6 @@ mod.name = name
 mod.description = L["Inline display is a horizontal window style."]
 Skada:AddDisplaySystem("inline", mod)
 
-function mod:OnInitialize()
-
-end
-
 local function BarLeave(bar)
 	local win, id, label = bar.win, bar.id, bar.text
 	if ttactive then
@@ -70,7 +66,10 @@ function mod:Create(window, isnew)
 		window.frame = CreateFrame("Frame", window.db.name.."InlineFrame", UIParent, "BackdropTemplate")
 		window.frame.win = window
 		window.frame:SetFrameLevel(5)
-		if window.db.height==15 then window.db.height = 23 end--TODO: Fix dirty hack
+		-- Ensure a sensible default height for the inline display (it ignores barheight)
+		if not window.db.height or window.db.height < 16 then
+			window.db.height = 23
+		end
 		window.frame:SetHeight(window.db.height)
 		window.frame:SetWidth(window.db.width or GetScreenWidth())
 		window.frame:ClearAllPoints()
@@ -186,7 +185,6 @@ function mod:Create(window, isnew)
 	menu:SetBackdropColor(window.db.title.textcolor.r,window.db.title.textcolor.g,window.db.title.textcolor.b,window.db.title.textcolor.a)
 	menu:SetPoint("BOTTOMLEFT", window.frame, "BOTTOMLEFT", 6, window.db.height/2-8)
 	menu:SetFrameLevel(9)
-	menu:SetPoint("CENTER")
 	menu:SetBackdrop(skadamenubuttonbackdrop)
 	menu:SetScript("OnClick", function()
 		Skada:OpenMenu(window)
@@ -276,31 +274,17 @@ function barlibrary:Deposit(bar)
 end
 
 function barlibrary:Withdraw (win)--TODO: also pass parent and assign parent
-	local db = win.db
-
 	if #barlibrary.bars < 2 then
-		--if barlibrary is empty, create a new bar to replace this bar
-		local replacement = {}
-		local uuid = 1
-		if #barlibrary.bars==0 then
-			--No data
-			uuid = 1
-		elseif #barlibrary.bars < 2 then
-			uuid = barlibrary.bars[#barlibrary.bars].uuid + 1
-		else
-			uuid = 1
-			print("|c0033ff99SkadaInline|r: THIS SHOULD NEVER HAPPEN")
-		end
-		replacement = self:CreateBar(uuid, win)
-
-		--add the replacement bar to the end of the bar library
+		-- If the pool is empty or down to its last bar, create a replacement
+		-- so there is always one spare for the next withdraw.
+		local uuid = (#barlibrary.bars > 0) and (barlibrary.bars[#barlibrary.bars].uuid + 1) or 1
+		local replacement = self:CreateBar(uuid, win)
 		table.insert(barlibrary.bars, replacement)
 	end
-	--mark the bar you will give away as in use & give it a barid
+	-- Mark the bar we hand out and reset its transient state.
 	barlibrary.bars[1].inuse = false
 	barlibrary.bars[1].value = 0
 	barlibrary.bars[1].label:SetJustifyH("LEFT")
-	--barlibrary.bars[1].label:SetJustifyV("CENTER")
 	mod:ApplySettings(win)
 	return table.remove(barlibrary.bars, 1)
 end
@@ -543,13 +527,13 @@ function mod:AddDisplayOptions(win, options)
 	local db = win.db
 	options.baroptions = {
 		type = "group",
-		name = "Text",
+		name = L["Text"],
 		order = 3,
 		args = {
 			isonnewline = {
 				type = 'toggle',
-				name = "Put values on new line.",
-				desc = "New line:\nExac\n30.71M (102.1K)\n\nDivider:\nExac - 30.71M (102.7K)",
+				name = L["Put values on new line."],
+				desc = L["New line:\nExac\n30.71M (102.1K)\n\nDivider:\nExac - 30.71M (102.7K)"],
 				get = function() return db.isonnewline end,
 				set = function(win,key)
 						db.isonnewline = key
@@ -559,8 +543,8 @@ function mod:AddDisplayOptions(win, options)
 			},
 			isusingclasscolors = {
 				type = 'toggle',
-				name = "Use class colors",
-				desc = "Class colors:\n|cFFF58CBAExac|r - 30.71M (102.7K)\nWithout:\nExac - 30.71M (102.7K)",
+				name = L["Use class colors"],
+				desc = L["Class colors:\n|cFFF58CBAExac|r - 30.71M (102.7K)\nWithout:\nExac - 30.71M (102.7K)"],
 				get = function() return db.isusingclasscolors end,
 				set = function(win,key)
 					db.isusingclasscolors = key
@@ -570,8 +554,8 @@ function mod:AddDisplayOptions(win, options)
 			},
 			barwidth = {
 				type = 'range',
-				name = "Width",
-				desc = "Width of bars. This only applies if the 'Fixed bar width' option is used.",
+				name = L["Width"],
+				desc = L["Width of bars. This only applies if the 'Fixed bar width' option is used."],
 				min=100,
 				max=300,
 				step=1.0,
@@ -586,8 +570,8 @@ function mod:AddDisplayOptions(win, options)
 			},
 			color = {
 					type="color",
-					name="Font Color",
-					desc="Font Color. \nClick 'class color' to begin.",
+					name=L["Font Color"],
+					desc=L["Font Color. \nClick 'class color' to begin."],
 					hasAlpha=true,
 					get=function()
 						local c = db.title.textcolor
@@ -675,8 +659,8 @@ function mod:AddDisplayOptions(win, options)
 		args = {
 			isusingelvuiskin = {
 				type = 'toggle',
-				name = "Use ElvUI skin if avaliable.",
-				desc = "Check this to use ElvUI skin instead. \nDefault: checked",
+				name = L["Use ElvUI skin if avaliable."],
+				desc = L["Check this to use ElvUI skin instead. \nDefault: checked"],
 				get = function() return db.isusingelvuiskin end,
 				set = function(win,key)
 					db.isusingelvuiskin = key
@@ -686,8 +670,8 @@ function mod:AddDisplayOptions(win, options)
 			},
 			issolidbackdrop = {
 				type = 'toggle',
-				name = "Use solid background.",
-				desc = "Un-check this for an opaque background.",
+				name = L["Use solid background."],
+				desc = L["Un-check this for an opaque background."],
 				get = function() return db.issolidbackdrop end,
 				set = function(win,key)
 					db.issolidbackdrop = key

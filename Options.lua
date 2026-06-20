@@ -593,10 +593,3 @@ Skada.AddDisplaySystem = function(self, key, mod)
 	original_add_display(self, key, mod)
 	update_create_windows()
 end
-
--- Initialize the window creation buttons when options are loaded
-local original_setup = Skada.OptionsSetup
-Skada.OptionsSetup = function()
-	original_setup()
-	update_create_windows()
-end
