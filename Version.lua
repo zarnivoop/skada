@@ -1,6 +1,28 @@
 local _, Skada = ...
 Skada.versions = {
 	{
+		id = "2.2.0",
+		title = "Skada 2.2.0",
+		message = "Polish, encounter names, and release workflow",
+		changes = {
+			"User interface polish and improvements",
+			"Encounter name improvements",
+			"Added GitHub release workflow",
+			"Fixed various bugs and edge cases",
+		}
+	},
+	{
+		id = "2.1.0",
+		title = "Skada 2.1.0",
+		message = "Basic cleanup: bug fixes, UI polish, encounter names, GitHub release workflow",
+		changes = {
+			"Bug fixes and general cleanup",
+			"User interface polish",
+			"Encounter name improvements",
+			"Added GitHub release workflow",
+		}
+	},
+	{
 		id = "2.0.2",
 		title = "Skada 2.0.2",
 		message = "New themes and performance improvements",

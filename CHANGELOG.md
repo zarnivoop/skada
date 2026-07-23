@@ -1,7 +1,16 @@
-## 2.0.3
-Performance improvements and simulation mode
-- Added a new option to simulate an arbitrarily sized raid
-- Various performance improvements
+## 2.2.0
+Polish, encounter names, and release workflow
+- User interface polish and improvements
+- Encounter name improvements
+- Added GitHub release workflow
+- Fixed various bugs and edge cases
+
+## 2.1.0
+Basic cleanup: bug fixes, UI polish, encounter names, GitHub release workflow
+- Bug fixes and general cleanup
+- User interface polish
+- Encounter name improvements
+- Added GitHub release workflow
 
 ## 2.0.2
 New themes and performance improvements
