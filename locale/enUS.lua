@@ -475,3 +475,10 @@ L["Version History"] = true
 L["View the version history of Skada."] = true
 L["Show Version History"] = true
 L["Display the version history using the notification system."] = true
+
+L["TotalHealing"] = "Total Healing"
+L["DamageTaken"] = "Damage Taken"
+L["Other"] = true
+L["TPS"] = "TPS"
+L["DTPS"] = "DTPS"
+L["Timestamp"] = "Timestamp"
