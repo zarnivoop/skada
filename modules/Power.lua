@@ -5,9 +5,6 @@ Skada:AddLoadableModule("Power", nil, function(Skada, L)
 	local mod = Skada:NewModule("Power")
 	local PowerTypes = Enum.PowerType
 	local GetSpellName = C_Spell.GetSpellName
-	local GetSpellIcon = Skada.GetSpellIcon
-	local FormatNumber = Skada.FormatNumber
-	local GetPowerTypeInfo = GetPowerTypeInfo
 
 	-- Map of power types to their icons (names are fetched dynamically from the game)
 	local POWER_INFO = {
@@ -29,8 +26,13 @@ Skada:AddLoadableModule("Power", nil, function(Skada, L)
 
 	-- Get localized power type name
 	local function GetPowerTypeName(powerType)
-		local powerInfo = GetPowerTypeInfo(powerType)
-		return powerInfo and powerInfo.name or _G["POWER_TYPE_"..powerType] or tostring(powerType)
+		for name, value in pairs(PowerTypes) do
+			if value == powerType then
+				-- RunicPower -> RUNIC_POWER
+				return _G[name:gsub("(%l)(%u)", "%1_%2"):upper()] or name
+			end
+		end
+		return tostring(powerType)
 	end
 
 	local function log_gain(set, gain)
@@ -180,19 +182,11 @@ Skada:AddLoadableModule("Power", nil, function(Skada, L)
 		win.metadata.maxvalue = max
 	end
 
-	function powermod:AddToTooltip(win, set, tooltip)
+	function powermod:AddToTooltip(set, tooltip)
 		if not set or not set.power or not set.power.total then return end
 
-		local total = 0
-		local powerType = win.metadata.powerType or -1
-		if powerType == -1 then
-			for ptype, amount in pairs(set.power.total) do
-				tooltip:AddLine(GetPowerTypeName(ptype), FormatNumber(amount))
-				total = total + amount
-			end
-			tooltip:AddLine("Total", FormatNumber(total))
-		else
-			tooltip:AddLine(GetPowerTypeName(powerType), FormatNumber(set.power.total[powerType] or 0))
+		for ptype, amount in pairs(set.power.total) do
+			tooltip:AddDoubleLine(GetPowerTypeName(ptype), Skada:FormatNumber(amount), 1,1,1)
 		end
 	end
 
