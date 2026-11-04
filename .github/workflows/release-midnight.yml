@@ -34,7 +34,7 @@ jobs:
     - name: Run Luacheck
       run: luacheck .
 
-    - name: Run forever-lint (WoW: Forever / Interface 16001)
+    - name: Run forever-lint (WoW Forever / Interface 16001)
       run: |
         python3 -m pip install "forever-lint==0.1.0"
         forever-lint . --fail-on error
