@@ -3,6 +3,24 @@ local _, addon = ...
 local Skada = LibStub("AceAddon-3.0"):NewAddon(addon, "Skada", "AceTimer-3.0", "AceEvent-3.0", "LibNotify-1.0")
 _G.Skada = Skada
 
+-- Forever display/table faces. Cinzel is a Latin-only display face; fall back
+-- to the established UI fonts on locales it does not cover.
+Skada.ThemeFonts = {
+	title = "Cinzel",
+	bar = "Marcellus",
+	header = "Marcellus",
+}
+do
+	local locale = _G.GetLocale and _G.GetLocale() or "enUS"
+	if locale == "ruRU" or locale == "koKR" or locale == "zhCN" or locale == "zhTW" then
+		Skada.ThemeFonts = {
+			title = "ABF",
+			bar = "Accidental Presidency",
+			header = "Accidental Presidency",
+		}
+	end
+end
+
 local L = LibStub("AceLocale-3.0"):GetLocale("Skada", true)
 
 local acd = LibStub("AceConfigDialog-3.0")
@@ -1522,10 +1540,15 @@ function Skada:UpdateDisplay(force)
 						d.valueText1 = nil
 						d.valueText2 = nil
 						d.valueText3 = nil
+						-- Total is not a player: never inherit a class color/icon.
+						d.class = nil
+						d.role = nil
+						d.color = nil
+						d.spellschool = nil
 						win.selectedmode:FormatSetSummary(d, set)
 						d.value = total
 						d.label = L["Total"]
-						d.icon = dataobj.icon
+						d.icon = win.db.totalicon or dataobj.icon
 						d.id = "total"
 						d.ignore = true
 						if not existing then
@@ -1690,6 +1713,35 @@ function Skada:GetSets()
 		return self.NativeAPI:GetAvailableSessions()
 	end
 	return {}
+end
+
+-- One-time Forever theme migration. It only replaces the old out-of-box
+-- window look, never a user's custom theme.
+function Skada:ApplyThemeMigration()
+	if self.db.profile.themeMigrated then
+		return 0
+	end
+	self.db.profile.themeMigrated = true
+
+	local preset
+	for _, theme in ipairs(self.themePresets or {}) do
+		if theme.name == "Forever: Skyborne" then
+			preset = theme
+			break
+		end
+	end
+	if not preset then return 0 end
+
+	local migrated = 0
+	for _, win in ipairs(self:GetWindows()) do
+		-- Only the old out-of-box look is replaced. Custom themes and windows
+		-- already using Skyborne are left alone.
+		if win.db.bartexture == "Skada Glass" and win.db.barwidth == 260 then
+			self:ApplyThemeToWindow(win, preset)
+			migrated = migrated + 1
+		end
+	end
+	return migrated
 end
 
 -- Return the Native API session for the current fight, or the overall session
@@ -2421,6 +2473,8 @@ function Skada:OnInitialize()
 	media:Register("font", "Vera Serif", [[Interface\Addons\Skada\media\fonts\VeraSe.ttf]])
 	media:Register("font", "Diablo", [[Interface\Addons\Skada\media\fonts\Avqest.ttf]])
 	media:Register("font", "Accidental Presidency", [[Interface\Addons\Skada\media\fonts\Accidental Presidency.ttf]])
+	media:Register("font", "Cinzel", [[Interface\Addons\Skada\media\fonts\Cinzel-SemiBold.ttf]])
+	media:Register("font", "Marcellus", [[Interface\Addons\Skada\media\fonts\Marcellus-Regular.ttf]])
 
 	media:Register("statusbar", "Aluminium", [[Interface\Addons\Skada\media\statusbar\Aluminium]])
 	media:Register("statusbar", "Armory", [[Interface\Addons\Skada\media\statusbar\Armory]])
@@ -2444,6 +2498,9 @@ function Skada:OnInitialize()
 	media:Register("border", "Glow", [[Interface\Addons\Skada\media\border\glowTex]])
 	media:Register("border", "Roth", [[Interface\Addons\Skada\media\border\roth]])
 	media:Register("background", "Copper", [[Interface\Addons\Skada\media\background\copper]])
+	media:Register("border", "Forever Line", [[Interface\Addons\Skada\media\border\ForeverLine.tga]])
+	media:Register("statusbar", "Forever Bar", [[Interface\Addons\Skada\media\statusbar\ForeverBar.tga]])
+	media:Register("background", "Forever Stone", [[Interface\Addons\Skada\media\background\ForeverStone.tga]])
 
 	-- Some sounds (copied from Omen).
 	media:Register("sound", "Rubber Ducky", 566121) --[[Sound\Doodad\Goblin_Lottery_Open01.ogg]]
@@ -2544,6 +2601,8 @@ function Skada:OnEnable()
 		end
 		self.moduleList = nil
 	end
+
+	self:ApplyThemeMigration()
 
 	-- Register for native damage meter events (just flag data as changed)
 	self:RegisterEvent("DAMAGE_METER_COMBAT_SESSION_UPDATED")

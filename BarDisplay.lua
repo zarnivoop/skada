@@ -52,12 +52,28 @@ function mod:Create(window)
 	window.bargroup:SetScript("OnMouseDown", function(win, button) if IsShiftKeyDown() then Skada:OpenMenu(window) elseif button == "RightButton" then window:RightClick() end end)
 	window.bargroup.button:SetScript("OnClick", function(win, button) if IsShiftKeyDown() then Skada:OpenMenu(window) elseif button == "RightButton" then window:RightClick() end end)
 
-	window.bargroup.button:SetScript("OnEnter", function(win, button)
+	local function restButtonOpacity()
+		return (window.db.hoverbuttons ~= false) and 0 or 0.25
+	end
+	window.bargroup:SetButtonsOpacity(restButtonOpacity())
+	-- Also reveal when the cursor enters a button itself (covers the case where
+	-- the button consumed the hover before the title bar saw it).
+	for _, btn in ipairs(window.bargroup.buttons or {}) do
+		btn:HookScript("OnEnter", function()
+			window.bargroup:SetButtonsOpacity(1.0)
+		end)
+		btn:HookScript("OnLeave", function()
+			if not window.bargroup.button:IsMouseOver() then
+				window.bargroup:SetButtonsOpacity(restButtonOpacity())
+			end
+		end)
+	end
+	window.bargroup.button:SetScript("OnEnter", function()
 		window.bargroup:SetButtonsOpacity(1.0)
 	end)
-	window.bargroup.button:SetScript("OnLeave", function(win, button)
+	window.bargroup.button:SetScript("OnLeave", function()
 		if not window.bargroup.button:IsMouseOver() then
-			window.bargroup:SetButtonsOpacity(0.25)
+			window.bargroup:SetButtonsOpacity(restButtonOpacity())
 		end
 	end)
 
@@ -220,6 +236,8 @@ local function value_sort(a, b)
 	return Skada.value_sort(a, b)
 end
 
+local alignColumnHeaders
+
 local function bar_order_sort(a,b)
 	return a and b and a.order and b.order and a.order < b.order
 end
@@ -243,6 +261,12 @@ end
 
 -- Called by Skada windows when the display should be updated to match the dataset.
 function mod:Update(win)
+	local mode = win.selectedmode
+	local columns = mode and mode.metadata and mode.metadata.columns
+	local sig = columns and (columns.Damage or columns.Healing) and ((mode and mode:GetName() or "") .. ":" .. (columns.Damage and "D" or "H")) or nil
+	if win.bargroup.headerSignature ~= sig then
+		mod:ApplySettings(win)
+	end
 	-- Some modes may alter title continously.
 	local fs = win.bargroup.button:GetFontString()
 	if fs then
@@ -390,10 +414,18 @@ function mod:Update(win)
 						bar:SetColorAt(0, color.r, color.g, color.b, color.a or 1)
 					end
 				elseif data.class and win.db.classcolorbars then
-					-- Class color.
+					-- Class color, optionally blended toward a theme tint so the
+					-- bars sit inside the palette instead of fighting it.
 					local color = Skada.classcolors[data.class]
 					if color then
-						bar:SetColorAt(0, color.r, color.g, color.b, color.a or 1)
+						local r, g, b = color.r, color.g, color.b
+						local mix, amount = win.db.classcolormix, win.db.classcolormixamount
+						if mix and amount and amount > 0 then
+							r = r * (1 - amount) + mix.r * amount
+							g = g * (1 - amount) + mix.g * amount
+							b = b * (1 - amount) + mix.b * amount
+						end
+						bar:SetColorAt(0, r, g, b, color.a or 1)
 					end
 				else
 					-- Default color.
@@ -414,8 +446,13 @@ function mod:Update(win)
 						end
 					end
 				else
-					-- Default color text.
-					bar.label:SetTextColor(1,1,1,1)
+					-- Default color text, optionally themed.
+					local ltc = win.db.labelcolor
+					if ltc then
+						bar.label:SetTextColor(ltc.r, ltc.g, ltc.b, ltc.a or 1)
+					else
+						bar.label:SetTextColor(1,1,1,1)
+					end
 					-- Apply value text color or default
 					local vtc = win.db.valuetextcolor
 					for i = 1, 3 do
@@ -477,7 +514,7 @@ function mod:Update(win)
 			-- Emphathized items - cache a flag saying it is done so it is not done again.
 			-- This is a little lame.
 			if data.emphathize and bar.emphathize_set ~= true then
-				bar:SetFont(nil,nil,"OUTLINE")
+				bar:SetFont(nil,nil,win.db.barfontflags or "")
 				bar.emphathize_set = true
 			elseif not data.emphathize and bar.emphathize_set ~= false then
 				bar:SetFont(nil,nil, win.db.barfontflags)
@@ -540,6 +577,7 @@ function mod:Update(win)
 		win.bargroup:SetSortFunction(nil)
 	end
 	win.bargroup:SortBars()
+	alignColumnHeaders(win)
 
 end
 
@@ -614,6 +652,144 @@ function mod:OnMouseWheel(win, frame, direction) -- external scrolling interface
 	OnMouseWheel(frame, direction)
 end
 
+local function themeUpper(key)
+	local v = L[key]
+	if type(v) == "string" then
+		return string.upper(v)
+	end
+	return string.upper(key)
+end
+
+local function applyRowSeparator(bar, p)
+	if p.showrowseparators then
+		if not bar.separator then
+			bar.separator = bar:CreateTexture(nil, "OVERLAY")
+			bar.separator:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", 0, 0)
+			bar.separator:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", 0, 0)
+			bar.separator:SetHeight(1)
+		end
+		local c = p.rowseparatorcolor or {r = 0.3, g = 0.45, b = 0.6, a = 0.25}
+		bar.separator:SetColorTexture(c.r, c.g, c.b, c.a or 0.25)
+		bar.separator:Show()
+	elseif bar.separator then
+		bar.separator:Hide()
+	end
+end
+
+function alignColumnHeaders(win)
+	local g = win.bargroup
+	local header = g and g.columnheaders
+	if not header or not header:IsShown() then return end
+
+	local row
+	for _, data in ipairs(win.dataset) do
+		if data.id and data.id ~= "total" then
+			row = data
+			break
+		end
+	end
+	if not row then row = win.dataset[1] end
+	if not row or not row.id then return end
+
+	local bar = g:GetBar(row.id)
+	if not bar or not bar.columns then return end
+	local barRight = bar:GetRight()
+	if not barRight then return end
+
+	for i = 1, 3 do
+		local f = header.labels and header.labels[i]
+		local col = bar.columns[i]
+		if f and col then
+			local colRight = col:GetRight()
+			if colRight then
+				f:ClearAllPoints()
+				f:SetPoint("RIGHT", header, "RIGHT", -(barRight - colRight), 0)
+			end
+		end
+	end
+end
+
+local function applyFontShadow(fs, enabled)
+	if not fs then return end
+	if enabled then
+		fs:SetShadowOffset(1, -1)
+		fs:SetShadowColor(0, 0, 0, 0.85)
+	else
+		fs:SetShadowOffset(0, 0)
+	end
+end
+
+local function applyBarShadows(bar, enabled)
+	if not bar then return end
+	applyFontShadow(bar.label, enabled)
+	if bar.columns then
+		for i = 1, 3 do
+			applyFontShadow(bar.columns[i], enabled)
+		end
+	end
+end
+
+local function applyColumnHeaders(win, p)
+	local g = win.bargroup
+	local header = g.columnheaders
+	local mode = win.selectedmode
+	local columns = mode and mode.metadata and mode.metadata.columns
+	local hasColumns = columns and (columns.Damage or columns.Healing)
+
+	g.headerSignature = hasColumns and ((mode and mode:GetName() or "") .. ":" .. (columns.Damage and "D" or "H")) or nil
+
+	if not p.showcolumnheaders or not hasColumns then
+		if header then header:Hide() end
+		return 0
+	end
+
+	local height = p.columnheadersheight or 16
+	if not header then
+		header = CreateFrame("Frame", nil, g.button)
+		header:SetPoint("BOTTOMLEFT", g.button, "BOTTOMLEFT", 0, p.columnheaderbottom or 2)
+		header:SetPoint("BOTTOMRIGHT", g.button, "BOTTOMRIGHT", 0, p.columnheaderbottom or 2)
+		header.labels = {}
+		for i = 1, 3 do
+			local f = header:CreateFontString(nil, "OVERLAY")
+			f:SetJustifyH("RIGHT")
+			f:SetJustifyV("MIDDLE")
+			header.labels[i] = f
+		end
+		g.columnheaders = header
+	end
+
+	header:SetHeight(height)
+	header:Show()
+
+	local font = p.columnheaderfontpath or media:Fetch("font", p.columnheaderfont or p.barfont)
+	local c = p.columnheadertextcolor or p.title.textcolor or {r = 0.8, g = 0.9, b = 1, a = 1}
+	-- BarDisplay assigns valueText3/valueText2/valueText1 to columns 1/2/3,
+	-- i.e. column 1 is the leftmost (percent) and column 3 the rightmost (damage).
+	local text = {
+		columns.Percent and "%",
+		columns.DPS and "DPS" or columns.HPS and "HPS" or columns.DTPS and "DTPS",
+		columns.Damage and "DMG" or columns.Healing and "HEAL",
+	}
+	local offsets = {p.columnheaderoffset1 or 12, p.columnheaderoffset2 or 64, p.columnheaderoffset3 or 112}
+
+	for i = 1, 3 do
+		local f = header.labels[i]
+		f:SetFont(font, p.columnheaderfontsize or 8, p.columnheaderfontflags or "")
+		f:SetTextColor(c.r, c.g, c.b, (c.a or 1) * 0.80)
+		applyFontShadow(f, p.textshadow)
+		if text[i] then
+			f:SetText(text[i])
+			f:ClearAllPoints()
+			f:SetPoint("RIGHT", header, "RIGHT", -offsets[i], 0)
+			f:Show()
+		else
+			f:Hide()
+		end
+	end
+
+	return height
+end
+
 function mod:CreateBar(win, name, label, value, maxvalue, icon, o)
 	local bar = win.bargroup:NewCounterBar(name, label, value, maxvalue, icon)
 	bar.win = win
@@ -623,6 +799,8 @@ function mod:CreateBar(win, name, label, value, maxvalue, icon, o)
 	bar.iconFrame:SetScript("OnLeave", nil)
 	bar.iconFrame:SetScript("OnMouseDown", nil)
 	bar.iconFrame:EnableMouse(false)
+	applyRowSeparator(bar, win.db)
+	applyBarShadows(bar, win.db.textshadow)
 	return bar
 end
 
@@ -643,6 +821,12 @@ function mod:ApplySettings(win)
 	g:SetTexture(p.bartexturepath or media:Fetch('statusbar', p.bartexture))
 
 	g:SetBarBackgroundColor(p.barbgcolor.r, p.barbgcolor.g, p.barbgcolor.b, p.barbgcolor.a or 0.6)
+	if g:GetBars() then
+		for _, bar in pairs(g:GetBars()) do
+			applyRowSeparator(bar, p)
+			applyBarShadows(bar, p.textshadow)
+		end
+	end
 	g:SetFont(p.barfontpath or media:Fetch('font', p.barfont), p.barfontsize, p.barfontflags)
 	g:SetSpacing(p.barspacing)
 	g:UnsetAllColors()
@@ -663,10 +847,14 @@ function mod:ApplySettings(win)
 	end
 	g.button:SetNormalFontObject(fo)
 
-	-- Title text alignment
+	-- Title text alignment and padding
 	local fs = g.button:GetFontString()
 	if fs then
 		fs:SetJustifyH(p.title.textalign or "LEFT")
+		fs:SetJustifyV("TOP")
+		fs:ClearAllPoints()
+		fs:SetPoint("TOPLEFT", g.button, "TOPLEFT", p.title.paddingleft or 10, -(p.title.paddingtop or 5))
+		applyFontShadow(fs, p.textshadow)
 	end
 
 	local titleBgFile = media:Fetch("statusbar", p.title.texture)
@@ -689,7 +877,15 @@ function mod:ApplySettings(win)
 		tex:SetGradient("HORIZONTAL", CreateColor(1,1,1,1), CreateColor(1,1,1,1)) -- Reset if no gradient
 	end
 
-	g.button:SetHeight(p.title.height or 15)
+	local baseTitleHeight = p.title.height or 15
+	local headerHeight = applyColumnHeaders(win, p)
+	-- Keep the title bar the same height. When headers are enabled the title
+	-- row shrinks inside it and the header strip uses the bottom 10px.
+	local titleRowHeight = baseTitleHeight
+	if headerHeight > 0 then
+		titleRowHeight = max(baseTitleHeight - headerHeight, 18)
+	end
+	g.button:SetHeight(baseTitleHeight)
 
 	Skada:ApplyBorder(g.button, p.title.bordertexture, p.title.bordercolor, p.title.borderthickness)
 
@@ -699,8 +895,11 @@ function mod:ApplySettings(win)
 		g:HideAnchor()
 	end
 
-	-- Adjust button positions
-	g:AdjustButtons()
+	-- Adjust button positions. Keep them aligned to the title row, not the
+	-- combined title+header height, otherwise they look vertically centered.
+	local buttonSize = p.buttonsize or 12
+	local buttonOffset = p.buttonverticaloffset or max((titleRowHeight - buttonSize) / 2, 0)
+	g:SetButtonLayout(p.buttonspacing or 3, p.buttonpaddingright or 8, buttonSize, buttonOffset)
 
 	-- Button visibility.
 	g:ShowButton(L["Configure"], p.buttons.menu)
@@ -710,9 +909,11 @@ function mod:ApplySettings(win)
 	g:ShowButton(L["Report"], p.buttons.report)
 	-- g:ShowButton(L["Stop"], p.buttons.stop)
 
+	g:SetButtonsOpacity(((p.hoverbuttons ~= false) and g.button:IsMouseOver()) and 1 or ((p.hoverbuttons ~= false) and 0 or 0.25))
+
 	-- Window
-	local padtop = (p.enabletitle and not p.reversegrowth and p.title.height)
-	local padbottom = (p.enabletitle and p.reversegrowth and p.title.height)
+	local padtop = (p.enabletitle and not p.reversegrowth and baseTitleHeight)
+	local padbottom = (p.enabletitle and p.reversegrowth and baseTitleHeight)
 	Skada:ApplyBorder(g, p.background.bordertexture, p.background.bordercolor, p.background.borderthickness, padtop, padbottom)
 
 	local bgFile = p.background.texturepath or media:Fetch("background", p.background.texture)
@@ -1113,6 +1314,42 @@ function mod:AddDisplayOptions(win, options)
 				end,
 			},
 
+			showcolumnheaders = {
+				type="toggle",
+				name=L["Column headers"],
+				desc=L["Show a small Damage / DPS / Percent header row under the title."],
+				order=42,
+				get=function() return db.showcolumnheaders end,
+				set=function()
+					db.showcolumnheaders = not db.showcolumnheaders
+					Skada:ApplySettings()
+				end,
+			},
+
+			showrowseparators = {
+				type="toggle",
+				name=L["Row separators"],
+				desc=L["Draw a thin separator line between bars."],
+				order=43,
+				get=function() return db.showrowseparators end,
+				set=function()
+					db.showrowseparators = not db.showrowseparators
+					Skada:ApplySettings()
+				end,
+			},
+
+			textshadow = {
+				type="toggle",
+				name=L["Text shadow"],
+				desc=L["Adds a 1px shadow behind bar and title text. Disable for the crispest edges."],
+				order=44,
+				get=function() return db.textshadow end,
+				set=function()
+					db.textshadow = not db.textshadow
+					Skada:ApplySettings()
+				end,
+			},
+
 		}
 	}
 
@@ -1157,6 +1394,63 @@ function mod:AddDisplayOptions(win, options)
 				get=function() return db.title.height end,
 				set=function(win, val)
 					db.title.height = val
+					Skada:ApplySettings()
+				end,
+			},
+
+			paddingleft = {
+				type="range",
+				name=L["Title left padding"],
+				desc=L["Space between the left edge and the title text."],
+				order=1.1,
+				min=0,
+				max=30,
+				step=1,
+				get=function() return db.title.paddingleft or 10 end,
+				set=function(win, val)
+					db.title.paddingleft = val
+					Skada:ApplySettings()
+				end,
+			},
+
+			buttonspacing = {
+				type="range",
+				name=L["Title button spacing"],
+				desc=L["Space between the title bar buttons."],
+				order=1.2,
+				min=0,
+				max=12,
+				step=1,
+				get=function() return db.buttonspacing or 3 end,
+				set=function(win, val)
+					db.buttonspacing = val
+					Skada:ApplySettings()
+				end,
+			},
+
+			buttonsize = {
+				type="range",
+				name=L["Title button size"],
+				desc=L["Size of the title bar buttons."],
+				order=1.3,
+				min=10,
+				max=22,
+				step=1,
+				get=function() return db.buttonsize or 12 end,
+				set=function(win, val)
+					db.buttonsize = val
+					Skada:ApplySettings()
+				end,
+			},
+
+			hoverbuttons = {
+				type="toggle",
+				name=L["Show buttons on hover"],
+				desc=L["Hide the title bar buttons until the mouse hovers over the title bar."],
+				order=1.4,
+				get=function() return db.hoverbuttons ~= false end,
+				set=function()
+					db.hoverbuttons = (db.hoverbuttons == false)
 					Skada:ApplySettings()
 				end,
 			},

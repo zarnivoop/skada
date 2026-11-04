@@ -418,17 +418,35 @@ function barListPrototype:SetButtonsOpacity(alpha)
 	end
 end
 
+function barListPrototype:SetButtonLayout(spacing, rightPadding, size, verticalOffset)
+	self.buttonSpacing = spacing or 0
+	self.buttonRightPadding = rightPadding or 5
+	self.buttonVerticalOffset = verticalOffset
+	if size then
+		for _, btn in ipairs(self.buttons) do
+			btn:SetSize(size, size)
+		end
+	end
+	self:AdjustButtons()
+end
+
 function barListPrototype:AdjustButtons()
 	local nr = 0
 	local lastbtn = nil
+	local spacing = self.buttonSpacing or 0
+	local rightPadding = self.buttonRightPadding or 5
 	for i, btn in ipairs(self.buttons) do
 		btn:ClearAllPoints()
 
 		if btn:IsShown() then
 			if nr == 0 then
-				btn:SetPoint("TOPRIGHT", self.button, "TOPRIGHT", -5, 0 - (max(self.button:GetHeight() - btn:GetHeight(), 0) / 2))
+				local vertical = self.buttonVerticalOffset
+				if not vertical then
+					vertical = max(self.button:GetHeight() - btn:GetHeight(), 0) / 2
+				end
+				btn:SetPoint("TOPRIGHT", self.button, "TOPRIGHT", -rightPadding, -vertical)
 			else
-				btn:SetPoint("TOPRIGHT", lastbtn, "TOPLEFT", 0, 0)
+				btn:SetPoint("TOPRIGHT", lastbtn, "TOPLEFT", -spacing, 0)
 			end
 			lastbtn = btn
 			nr = nr + 1

@@ -5,6 +5,69 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 	-- Built-in theme presets (read-only)
 	Skada.themePresets = {
 		{
+			name = "Forever: Skyborne",
+			barspacing=1,
+			bartexture="Forever Bar",
+			barfont=Skada.ThemeFonts.bar,
+			barfontflags="OUTLINEMONOCHROME",
+			barfontsize=12,
+			barheight=22,
+			barwidth=470,
+			barorientation=1,
+			barcolor = {r = 0.35, g = 0.55, b = 0.70, a = 1},
+			barbgcolor = {r = 0.030, g = 0.045, b = 0.070, a = 0.16},
+			labelcolor = {r = 0.78, g = 0.88, b = 0.95, a = 1},
+			valuetextcolor = {r = 0.66, g = 0.78, b = 0.87, a = 1},
+			classcolorbars = true,
+			classcolormix = {r = 0.03, g = 0.07, b = 0.13, a = 1},
+			classcolormixamount = 0.50,
+			classcolortext = false,
+			classicons = true,
+			roleicons = false,
+			showself = true,
+			alternaterows = true,
+			highlightself = true,
+			selfhighlightcolor = {r = 0.55, g = 0.85, b = 1.00, a = 0.10},
+			spark = false,
+			barfill = false,
+			iconscale = 100,
+			barinset = 1,
+			smoothing = true,
+			buttons = {menu = true, reset = true, report = true, mode = true, segment = true},
+			hoverbuttons = true,
+			buttonspacing = 6,
+			buttonsize = 15,
+			buttonpaddingright = 10,
+			totalicon = [[Interface\AddOns\Skada\media\icons\ForeverCrest]],
+			showcolumnheaders = true,
+			columnheadersheight = 8,
+			columnheaderfontsize = 8,
+			columnheaderfontflags = "",
+			columnheaderfont = Skada.ThemeFonts.header,
+			textshadow = false,
+			columnheaderbottom = 6,
+			columnheadertextcolor = {r = 0.55, g = 0.72, b = 0.85, a = 1},
+			columnheaderoffset1 = 12,
+			columnheaderoffset2 = 64,
+			columnheaderoffset3 = 112,
+			showrowseparators = false,
+			rowseparatorcolor = {r = 0.45, g = 0.62, b = 0.75, a = 0.25},
+			title = {textcolor = {r = 0.92, g = 0.97, b = 1.00, a = 1}, height = 30, font=Skada.ThemeFonts.title, fontsize=14,
+				paddingleft = 12, paddingtop = 3,
+				texture="Forever Bar", bordercolor = {r = 0.32, g = 0.48, b = 0.62, a = 0.12}, bordertexture="Forever Line",
+				borderthickness = 1, color = {r = 0.06, g = 0.11, b = 0.20, a = 0.68}, color2 = {r = 0.015, g = 0.028, b = 0.055, a = 0.68}, fontflags = "MONOCHROME", textalign = "LEFT"},
+			background = {height = 300, texture="None", bordercolor = {r = 0.30, g = 0.45, b = 0.58, a = 0.20},
+				bordertexture="Forever Line", borderthickness = 1, color = {r = 0.018, g = 0.032, b = 0.060, a = 0.12}, tile = false, tilesize = 0},
+			display = "bar",
+			version = 1,
+			strata = "LOW",
+			scale = 1,
+			enabletitle = true,
+			titleset = true,
+			width = 470,
+			height = 30,
+		},
+		{
 			name = "Midnight Glass",
 			barspacing=2,
 			bartexture="Skada Glass",
@@ -720,7 +783,10 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 	-- Apply a theme table to a window, preserving identity fields
 	function Skada:ApplyThemeToWindow(win, theme)
 		Skada:tcopy(win.db, theme, {"name", "modeincombat", "display", "set", "mode", "wipemode", "returnaftercombat"})
+		-- Bars cache their colors; rebuild them so the new palette is visible.
+		win:Wipe()
 		Skada:ApplySettings()
+		Skada:UpdateDisplay(true)
 	end
 
 end)

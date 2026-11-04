@@ -1,6 +1,18 @@
 local _, Skada = ...
 Skada.versions = {
 	{
+		id = "2.2.2",
+		title = "Skada 2.2.2",
+		message = "Forever: Skyborne theme",
+		changes = {
+			"Added the new default Forever: Skyborne theme with transparent panel, hover-revealed title controls, mode-aware column headers, row separators, and a gold total crest",
+			"Added Cinzel and Marcellus (OFL) with a Latin-locale fallback and pixel-crisp mono-outline text treatment",
+			"Improved class-colored bar readability with crisper text rendering and configurable text shadow",
+			"Added title padding, button spacing, button size, column header, and row separator settings",
+			"Migrates the old out-of-box window look once while preserving custom themes",
+		}
+	},
+	{
 		id = "2.2.1",
 		title = "Skada 2.2.1",
 		message = "WoW: Forever support",
