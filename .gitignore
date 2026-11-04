@@ -10,8 +10,26 @@ release/
 .env
 Skada-*.zip
 
+# Local development helpers (DSH simulator plugin, tooling, caches)
+tools/
+.venv/
+venv/
+node_modules/
+__pycache__/
+*.py[cod]
+*.log
+
 # IDE files
 .idea/
 .vscode/
+*.code-workspace
 *.swp
 *~
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+*.bak
+*.orig
+*.rej
+*.tmp
