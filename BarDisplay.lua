@@ -207,11 +207,11 @@ end
 local function BarIconMouseDown(icon) -- shift-click to link spell into chat
 	local bar = icon.bar
 	if not IsShiftKeyDown() or not bar.link then return end
-	local activeEditBox = ChatEdit_GetActiveWindow()
+	local activeEditBox = ChatFrameUtil.GetActiveWindow()
 	if activeEditBox then
-		ChatEdit_InsertLink(bar.link)
+		ChatFrameUtil.InsertLink(bar.link)
 	else
-		ChatFrame_OpenChat(bar.link, DEFAULT_CHAT_FRAME)
+		ChatFrameUtil.OpenChat(bar.link, DEFAULT_CHAT_FRAME)
 	end
 end
 
@@ -303,11 +303,19 @@ function mod:Update(win)
 			end
 
 			if bar then
-				bar:SetValue(data.value or 0)
+				local barValue = data.value
+				if type(barValue) ~= "number" then
+					barValue = 0
+				end
+				bar:SetValue(barValue)
 				bar:SetMaxValue(win.metadata.maxvalue or 1) -- MUST come after SetValue
 			else
 				-- Initialization of bars.
-				bar = mod:CreateBar(win, barid, barlabel, data.value, win.metadata.maxvalue or 1, data.icon, false)
+				local newValue = data.value
+				if type(newValue) ~= "number" then
+					newValue = 0
+				end
+				bar = mod:CreateBar(win, barid, barlabel, newValue, win.metadata.maxvalue or 1, data.icon, false)
 				bar.id = barid
 				bar.text = barlabel
 				bar.fixed = false
@@ -335,7 +343,11 @@ function mod:Update(win)
 					bar:SetScript("OnLeave", nil)
 					bar:SetScript("OnMouseDown", BarClickIgnore)
 				end
-				bar:SetValue(data.value or 0)
+				local barValue = data.value
+				if type(barValue) ~= "number" then
+					barValue = 0
+				end
+				bar:SetValue(barValue)
 
 				bar.link = nil
 				bar.spellid = nil
@@ -417,7 +429,14 @@ function mod:Update(win)
 					end
 				end
 
-				if Skada.db.profile.showself and data.id and data.id == UnitGUID("player") then
+				local isSelf = data.isSelf == true
+				if not isSelf and type(data.id) == "string" and not issecretvalue(data.id) then
+					local playerGUID = UnitGUID("player")
+					if type(playerGUID) == "string" and not issecretvalue(playerGUID) then
+						isSelf = data.id == playerGUID
+					end
+				end
+				if Skada.db.profile.showself and data.id and isSelf then
 					-- Always show self
 					bar.fixed = true
 					bar.isSelfBar = true

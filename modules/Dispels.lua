@@ -11,7 +11,11 @@ Skada:AddLoadableModule("Dispels", nil, function(Skada, L)
 
 	function playermod:Enter(win, id, label)
 		playermod.playerid = id
-		playermod.title = tostring(label) .. L["'s Dispels"]
+		if issecretvalue(label) then
+			playermod.title = L["Dispels"]
+		else
+			playermod.title = tostring(label) .. L["'s Dispels"]
+		end
 	end
 
 	function playermod:Update(win, set)

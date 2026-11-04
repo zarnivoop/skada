@@ -1,3 +1,12 @@
+## 2.2.1
+WoW: Forever support
+- Added support for World of Warcraft: Forever (Interface 16001)
+- Added dedicated `Skada_Camelot.toc` / `Skada_Forever.toc` manifests
+- Updated C_DamageMeter session lookups and segment durations
+- Hardened secret-value handling during combat
+- Replaced deprecated chat and screen-resolution APIs
+- Fixed the total bar reusing stale percentage/column text
+
 ## 2.2.0
 Polish, encounter names, and release workflow
 - User interface polish and improvements

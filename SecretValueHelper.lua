@@ -49,9 +49,12 @@ end
 	@return string - Formatted string for display
 ]]
 function SecretHelper:FormatForDisplay(value, suffix)
+	if issecretvalue(value) then
+		suffix = suffix or ""
+		return string.format("%s%s", value, suffix)
+	end
 	if value == nil then return "--" end
 	suffix = suffix or ""
-	-- string.format works with secret values
 	return string.format("%s%s", value, suffix)
 end
 
@@ -62,10 +65,10 @@ end
 	@return number|nil - The number, or nil if secret
 ]]
 function SecretHelper:GetSafeNumber(value)
-	if value == nil then return 0 end
-	if hasSecretAPI and issecretvalue(value) then
+	if issecretvalue(value) then
 		return nil  -- Signal that this is secret and can't be used for math
 	end
+	if value == nil then return 0 end
 	return tonumber(value) or 0
 end
 
@@ -76,10 +79,10 @@ end
 	@return number, boolean - The value to use for sizing, and whether it's a fallback
 ]]
 function SecretHelper:GetBarValue(value, orderFallback)
-	if value == nil then 
-		return orderFallback or 0, true 
+	if issecretvalue(value) then
+		return orderFallback or 0, true
 	end
-	if hasSecretAPI and issecretvalue(value) then
+	if value == nil then
 		return orderFallback or 0, true
 	end
 	local num = tonumber(value)
@@ -96,10 +99,8 @@ end
 	@return boolean|nil - Comparison result, or nil if cannot compare
 ]]
 function SecretHelper:SafeCompare(a, b)
-	if hasSecretAPI then
-		if issecretvalue(a) or issecretvalue(b) then
-			return nil
-		end
+	if issecretvalue(a) or issecretvalue(b) then
+		return nil
 	end
 	-- Use pcall as additional safety
 	local ok, result = pcall(function() return a > b end)
@@ -115,19 +116,17 @@ end
 	@return string - Formatted number or secret representation
 ]]
 function SecretHelper:FormatNumber(value)
-	if value == nil then return "0" end
-	
-	if hasSecretAPI and issecretvalue(value) then
-		-- Secret values can be passed to SetText but we can't do math on them
-		-- Return as-is, the display layer will handle it
-		return tostring(value)
+	if issecretvalue(value) then
+		-- Secret values can be passed to string.format; use the shared helper.
+		return Skada:FormatNumberSecret(value)
 	end
-	
+	if value == nil then return "0" end
+
 	local num = tonumber(value)
 	if num then
 		return Skada:FormatNumber(num)
 	end
-	
+
 	return "0"
 end
 
@@ -146,37 +145,74 @@ end
 	@return boolean - true if any secret values found
 ]]
 function SecretHelper:DetectSecrets(dataTable, valueKey)
-	if not hasSecretAPI then return false end
-	if not dataTable then return false end
-	
+	if type(dataTable) ~= "table" then return false end
+	if issecretvalue(dataTable) then return true end
+
 	valueKey = valueKey or "totalAmount"
-	
+	local keys = {valueKey, "totalAmount", "amountPerSecond", "name", "sourceGUID"}
+
 	for _, item in pairs(dataTable) do
+		if issecretvalue(item) then
+			return true
+		end
 		if type(item) == "table" then
-			local value = item[valueKey]
-			if value and issecretvalue(value) then
-				return true
+			for _, key in ipairs(keys) do
+				if issecretvalue(item[key]) then
+					return true
+				end
 			end
 		end
 	end
-	
+
 	return false
 end
 
 --[[
-	Get player name safely
+	Get a display label for a player/source.
+	Returns the (possibly secret) name when one is available, otherwise a
+	plain fallback label. Callers must not perform boolean tests on the
+	returned string when it may be secret; assign it to a FontString instead.
+	@param player - Player table from NativeAPI
+	@param index - Row index for the fallback label
+	@return string - Player name or "Combat N"
+]]
+function SecretHelper:GetPlayerLabel(player, index)
+	local fallback = "Combat " .. tostring(index or 1)
+	if type(player) ~= "table" or issecretvalue(player) then
+		return fallback
+	end
+
+	local rawName = player.name
+	if type(rawName) == "string" then
+		return rawName
+	end
+
+	rawName = player.unitName
+	if type(rawName) == "string" then
+		return rawName
+	end
+
+	return fallback
+end
+
+--[[
+	Get player name safely. Kept for compatibility; prefer GetPlayerLabel.
 	@param player - Player table from NativeAPI
 	@return string - Player name or nil
 ]]
 function SecretHelper:GetPlayerName(player)
-	if not player then return nil end
-	
-	-- Handle secret values for name
-	local rawName = player.name or player.unitName
-	if rawName and type(rawName) == "string" then
+	if type(player) ~= "table" or issecretvalue(player) then return nil end
+
+	local rawName = player.name
+	if type(rawName) == "string" then
 		return rawName
 	end
-	
+
+	rawName = player.unitName
+	if type(rawName) == "string" then
+		return rawName
+	end
+
 	return nil
 end
 
@@ -186,14 +222,37 @@ end
 	@return string - Player class or nil
 ]]
 function SecretHelper:GetPlayerClass(player)
-	if not player then return nil end
-	
-	local rawClass = player.class or player.classFilename
-	if rawClass and type(rawClass) == "string" then
+	if type(player) ~= "table" or issecretvalue(player) then return nil end
+
+	local rawClass = player.class
+	if type(rawClass) == "string" then
 		return rawClass
 	end
-	
+
+	rawClass = player.classFilename
+	if type(rawClass) == "string" then
+		return rawClass
+	end
+
 	return nil
+end
+
+--[[
+	Get a player's GUID/ID for native API lookups. A secret GUID is returned
+	as-is because the API accepts secret arguments; do not use it as a table key.
+]]
+function SecretHelper:GetPlayerID(player, fallback)
+	if type(player) == "table" and not issecretvalue(player) then
+		local guid = player.sourceGUID
+		if type(guid) ~= "nil" then
+			return guid
+		end
+		guid = player.guid
+		if type(guid) ~= "nil" then
+			return guid
+		end
+	end
+	return fallback
 end
 
 --[[
@@ -222,7 +281,7 @@ end
 	@return number - Value to use for bar sizing
 ]]
 function SecretHelper:GetDisplayValue(value, order)
-	if hasSecretAPI and value and issecretvalue(value) then
+	if issecretvalue(value) then
 		return 1000 - (order or 1)
 	end
 	return tonumber(value) or 0
@@ -248,8 +307,7 @@ end
 	@return number - 0 if secret or nil, otherwise tonumber result
 ]]
 function SecretHelper:SafeNumber(value)
-	if value == nil then return 0 end
-	if hasSecretAPI and issecretvalue(value) then return 0 end
+	if issecretvalue(value) then return 0 end
 	return tonumber(value) or 0
 end
 
@@ -261,18 +319,18 @@ end
 	@return string - Formatted text
 ]]
 function SecretHelper:FormatValueText(value, includePercent, total)
-	if hasSecretAPI and value and issecretvalue(value) then
+	if issecretvalue(value) then
 		return Skada:FormatNumberSecret(value)
 	end
-	
+
 	local num = tonumber(value) or 0
 	local text = Skada:FormatNumber(num)
-	
+
 	if includePercent and total and total > 0 then
 		local percent = (num / total) * 100
 		text = text .. string.format(" (%02.1f%%)", percent)
 	end
-	
+
 	return text
 end
 
@@ -286,7 +344,7 @@ local spellCacheTTL = 300  -- 5 minutes TTL
 	Cached version of Skada:GetSpellIcon that avoids repeated API calls
 ]]
 function SecretHelper:GetSpellIcon(spellID)
-	if not spellID or spellID == 0 then return nil end
+	if type(spellID) ~= "number" or spellID == 0 then return nil end
 	
 	local now = GetTime()
 	local cached = self.spellCache[spellID]
@@ -352,32 +410,21 @@ SecretHelper.secretDetectionCache = {
 function SecretHelper:DetectSecretsCached(cacheKey, dataTable, valueKey)
 	local currentFrame = GetTime()
 	local cache = self.secretDetectionCache
-	
+
 	-- Clear cache if we're in a new frame
 	if currentFrame ~= cache.frame then
 		cache.frame = currentFrame
 		wipe(cache.results)
 	end
-	
+
 	-- Return cached result if available
 	if cache.results[cacheKey] ~= nil then
 		return cache.results[cacheKey]
 	end
-	
+
 	-- Perform detection
-	local hasSecrets = false
-	if dataTable and hasSecretAPI then
-		for _, item in pairs(dataTable) do
-			if type(item) == "table" then
-				local value = item[valueKey]
-				if value and issecretvalue(value) then
-					hasSecrets = true
-					break
-				end
-			end
-		end
-	end
-	
+	local hasSecrets = self:DetectSecrets(dataTable, valueKey)
+
 	-- Cache the result
 	cache.results[cacheKey] = hasSecrets
 	return hasSecrets

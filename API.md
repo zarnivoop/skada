@@ -1,6 +1,6 @@
 # Skada API Documentation
 
-This document describes the Skada API for WoW 12.0+ (Midnight / The War Within).
+This document describes the Skada API for WoW 12.0+ and WoW: Forever (Midnight / The War Within / Forever).
 
 ## Overview
 

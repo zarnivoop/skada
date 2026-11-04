@@ -44,9 +44,12 @@ function Skada:GetSpellIcon(spellId)
 	return self.SecretHelper:GetSpellIcon(spellId)
 end
 function Skada:GetGameVersion()
-	local version = floor((floor(select(4, GetBuildInfo())) / 10000))
-
-	return version
+	local build = select(4, GetBuildInfo())
+	-- Forever reports interface 16001, which is not a retail build number.
+	if type(build) == "number" and build >= 16001 and build < 17000 then
+		return 16
+	end
+	return floor((floor(build) / 10000))
 end
 
 local popup
@@ -529,16 +532,31 @@ function Skada:SetLabelFormats() -- for config option display
 end
 
 function Skada:GetSetLabel(set) -- return a nicely-formatted label for a set
-	if not set then return "" end
+	if type(set) ~= "table" then return "" end
 
-	-- Prefer the encounter name (e.g. "Hogger") when the Native API provides one;
-	-- fall back to the session's generic name or "Unknown".
-	-- Use type() to guard against secret values during combat — type() is safe
-	-- to call on secrets, and a secret value will not be "string".
-	local name = set.name or "Unknown"
+	local name = "Unknown"
+	local rawName = set.name
+	if issecretvalue(rawName) then
+		-- Names can be secret in combat. Do not run string/format operations
+		-- that need a plain string on them.
+		return "Combat"
+	elseif type(rawName) == "string" then
+		name = rawName
+	end
+
+	-- Prefer the encounter name (e.g. "Hogger") when the Native API provides one.
 	local encounter = set.encounterName
-	if type(encounter) == "string" and encounter ~= "" then
+	if not issecretvalue(encounter) and type(encounter) == "string" and encounter ~= "" then
 		name = encounter
+	end
+
+	-- Native API sessions expose durationSeconds instead of start/end times.
+	local duration = set.durationSeconds
+	if type(duration) == "number" and not issecretvalue(duration) and duration > 0 then
+		local durationText = SecondsToTimeAbbrev(duration)
+		if type(durationText) == "string" and #durationText > 0 then
+			return name .. " (" .. durationText .. ")"
+		end
 	end
 
 	-- Handle Native API session fields (capital T)
@@ -568,14 +586,14 @@ function Window:set_mode_title()
 			-- Use type() to avoid crashing on secret values during combat.
 			local set = self:get_selected_set()
 			local encounter = set and set.encounterName
-			if type(encounter) == "string" and encounter ~= "" then
+			if not issecretvalue(encounter) and type(encounter) == "string" and encounter ~= "" then
 				setname = setname .. " (" .. encounter .. ")"
 			end
 		elseif self.selectedset == "total" then
 			setname = L["Total"]
 			local set = self:get_selected_set()
 			local encounter = set and set.encounterName
-			if type(encounter) == "string" and encounter ~= "" then
+			if not issecretvalue(encounter) and type(encounter) == "string" and encounter ~= "" then
 				setname = setname .. " (" .. encounter .. ")"
 			end
 		else
@@ -926,15 +944,15 @@ local function sendchat(msg, chan, chantype)
 		Skada:Print(msg)
 	elseif chantype == "channel" then
 		-- To channel.
-		SendChatMessage(msg, "CHANNEL", nil, chan)
+		C_ChatInfo.SendChatMessage(msg, "CHANNEL", nil, chan)
 	elseif chantype == "preset" then
 		-- To a preset channel id (say, guild, etc).
-		SendChatMessage(msg, string.upper(chan))
+		C_ChatInfo.SendChatMessage(msg, string.upper(chan))
 	elseif chantype == "whisper" then
 		-- To player.
-		SendChatMessage(msg, "WHISPER", nil, chan)
+		C_ChatInfo.SendChatMessage(msg, "WHISPER", nil, chan)
 	elseif chantype == "bnet" then
-		BNSendWhisper(chan, msg)
+		C_BattleNet.SendWhisper(chan, msg)
 	end
 end
 
@@ -988,8 +1006,26 @@ function Skada:Report(channel, chantype, report_mode_name, report_set_name, max,
 	local nr = 1
 	for i, data in ipairs(report_table.dataset) do
 		if data.id then
-			local label = data.reportlabel or (data.spellid and C_Spell.GetSpellLink(data.spellid)) or data.label
-			local value = data.valuetext or data.valueText1
+			local label = data.reportlabel
+			if type(label) ~= "string" then
+				if type(data.spellid) == "number" then
+					label = C_Spell.GetSpellLink(data.spellid)
+				end
+			end
+			if type(label) ~= "string" then
+				label = data.label
+			end
+			if issecretvalue(label) or type(label) ~= "string" then
+				label = "?"
+			end
+
+			local value = data.valuetext
+			if type(value) == "nil" then
+				value = data.valueText1
+			end
+			if issecretvalue(value) or type(value) ~= "string" then
+				value = "?"
+			end
 			if report_mode.metadata and report_mode.metadata.showspots then
 				sendchat(("%2u. %s   %s"):format(nr, label, value), channel, chantype)
 			else
@@ -1228,16 +1264,23 @@ end
 function Skada:find_set(s)
 	if s == "current" then
 		local set = self.NativeAPI:GetCurrentSession()
-		if set then 
-			set.sessionType = 1
-			self:Debug("find_set('current') returned session with", set.combatSources and #set.combatSources or 0, "sources")
+		if type(set) == "table" then
+			pcall(function() set.sessionType = 1 end)
+			local sourceCount = 0
+			if type(set.combatSources) == "table" and not issecretvalue(set.combatSources) then
+				sourceCount = #set.combatSources
+			end
+			self:Debug("find_set('current') returned session with", sourceCount, "sources")
 		else
 			self:Debug("find_set('current') returned nil")
 		end
 		return set
 	elseif s == "total" then
 		local set = self.NativeAPI:GetTotalSession()
-		if set then set.sessionType = 0 end
+		if type(set) == "table" then
+			self.total = set
+			pcall(function() set.sessionType = 0 end)
+		end
 		return set
 	elseif type(s) == "number" then
 		return self.NativeAPI:GetSessionByID(s)
@@ -1249,18 +1292,22 @@ end
 
 -- Helper to find player in Native API session
 function Skada:find_player_in_session(session, playerGUID)
-	if not session or not playerGUID then return nil end
-	local sources = session.combatSources or session.participants or {}
+	if type(session) ~= "table" or type(playerGUID) == "nil" then return nil end
+	local sources = session.combatSources
+	if type(sources) ~= "table" then
+		sources = session.participants
+	end
+	if type(sources) ~= "table" or issecretvalue(sources) then return nil end
 
 	local idType = type(playerGUID)
-	local idIsSecret = (issecretvalue and issecretvalue(playerGUID))
+	local idIsSecret = issecretvalue(playerGUID)
 
 	-- Handle artificial combat IDs
 	if idType == "string" and not idIsSecret and playerGUID:sub(1, 7) == "combat_" then
 		local index = tonumber(playerGUID:sub(8))
 		if index then
 			local nr = 1
-			for k, p in pairs(sources) do
+			for _, p in ipairs(sources) do
 				if nr == index then return p end
 				nr = nr + 1
 			end
@@ -1268,24 +1315,36 @@ function Skada:find_player_in_session(session, playerGUID)
 		return nil
 	end
 
-	if idIsSecret then
-		-- Secret value: must use pcall for comparisons
-		for k, p in pairs(sources) do
-			local success, matches = pcall(function()
-				return (p.sourceGUID == playerGUID) or (k == playerGUID) or (p.guid == playerGUID) or (p.unitGUID == playerGUID) or (p.id == playerGUID)
-			end)
-			if success and matches then
-				return p
-			end
-		end
-	else
-		-- Non-secret: direct comparison (fast path)
-		for k, p in pairs(sources) do
-			if (p.sourceGUID == playerGUID) or (k == playerGUID) or (p.guid == playerGUID) or (p.unitGUID == playerGUID) or (p.id == playerGUID) then
+	-- Use pcall for any lookup that may involve a secret GUID. Comparing a
+	-- plain value with a secret value throws, so the source GUID must be
+	-- checked before the direct fast path.
+	for k, p in pairs(sources) do
+		if type(p) == "table" and not issecretvalue(p) then
+			local needsPcall = idIsSecret or issecretvalue(p.sourceGUID)
+			if needsPcall then
+				local success, matches = pcall(function()
+					return (p.sourceGUID == playerGUID) or (k == playerGUID) or (p.guid == playerGUID) or (p.unitGUID == playerGUID) or (p.id == playerGUID)
+				end)
+				if success and matches then
+					return p
+				end
+			elseif (p.sourceGUID == playerGUID) or (k == playerGUID) or (p.guid == playerGUID) or (p.unitGUID == playerGUID) or (p.id == playerGUID) then
 				return p
 			end
 		end
 	end
+	-- The player's own GUID is normally plain even when other source GUIDs are
+	-- secret. Fall back to isLocalPlayer (NeverSecret) for self lookups so the
+	-- personal DPS/HPS feed keeps working in combat.
+	local selfGUID = UnitGUID("player")
+	if type(selfGUID) == "string" and not issecretvalue(selfGUID) and not issecretvalue(playerGUID) and playerGUID == selfGUID then
+		for _, p in ipairs(sources) do
+			if type(p) == "table" and not issecretvalue(p) and p.isLocalPlayer == true then
+				return p
+			end
+		end
+	end
+
 	return nil
 end
 
@@ -1366,14 +1425,8 @@ function dataobj:OnEnter()
 	GameTooltip:SetPoint("TOPLEFT", self, "BOTTOMLEFT")
 	GameTooltip:ClearLines()
 
-	local set
-	if Skada.current then
-		set = Skada.current
-	else
-		-- With Native API, use total session if no current
-		set = Skada.NativeAPI and Skada.NativeAPI:GetTotalSession()
-	end
-	if set then
+	local set = Skada:GetActiveSet()
+	if type(set) == "table" then
 		GameTooltip:AddLine(L["Skada summary"], 0, 1, 0)
 		for i, mode in ipairs(modes) do
 			if mode.AddToTooltip ~= nil then
@@ -1463,6 +1516,12 @@ function Skada:UpdateDisplay(force)
 						total = total + 1
 
 						local d = existing or {}
+						-- The entry may have been reused from another mode/view.
+						-- Clear stale columns before the summary fills the ones it owns.
+						d.valuetext = nil
+						d.valueText1 = nil
+						d.valueText2 = nil
+						d.valueText3 = nil
 						win.selectedmode:FormatSetSummary(d, set)
 						d.value = total
 						d.label = L["Total"]
@@ -1498,8 +1557,12 @@ function Skada:UpdateDisplay(force)
 				if Skada.db.profile.debug then
 					Skada:Debug("Updating Mode List. Modes count:", #modes, "Set exists:", set ~= nil)
 					if set then
-						Skada:Debug("  Set Name:", set.name or "Current/Unknown")
-						Skada:Debug("  Sources count:", set.combatSources and #set.combatSources or 0)
+						Skada:Debug("  Set Name:", issecretvalue(set.name) and "<secret>" or tostring(set.name or "Current/Unknown"))
+						local sourceCount = 0
+						if type(set.combatSources) == "table" and not issecretvalue(set.combatSources) then
+							sourceCount = #set.combatSources
+						end
+						Skada:Debug("  Sources count:", sourceCount)
 					end
 				end
 				for i, mode in ipairs(modes) do
@@ -1583,7 +1646,7 @@ function Skada:UpdateDisplay(force)
 					d.label = self:GetSetLabel(set)
 					d.value = 1
 					local encounter = set.encounterName
-					if set.gotboss or (type(encounter) == "string" and encounter ~= "") then
+					if set.gotboss or (not issecretvalue(encounter) and type(encounter) == "string" and encounter ~= "") then
 						d.icon = bossicon
 					else
 						d.icon = nonbossicon
@@ -1629,6 +1692,22 @@ function Skada:GetSets()
 	return {}
 end
 
+-- Return the Native API session for the current fight, or the overall session
+-- when no fight is active. Skada.current is only a lightweight state marker.
+function Skada:GetActiveSet()
+	if self.NativeAPI then
+		if self.current then
+			local set = self.NativeAPI:GetCurrentSession()
+			if type(set) == "table" then
+				return set
+			end
+			return self.current
+		end
+		return self.NativeAPI:GetTotalSession()
+	end
+	return self.current or self.total
+end
+
 function Skada:GetModes(sortfunc)
 	return modes
 end
@@ -1647,15 +1726,13 @@ local function GroupThousands(n)
 end
 
 function Skada:FormatNumber(number)
-	if not number then return "" end
-	
-	-- Check for WoW 12.0 secret value FIRST to avoid comparison errors
-	if issecretvalue and issecretvalue(number) then
-		-- Secret values should be formatted with FormatNumberSecret, not here
-		-- Return a placeholder to indicate misuse
+	-- Check for secret values before any nil/zero comparison.
+	if issecretvalue(number) then
+		-- Secret values should be formatted with FormatNumberSecret, not here.
 		return "?"
 	end
-	
+	if number == nil then return "" end
+
 	-- Now it is safe to perform comparisons
 	if number == 0 then return "" end
 
@@ -1686,7 +1763,7 @@ end
 -- Format a number that may be a WoW 12.0 secret value.
 function Skada:FormatNumberSecret(number)
 	-- For secret values, use string.format with %.0f for clean whole numbers
-	if issecretvalue and issecretvalue(number) then
+	if issecretvalue(number) then
 		-- string.format is safe for secret values
 		local s = string.format("%.0f", number)
 		return tostring(s)
@@ -1697,14 +1774,8 @@ end
 
 -- Safely converts a value to a number, handling nil values and "secret values" from Native API.
 function Skada:SafeNumber(value)
-	if not value then return 0 end
-	
+	if issecretvalue(value) then return 0 end
 	if type(value) ~= "number" then return 0 end
-	
-	-- Check for secret value first
-	if issecretvalue and issecretvalue(value) then return 0 end
-	
-	-- If not secret and is a number, return it
 	return value
 end
 
@@ -1824,7 +1895,18 @@ Sets
 --]]
 
 function Skada:GetSetTime(set)
-	-- For Native API sessions
+	if type(set) ~= "table" then return 0 end
+
+	-- Native API sessions expose durationSeconds. This value may be secret
+	-- during combat; return it as-is and let the caller format it safely.
+	local duration = set.durationSeconds
+	if issecretvalue(duration) then
+		return duration
+	elseif type(duration) == "number" then
+		return duration
+	end
+
+	-- Older/legacy session structures
 	if set.startTime then
 		if set.endTime then
 			-- Session has ended, return duration
@@ -1833,7 +1915,6 @@ function Skada:GetSetTime(set)
 			-- Session is still active, return current duration
 			return (time() - set.startTime)
 		end
-	-- Legacy support
 	elseif set.time then
 		return set.time
 	elseif set.starttime then
@@ -1853,15 +1934,15 @@ function Skada:PlayerActiveTime(set, player)
 	
 	-- Check common activity fields from Native API
 	-- Use SafeNumber to handle secret values
-	if Skada:SafeNumber(player.totalAmount or 0) > 0 then
+	if Skada:SafeNumber(player.totalAmount) > 0 then
 		hasActivity = true
-	elseif Skada:SafeNumber(player.healing or 0) > 0 then
+	elseif Skada:SafeNumber(player.healing) > 0 then
 		hasActivity = true
-	elseif Skada:SafeNumber(player.damageTaken or 0) > 0 then
+	elseif Skada:SafeNumber(player.damageTaken) > 0 then
 		hasActivity = true
-	elseif Skada:SafeNumber(player.dispels or 0) > 0 then
+	elseif Skada:SafeNumber(player.dispels) > 0 then
 		hasActivity = true
-	elseif Skada:SafeNumber(player.interrupts or 0) > 0 then
+	elseif Skada:SafeNumber(player.interrupts) > 0 then
 		hasActivity = true
 	end
 	
@@ -1934,10 +2015,14 @@ end
 
 local SafeNumber = Skada.SafeNumber
 local function value_sort(a, b)
-	if not a or not a.id then
+	if type(a) ~= "table" or a.id == nil then
 		return false
-	elseif not b or not b.id then
+	elseif type(b) ~= "table" or b.id == nil then
 		return true
+	elseif issecretvalue(a.value) or issecretvalue(b.value) then
+		-- Bar values are normally replaced with synthetic order values while
+		-- data is secret, but never compare the real secret value.
+		return (a.order or 0) < (b.order or 0)
 	elseif a.value == nil then
 		return false
 	elseif b.value == nil then
@@ -1949,9 +2034,13 @@ end
 Skada.value_sort = value_sort
 
 function Skada.valueid_sort(a, b)
-	if not a or not a.id or a.value == nil then
+	if type(a) ~= "table" or a.id == nil or issecretvalue(a.value) then
 		return false
-	elseif not b or not b.id or b.value == nil then
+	elseif type(b) ~= "table" or b.id == nil or issecretvalue(b.value) then
+		return true
+	elseif a.value == nil then
+		return false
+	elseif b.value == nil then
 		return true
 	else
 		-- Use Skada:SafeNumber for numeric comparison
@@ -2000,14 +2089,21 @@ function Skada:AddSubviewToTooltip(tooltip, win, mode, id, label)
 				end
 
 				local label = data.label
-				if mode.metadata and mode.metadata.showspots then
+				if issecretvalue(label) then
+					-- Concatenating a secret string with a number is not allowed.
+					label = tostring(nr) .. "."
+				elseif mode.metadata and mode.metadata.showspots then
 					label = nr .. ". " .. label
 				end
 
-				if data.valuetext then
+				if type(data.valuetext) == "string" then
 					tooltip:AddDoubleLine(label, data.valuetext, color.r, color.g, color.b)
 				else
-					tooltip:AddDoubleLine(label, data.valueText1 or "", color.r, color.g, color.b)
+					local columnText = data.valueText1
+					if type(columnText) ~= "string" then
+						columnText = ""
+					end
+					tooltip:AddDoubleLine(label, columnText, color.r, color.g, color.b)
 				end
 			end
 		end
@@ -2452,6 +2548,7 @@ function Skada:OnEnable()
 	-- Register for native damage meter events (just flag data as changed)
 	self:RegisterEvent("DAMAGE_METER_COMBAT_SESSION_UPDATED")
 	self:RegisterEvent("DAMAGE_METER_CURRENT_SESSION_UPDATED")
+	self:RegisterEvent("DAMAGE_METER_RESET")
 
 	-- Test session types to find correct values
 	self.NativeAPI:TestSessionTypes()

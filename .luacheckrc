@@ -38,6 +38,7 @@ globals = {
     "SLASH_SKADA1", "CUSTOM_CLASS_COLORS", "math", "floor", "min", "max",
     "CLOSE", "CloseDropDownMenus", "UIDROPDOWNMENU_MENU_VALUE",
     "_G", "setmetatable", "getmetatable", "rawequal", "rawget", "rawset",
+    "C_ChatInfo", "C_BattleNet", "ChatFrameUtil", "GetPhysicalScreenSize",
 
     -- Skada specific
     "Skada",
@@ -60,5 +61,7 @@ ignore = {
 
 exclude_files = {
     "lib/",
-    "modules/legacy/"
+    "modules/legacy/",
+    "release/",
+    ".tools/"
 }

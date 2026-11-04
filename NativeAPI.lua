@@ -73,23 +73,24 @@ end
 --[[
 	Get detailed session source data (spells, etc.)
 ]]
-function NativeAPI:GetSessionSource(sourceGUID, sessionType, damageType)
-	if not sourceGUID then return nil end
-	
+function NativeAPI:GetSessionSource(sourceGUID, set, damageType)
+	if type(sourceGUID) == "nil" then return nil end
+
 	-- 1. Try simulation
 	if Skada.Simulation and Skada.Simulation.active then
 		return Skada.Simulation:GetMockSource(sourceGUID, damageType)
 	end
-	
+
 	-- 2. Check Frame Cache with TTL
 	local now = GetTime()
 	local cache = self.cache
-	
+
 	-- Only check availability periodically, not every frame
 	if now - cache.lastCheck > cache.ttl then
 		cache.lastCheck = now
-		cache.available = C_DamageMeter.IsDamageMeterAvailable()
-		
+		local ok, available = pcall(C_DamageMeter.IsDamageMeterAvailable)
+		cache.available = ok and available == true
+
 		-- Clean up expired cache entries
 		for key, entry in pairs(cache.results) do
 			if entry.expires and now > entry.expires then
@@ -97,51 +98,76 @@ function NativeAPI:GetSessionSource(sourceGUID, sessionType, damageType)
 			end
 		end
 	end
-	
+
 	if not cache.available then return nil end
-	
+
+	local sessionID = type(set) == "table" and set.sessionID or nil
+	local sessionType = (type(set) == "table" and (set.sessionType or (set == Skada.total and 0 or 1))) or 1
+
 	-- Only cache if sourceGUID is not secret (concatenating secrets makes the key secret)
-	local isSecret = issecretvalue and issecretvalue(sourceGUID)
+	local isSecret = issecretvalue(sourceGUID)
 	local cacheKey
 	if not isSecret then
-		cacheKey = "source_" .. tostring(sessionType) .. "_" .. tostring(damageType) .. "_" .. tostring(sourceGUID)
+		cacheKey = "source_"
+			.. tostring(sessionID or sessionType) .. "_"
+			.. tostring(damageType) .. "_"
+			.. tostring(sourceGUID)
 		local cached = cache.results[cacheKey]
 		if cached and now < cached.expires then
-			return cached.value
+			local value = cached.value
+			if type(value) == "table" then
+				return value
+			end
 		end
 	end
 
-	-- 3. Try FromType
-	local success, result = pcall(C_DamageMeter.GetCombatSessionSourceFromType, sessionType, damageType, sourceGUID)
-	if success and result then 
-		if not isSecret then 
+	-- 3. Query by session ID when we have one (historical pulls), otherwise by type.
+	local success, result
+	if sessionID then
+		success, result = pcall(C_DamageMeter.GetCombatSessionSourceFromID, sessionID, damageType, sourceGUID)
+	else
+		success, result = pcall(C_DamageMeter.GetCombatSessionSourceFromType, sessionType, damageType, sourceGUID)
+	end
+
+	if success and type(result) == "table" then
+		if not isSecret then
 			cache.results[cacheKey] = {value = result, expires = now + cache.ttl}
 		end
-		return result 
-	end
-	
-	-- 4. Try FromID if sessionID is available
-	local viewKey = "view_" .. tostring(sessionType) .. "_" .. tostring(damageType)
-	local cachedView = cache.results[viewKey]
-	local view
-	
-	if cachedView and now < cachedView.expires then
-		view = cachedView.value
-	else
-		local success_view, res_view = pcall(C_DamageMeter.GetCombatSessionFromType, sessionType, damageType)
-		view = success_view and res_view or false
-		cache.results[viewKey] = {value = view, expires = now + cache.ttl}
-	end
-	
-	if view and view.sessionID then
-		local success_id, res_id = pcall(C_DamageMeter.GetCombatSessionSourceFromID, view.sessionID, sourceGUID)
-		result = success_id and res_id or nil
+		return result
 	end
 
-	if not isSecret then 
-		cache.results[cacheKey] = {value = result, expires = now + cache.ttl}
+	-- 4. Last resort: locate the session by type, then query its source by ID.
+	if not sessionID then
+		local viewKey = "view_" .. tostring(sessionType) .. "_" .. tostring(damageType)
+		local cachedView = cache.results[viewKey]
+		local view
+
+		if cachedView and now < cachedView.expires then
+			view = cachedView.value
+		else
+			local okView, resView = pcall(C_DamageMeter.GetCombatSessionFromType, sessionType, damageType)
+			if okView and type(resView) == "table" then
+				view = resView
+				cache.results[viewKey] = {value = view, expires = now + cache.ttl}
+			end
+		end
+
+		if type(view) == "table" and view.sessionID then
+			local okID, resID = pcall(C_DamageMeter.GetCombatSessionSourceFromID, view.sessionID, damageType, sourceGUID)
+			if okID and type(resID) == "table" then
+				result = resID
+			end
+		end
 	end
-	return result
+
+	if type(result) == "table" then
+		if not isSecret then
+			cache.results[cacheKey] = {value = result, expires = now + cache.ttl}
+		end
+		return result
+	end
+
+	return nil
 end
 
 --[[
@@ -153,24 +179,26 @@ end
 ]]
 
 function NativeAPI:GetSessionView(set, damageType)
-	if not set then return nil end
-	
+	if type(set) ~= "table" then return nil end
+
+	local sessionID = set.sessionID
 	local sessionType = set.sessionType or (set == Skada.total and 0 or 1)
-	
+
 	-- 1. Try simulation (safety: only out of combat)
 	if Skada.Simulation and Skada.Simulation.active and not InCombatLockdown() then
 		return Skada.Simulation:GetMockSession(sessionType, damageType)
 	end
-	
+
 	-- 2. Check Frame Cache with TTL
 	local now = GetTime()
 	local cache = self.cache
-	
+
 	-- Only check availability periodically
 	if now - cache.lastCheck > cache.ttl then
 		cache.lastCheck = now
-		cache.available = C_DamageMeter.IsDamageMeterAvailable()
-		
+		local ok, available = pcall(C_DamageMeter.IsDamageMeterAvailable)
+		cache.available = ok and available == true
+
 		-- Clean up expired entries
 		for key, entry in pairs(cache.results) do
 			if entry.expires and now > entry.expires then
@@ -178,55 +206,105 @@ function NativeAPI:GetSessionView(set, damageType)
 			end
 		end
 	end
-	
+
 	if not cache.available then return set end
-	
-	local cacheKey = "view_"..tostring(sessionType).."_"..tostring(damageType)
-	local cached = cache.results[cacheKey]
-	if cached and now < cached.expires then
-		return cached.value or set
+
+	local cacheKey
+	if sessionID then
+		cacheKey = "view_id_" .. tostring(sessionID) .. "_" .. tostring(damageType)
+	else
+		cacheKey = "view_" .. tostring(sessionType) .. "_" .. tostring(damageType)
 	end
 
-	-- 3. Try FromType
-	local success, result = pcall(C_DamageMeter.GetCombatSessionFromType, sessionType, damageType)
-	if success and result then
+	local cached = cache.results[cacheKey]
+	if cached and now < cached.expires then
+		local value = cached.value
+		if type(value) == "table" then
+			return value
+		end
+		return set
+	end
+
+	-- 3. Query the requested session. Historical sessions must be fetched by ID;
+	-- the session structure itself does not contain sessionID.
+	local success, result
+	if sessionID then
+		success, result = pcall(C_DamageMeter.GetCombatSessionFromID, sessionID, damageType)
+	else
+		success, result = pcall(C_DamageMeter.GetCombatSessionFromType, sessionType, damageType)
+	end
+
+	if success and type(result) == "table" then
+		pcall(function()
+			if sessionID then
+				result.sessionID = sessionID
+			else
+				result.sessionType = sessionType
+			end
+		end)
 		cache.results[cacheKey] = {value = result, expires = now + cache.ttl}
 		return result
 	end
-	
+
 	cache.results[cacheKey] = {value = false, expires = now + cache.ttl}
 	return set
 end
 
+function NativeAPI:GetSessionDurationSeconds(sessionType)
+	if type(C_DamageMeter.GetSessionDurationSeconds) == "function" then
+		local ok, duration = pcall(C_DamageMeter.GetSessionDurationSeconds, sessionType)
+		if ok then
+			return duration
+		end
+	end
+	return nil
+end
+
 function NativeAPI:GetPlayerRate(set, player, rateType)
-	if not player then return 0 end
-	return player.amountPerSecond or player.rate or 0
+	if type(player) ~= "table" then return 0 end
+
+	local rate = player.amountPerSecond
+	if issecretvalue(rate) then return rate end
+	if type(rate) ~= "number" then
+		rate = player.rate
+	end
+	if issecretvalue(rate) then return rate end
+	return tonumber(rate) or 0
 end
 
 function NativeAPI:GetRaidRate(set, rateType)
-	if not set then return 0 end
-	
-	local val = set.amountPerSecond or set.rate
-	if val then
+	if type(set) ~= "table" then return 0 end
+
+	local val = set.amountPerSecond
+	if issecretvalue(val) then return val end
+	if type(val) == "number" then
 		return val
 	end
-	
+
 	-- Fallback: sum up participants
 	local totalRate = 0
-	local sources = set.combatSources or set.participants or {}
-	for _, p in pairs(sources) do
-		local prate = p.amountPerSecond or p.rate
-		if not prate then
-			-- Try to get it from GetPlayerRate
-			prate = self:GetPlayerRate(set, p, rateType)
-		end
-		
-		if issecretvalue and issecretvalue(prate) then
-			return prate -- Any secret makes total secret
-		end
-		totalRate = totalRate + (tonumber(prate) or 0)
+	local sources = set.combatSources
+	if type(sources) ~= "table" then
+		sources = set.participants
 	end
-	
+	if type(sources) ~= "table" or issecretvalue(sources) then return 0 end
+
+	for _, p in pairs(sources) do
+		if type(p) == "table" and not issecretvalue(p) then
+			local prate = p.amountPerSecond
+			if issecretvalue(prate) then
+				return prate -- Any secret makes total secret
+			end
+			if type(prate) ~= "number" then
+				prate = p.rate
+			end
+			if issecretvalue(prate) then
+				return prate
+			end
+			totalRate = totalRate + (tonumber(prate) or 0)
+		end
+	end
+
 	return totalRate
 end
 
@@ -268,10 +346,10 @@ end
 -- Extract spell data from a source object without making an API call.
 -- Returns the spells collection (table or secret value) or nil.
 local function ExtractSpellsFromSource(source)
-	if not source then return nil end
+	if type(source) == "nil" then return nil end
 
 	-- If the source itself is a secret value, we cannot index or iterate it.
-	if issecretvalue and issecretvalue(source) then
+	if issecretvalue(source) then
 		return source
 	end
 
@@ -281,33 +359,30 @@ local function ExtractSpellsFromSource(source)
 	local spellFields = {"combatSpells", "spells", "abilities", "damageSpells", "healingSpells"}
 	for _, field in ipairs(spellFields) do
 		local val = source[field]
-		if type(val) == "table" then
+		if issecretvalue(val) then
 			return val
-		elseif val and issecretvalue and issecretvalue(val) then
+		elseif type(val) == "table" then
 			return val
 		end
 	end
 
 	-- Check if source itself looks like a spells array
-	local looksLikeSpellsArray = true
 	local itemCount = 0
 	for _, v in pairs(source) do
 		itemCount = itemCount + 1
-		local isVTable = type(v) == "table"
-		local isVSecret = issecretvalue and issecretvalue(v)
 
-		if not isVTable and not isVSecret then
-			looksLikeSpellsArray = false
-			break
+		if issecretvalue(v) then
+			return source
 		end
-
-		if isVTable and (not v.spellID and not v.abilityID and not v.totalAmount) then
-			looksLikeSpellsArray = false
-			break
+		if type(v) ~= "table" then
+			return nil
+		end
+		if not v.spellID and not v.abilityID and not v.totalAmount then
+			return nil
 		end
 	end
 
-	if looksLikeSpellsArray and itemCount > 0 then
+	if itemCount > 0 then
 		return source
 	end
 
@@ -315,10 +390,9 @@ local function ExtractSpellsFromSource(source)
 end
 
 function NativeAPI:GetPlayerSpells(playerID, set, damageType)
-	local sessionType = set and set.sessionType or 1
-	local source = self:GetSessionSource(playerID, sessionType, damageType)
+	local source = self:GetSessionSource(playerID, set, damageType)
 
-	if not source then
+	if type(source) == "nil" then
 		if Skada.db.profile.debug then
 			Skada:Debug("GetPlayerSpells: No source found for", playerID, "damageType", damageType)
 		end
@@ -334,18 +408,21 @@ end
 
 function NativeAPI:GetPlayerSpell(playerID, set, damageType, spellID)
 	local spells = self:GetPlayerSpells(playerID, set, damageType)
-	if spells then
-		for _, spell in pairs(spells) do
-			if type(spell) == "table" and spell.spellID == spellID then
-				return spell
-			end
+	if type(spells) ~= "table" or issecretvalue(spells) then
+		return nil
+	end
+
+	for _, spell in pairs(spells) do
+		if type(spell) == "table" and not issecretvalue(spell) and spell.spellID == spellID then
+			return spell
 		end
 	end
 	return nil
 end
+
 function NativeAPI:IsAvailable()
-	local available = C_DamageMeter.IsDamageMeterAvailable()
-	return available
+	local ok, available = pcall(C_DamageMeter.IsDamageMeterAvailable)
+	return ok and available == true
 end
 
 --[[
@@ -360,27 +437,50 @@ end
 	}
 ]]
 function NativeAPI:GetAvailableSessions()
-		local success, result = pcall(C_DamageMeter.GetAvailableCombatSessions)
-	if success and result then
+	local success, result = pcall(C_DamageMeter.GetAvailableCombatSessions)
+	if success and type(result) == "table" then
 		return result
-	else
-		return {}
 	end
+	return {}
 end
 
 --[[
-	Get combat session info by sessionID
-	Returns: DamageMeterCombatSessionInfo
+	Get combat session info by sessionID.
+	The API requires a DamageMeterType, so callers pass the type they intend
+	to display; DamageDone is the default for set-list lookups.
 ]]
-function NativeAPI:GetSessionByID(sessionID)
-	if not sessionID then return nil end
-	
-	local success, result = pcall(C_DamageMeter.GetCombatSessionFromID, sessionID)
-	if success then
-		return result
-	else
+function NativeAPI:GetSessionByID(sessionID, damageType)
+	if type(sessionID) == "nil" then return nil end
+
+	damageType = damageType or 0
+	local success, result = pcall(C_DamageMeter.GetCombatSessionFromID, sessionID, damageType)
+	if not success or type(result) ~= "table" then
 		return nil
 	end
+
+	-- C_DamageMeter sessions do not expose sessionID or their display name.
+	-- Attach both so GetSessionView can re-query the right pull and the title
+	-- can show a meaningful label.
+	pcall(function()
+		result.sessionID = sessionID
+	end)
+
+	local sessions = self:GetAvailableSessions()
+	for _, available in ipairs(sessions) do
+		if available.sessionID == sessionID then
+			pcall(function()
+				if type(available.name) == "string" then
+					result.name = available.name
+				end
+				if type(available.durationSeconds) ~= "nil" then
+					result.durationSeconds = available.durationSeconds
+				end
+			end)
+			break
+		end
+	end
+
+	return result
 end
 
 --[[
@@ -389,74 +489,42 @@ end
 	This function is kept for backward compatibility but may not work correctly
 ]]
 function NativeAPI:GetSessionByType(sessionType)
-	if not sessionType then 
-		return nil 
+	if type(sessionType) == "nil" then
+		return nil
 	end
-	
-	-- Try to convert old-style single argument to new-style table argument
-	-- If sessionType is a number, assume it's a sessionType value
-	-- Default to DamageDone (type = 0) which is most common
-	
+
 	local args = {}
-	
+
 	if type(sessionType) == "number" then
 		args.sessionType = sessionType
 		args.type = 0  -- Default to DamageDone
 	elseif type(sessionType) == "table" then
-		-- Already in correct format
 		args = sessionType
 	else
-		-- Unknown format, try as-is
 		return nil
 	end
-	
-	-- Try to get the session using GetCombatSessionFromType
+
 	local success, result = pcall(C_DamageMeter.GetCombatSessionFromType, args.sessionType, args.type)
-	
-	if success then
+	if success and type(result) == "table" then
 		return result
-	else
-		return nil
 	end
+	return nil
 end
 
 --[[
 	Test all possible session types to find the correct one
 ]]
 function NativeAPI:TestSessionTypes()
-	-- According to documentation:
-	-- Enum.DamageMeterSessionType values:
-	-- 0 = Overall
-	-- 1 = Current
-	-- 2 = Expired
-	
-	-- Enum.DamageMeterType values:
-	-- 0 = DamageDone
-	-- 1 = Dps
-	-- 2 = HealingDone
-	-- 3 = Hps
-	-- 4 = Absorbs
-	-- 5 = Interrupts
-	-- 6 = Dispels
-	-- 7 = DamageTaken
-	-- 8 = AvoidableDamageTaken
-	
-	-- Test session types (0=Overall, 1=Current, 2=Expired)
+	-- Enum.DamageMeterSessionType: 0 = Overall, 1 = Current, 2 = Expired
+	-- Enum.DamageMeterType: 0 = DamageDone ... 10 = EnemyDamageTaken
+
 	local sessionTypes = {0, 1, 2}
-	
-	for i, sessionType in ipairs(sessionTypes) do
-		-- Try with different damage meter types
-		for damageType = 0, 8 do
-			-- Create args table as documented
-			local args = {
-				sessionType = sessionType,
-				type = damageType
-			}
-			
-			local success, result = pcall(C_DamageMeter.GetCombatSessionFromType, args.sessionType, args.type)
-			
-			if success and result then
-				-- Cache successful values
+
+	for _, sessionType in ipairs(sessionTypes) do
+		for damageType = 0, 10 do
+			local success, result = pcall(C_DamageMeter.GetCombatSessionFromType, sessionType, damageType)
+
+			if success and type(result) == "table" then
 				if sessionType == 1 then -- Current
 					self.sessionTypeCache.current = sessionType
 					self.sessionTypeCache.currentDamageType = damageType
@@ -464,7 +532,7 @@ function NativeAPI:TestSessionTypes()
 					self.sessionTypeCache.total = sessionType
 					self.sessionTypeCache.totalDamageType = damageType
 				end
-				
+
 				break -- Found working damage type for this session
 			end
 		end
@@ -487,7 +555,7 @@ function NativeAPI:GetSessionByParams(sessionType, damageType)
 	end
 
 	local success, result = pcall(C_DamageMeter.GetCombatSessionFromType, sessionType, damageType)
-	if success and result then
+	if success and type(result) == "table" then
 		return result
 	end
 
@@ -514,7 +582,7 @@ function NativeAPI:GetSessionByParams(sessionType, damageType)
 			end
 
 			success, result = pcall(C_DamageMeter.GetCombatSessionFromType, enumSessionType, enumDamageType)
-			if success and result then
+			if success and type(result) == "table" then
 				return result
 			end
 		end

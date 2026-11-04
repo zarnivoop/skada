@@ -33,25 +33,32 @@ end
 
 local function formatLabel(win, data)
 	if not data then return "" end
+	local label = data.label
+	if type(label) ~= "string" then
+		label = ""
+	end
 	if win.db.isusingclasscolors and data.class and RAID_CLASS_COLORS[data.class] then
-		return string.format("|c%s%s|r", RAID_CLASS_COLORS[data.class].colorStr, data.label or "")
+		return string.format("|c%s%s|r", RAID_CLASS_COLORS[data.class].colorStr, label)
 	else
-		return string.format("%s", data.label or "")
+		return string.format("%s", label)
 	end
 end
 
 local function formatValue(win, data)
 	if not data then return "" end
-	if data.valuetext then
-		return string.format("%s", data.valuetext)
-	else
-		-- Use string.format for multiple parts to support secret values
-		if data.valueText1 and data.valueText2 then
-			return string.format("%s %s", data.valueText1, data.valueText2)
-		else
-			return string.format("%s", data.valueText1 or "")
+	local valuetext = data.valuetext
+	if type(valuetext) == "nil" then
+		local valueText1 = data.valueText1
+		local valueText2 = data.valueText2
+		if type(valueText1) ~= "nil" and type(valueText2) ~= "nil" then
+			return string.format("%s %s", valueText1, valueText2)
 		end
+		valuetext = valueText1
 	end
+	if type(valuetext) == "nil" then
+		valuetext = ""
+	end
+	return string.format("%s", valuetext)
 end
 
 local function clickHandler(win, frame, button)
@@ -90,7 +97,9 @@ local function tooltipHandler(win, tooltip)
 					label = (("%2u. %s"):format(i, label))
 				end
 
-				tooltip:AddDoubleLine(label or "", value or "", color.r, color.g, color.b, color.r, color.g, color.b)
+				if type(label) ~= "string" then label = "" end
+				if type(value) ~= "string" then value = "" end
+				tooltip:AddDoubleLine(label, value, color.r, color.g, color.b, color.r, color.g, color.b)
 
 			end
 		end

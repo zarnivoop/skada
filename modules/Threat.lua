@@ -48,7 +48,15 @@ Skada:AddLoadableModule("Threat", nil, function(Skada, L)
 		if not unit or not UnitExists(unit) then return end
 
 		local isTanking, status, threatpct = UnitThreatSituation(unit, target)
-		if not threatpct then return end
+
+		-- On Forever threat values can be secret (or unavailable for units
+		-- other than the current target). Never compare or do math on them.
+		if type(threatpct) ~= "number" or issecretvalue(threatpct) then
+			return nil
+		end
+		if type(isTanking) ~= "boolean" or issecretvalue(isTanking) then
+			isTanking = nil
+		end
 
 		local d = win.dataset[dataset_index] or {}
 		win.dataset[dataset_index] = d
@@ -58,6 +66,7 @@ Skada:AddLoadableModule("Threat", nil, function(Skada, L)
 		d.class = select(2, UnitClass(unit))
 		d.role = UnitGroupRolesAssigned(unit)
 		d.isTanking = isTanking
+		d.isPlayer = UnitIsUnit(unit, "player")
 		d.value = threatpct
 		d.threat = threatpct
 		d.tps = ""
@@ -68,9 +77,9 @@ Skada:AddLoadableModule("Threat", nil, function(Skada, L)
 
 	-- Check if we should warn the player about threat
 	local function check_threat_warning(self, data, maxvalue)
-		if not data or time() - last_warn <= 2 then return end
+		if type(data) ~= "table" or time() - last_warn <= 2 then return end
 
-		if data.label == UnitName("player") then
+		if data.isPlayer then
 			local treshold = Skada.db.profile.modules.threattreshold or 100
 			local percent = data.value
 
@@ -97,7 +106,11 @@ Skada:AddLoadableModule("Threat", nil, function(Skada, L)
 			return
 		end
 
-		win.metadata.title = UnitName(target)
+		local targetName = UnitName(target)
+		if issecretvalue(targetName) or type(targetName) ~= "string" then
+			targetName = self:GetName()
+		end
+		win.metadata.title = targetName
 		dataset_index = 1
 
 		local max_value = 0

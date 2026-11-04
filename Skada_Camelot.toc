@@ -1,0 +1,65 @@
+## Interface: 16001
+## Title: Skada
+## IconTexture: Interface\Icons\Spell_Lightning_LightningBolt01
+## Notes: Modular damage meter.
+## Notes-deDE: Ein Damage-Meter.
+## Notes-esES: Un medidor de daño.
+## Notes-esMX: Un medidor de daño.
+## Notes-frFR: Un damage meter.
+## Notes-itIT: Un misuratore di danni.
+## Notes-koKR: 데미지 미터 모듈입니다.
+## Notes-ptBR: Um medidor de dano.
+## Notes-ruRU: Измеритель урона
+## Notes-zhCN: 模块化伤害统计。
+## Notes-zhTW: 模組化的傷害統計。
+## Author: Zarnivoop
+## Version: @project-version@
+## SavedVariables: SkadaDB
+## SavedVariablesPerCharacter: SkadaPerCharDB
+
+## OptionalDeps: Ace3, LibSharedMedia-3.0, LibWindow-1.1, LibDBIcon-1.0, AceGUI-3.0-SharedMediaWidgets, LibDualSpec-1.0, LibNotify-1.0
+
+## X-Curse-Project-ID: 17718
+## X-Wago-ID: Q6aEVa6W
+## X-License: MIT/X
+## X-Category: Combat
+
+## Category-enUS: Combat
+## Category-deDE: Kampf
+## Category-esES: Combate
+## Category-esMX: Combate
+## Category-frFR: Combat
+## Category-itIT: Combattimento
+## Category-koKR: 전투
+## Category-ptBR: Combate
+## Category-ruRU: Бой
+## Category-zhCN: 战斗
+## Category-zhTW: 戰鬥
+
+embeds.xml
+
+locale\enUS.lua
+locale\deDE.lua
+locale\esES.lua
+locale\esMX.lua
+locale\frFR.lua
+locale\itIT.lua
+locale\koKR.lua
+locale\ptBR.lua
+locale\ruRU.lua
+locale\zhCN.lua
+locale\zhTW.lua
+
+NativeAPI.lua
+Simulation.lua
+SecretValueHelper.lua
+ModuleBase.lua
+Skada.lua
+Menus.lua
+Options.lua
+BarDisplay.lua
+InlineDisplay.lua
+BrokerDisplay.lua
+Version.lua
+
+modules.xml

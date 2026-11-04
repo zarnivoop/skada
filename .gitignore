@@ -5,7 +5,10 @@ lib/*
 # Release files
 release.sh
 .release/
+release/
+.tools/
 .env
+Skada-*.zip
 
 # IDE files
 .idea/

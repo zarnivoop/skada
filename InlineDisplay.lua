@@ -303,16 +303,22 @@ end
 
 function mod:UpdateBar(bar, bardata, db)
 	-- Build label safely for secret values
-	local label = bardata.label or ""
+	local label = bardata.label
+	if type(label) ~= "string" then
+		label = ""
+	end
 	if db.isusingclasscolors and bardata.class and RAID_CLASS_COLORS[bardata.class] then
 		label = string.format("|c%s%s|r", RAID_CLASS_COLORS[bardata.class].colorStr, label)
 	end
 
 	-- Fall back to valueText1 when valuetext is nil (columns-based modules)
-	local vtext = bardata.valuetext or bardata.valueText1
-	
+	local vtext = bardata.valuetext
+	if type(vtext) == "nil" then
+		vtext = bardata.valueText1
+	end
+
 	-- Use string.format for all concatenation to support secret values
-	if vtext then
+	if type(vtext) ~= "nil" then
 		if db.isonnewline and db.barfontsize*2 < db.height then
 			label = string.format("%s\n%s", label, vtext)
 		else
@@ -336,7 +342,7 @@ function mod:Update(win)
 
 	--purge nil values from dataset
 	for i=#win.dataset, 1, -1 do
-		if win.dataset[i].label==nil then
+		if type(win.dataset[i].label) == "nil" then
 				table.remove(win.dataset, i)
 		end
 	end
@@ -363,6 +369,8 @@ function mod:Update(win)
 			return false
 		elseif not bar2 or not bar2.valueid then
 			return true
+		elseif issecretvalue(bar1.value) or issecretvalue(bar2.value) then
+			return (bar1.order or 0) < (bar2.order or 0)
 		elseif bar1.value == nil then
 			return false
 		elseif bar2.value == nil then
@@ -494,8 +502,8 @@ function mod:ApplySettings(win)
 		local backdropR, backdropG, backdropB = unpack(ElvUI[1]["media"].backdropcolor)
 		local backdropA = 0
 		if p.issolidbackdrop then backdropA = 1.0 else backdropA = 0.8 end
-		local resolution =  ({GetScreenResolutions()})[GetCurrentResolution()]
-		local mult = 768/string.match(resolution, "%d+x(%d+)")/(max(0.64, min(1.15, 768/GetScreenHeight() or UIParent:GetScale())))
+		local _, physicalHeight = GetPhysicalScreenSize()
+		local mult = 768/(physicalHeight or 768)/(max(0.64, min(1.15, 768/GetScreenHeight() or UIParent:GetScale())))
 
 		fbackdrop.bgFile = ElvUI[1]["media"].blankTex
 		fbackdrop.edgeFile = ElvUI[1]["media"].blankTex

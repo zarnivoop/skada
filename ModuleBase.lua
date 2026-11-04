@@ -33,98 +33,128 @@ local ipairs = ipairs
 		- includePercent: Whether to include percentage column (default true)
 ]]
 function ModuleBase:UpdatePlayerList(win, set, options)
-	if not set then return end
-	
+	if type(set) ~= "table" then return end
+
 	local view = Skada.NativeAPI:GetSessionView(set, options.damageType)
-	if not view then return end
-	
-	local sources = view.combatSources or {}
-	local hasSecretAPI = SecretHelper:HasSecretAPI()
-	
+	if type(view) ~= "table" then return end
+
+	local sources = view.combatSources
+	if type(sources) ~= "table" or issecretvalue(sources) then return end
+
+	local valueKey = options.valueKey or "totalAmount"
+	local rateKey = options.rateKey or "amountPerSecond"
+
 	-- Detect secrets and calculate total (using cached detection)
 	local cacheKey = "playerlist_" .. tostring(set.sessionType or 0) .. "_" .. tostring(options.damageType)
-	local hasSecretValues = SecretHelper:DetectSecretsCached(cacheKey, sources, options.valueKey or "totalAmount")
-	
+	local hasSecretValues = SecretHelper:DetectSecretsCached(cacheKey, sources, valueKey)
+
 	-- Calculate total (only for non-secrets)
 	local totalValue = 0
 	if not hasSecretValues then
-		for _, player in pairs(sources) do
-			local value = player[options.valueKey] or player.totalAmount
-			if value then
-				totalValue = totalValue + (tonumber(value) or 0)
+		for _, player in ipairs(sources) do
+			if type(player) == "table" then
+				local value = player[valueKey]
+				if type(value) == "nil" then
+					value = player.totalAmount
+				end
+				if type(value) ~= "nil" then
+					totalValue = totalValue + (tonumber(value) or 0)
+				end
 			end
 		end
 	end
-	
+
 	-- Update window metadata for secret state
 	SecretHelper:UpdateWindowMetadata(win, hasSecretValues)
-	
+
 	local max = 0
 	local nr = 1
-	
+
 	if hasSecretValues then
-		-- SLOW PATH: Multi-mode handling for protected data
-		for _, player in pairs(sources) do
-			local playerName = SecretHelper:GetPlayerName(player)
-			if playerName then
-				local rawValue = player[options.valueKey] or player.totalAmount
-				local rawRate = player[options.rateKey] or player.rate
-				local rate = 0
-				
-				if not (hasSecretAPI and issecretvalue(rawRate)) then
-					rate = tonumber(rawRate) or 0
-				elseif options.getRateFunc then
-					rate = options.getRateFunc(set, player)
+		-- SLOW PATH: values are protected. Use synthetic order values for the
+		-- bars and let FormatNumberSecret produce display text.
+		for _, player in ipairs(sources) do
+			if type(player) == "table" and not issecretvalue(player) then
+				local rawValue = player[valueKey]
+				if type(rawValue) == "nil" then
+					rawValue = player.totalAmount
 				end
-				
-				local d = self:ReuseDatasetEntry(win.dataset, nr)
-				d._is_nodata = nil
-				d.id = "combat_" .. nr
-				d.label = playerName
-				d.class = SecretHelper:GetPlayerClass(player)
-				d.role = player.role
-				d.order = nr
-				d.value = SecretHelper:GetDisplayValue(rawValue, nr)
-				
-				local valueText = Skada:FormatNumberSecret(rawValue)
-				local rateText = Skada:FormatNumberSecret(rawRate or rate)
-				
-				if options.columns then
-					Skada:FormatValueText(d, valueText, options.columns[1], rateText, options.columns[2], "", options.columns[3])
-				else
-					d.valuetext = valueText
+				local rawRate = player[rateKey]
+
+				if type(rawValue) ~= "nil" or type(rawRate) ~= "nil" then
+					local d = self:ReuseDatasetEntry(win.dataset, nr)
+					d._is_nodata = nil
+					d.id = "combat_" .. nr
+					d.label = SecretHelper:GetPlayerLabel(player, nr)
+					d.class = SecretHelper:GetPlayerClass(player)
+					d.role = player.role
+					d.order = nr
+					d.value = SecretHelper:GetDisplayValue(rawValue, nr)
+
+					local valueText = Skada:FormatNumberSecret(rawValue)
+					local rateText = Skada:FormatNumberSecret(rawRate)
+
+					if options.columns then
+						Skada:FormatValueText(d, valueText, options.columns[1], rateText, options.columns[2], "", options.columns[3])
+					else
+						d.valuetext = valueText
+					end
+					nr = nr + 1
 				end
-				nr = nr + 1
 			end
 		end
 		win.metadata.maxvalue = 1000 - 1
 	else
 		-- FAST PATH: Standard arithmetic and comparisons (no secrets)
-		for _, player in pairs(sources) do
-			local playerName = player.name or player.unitName
-			if playerName then
-				local value = tonumber(player[options.valueKey] or player.totalAmount) or 0
-				local rate = tonumber(player[options.rateKey] or player.rate) or 0
-				
+		for _, player in ipairs(sources) do
+			if type(player) == "table" then
+				local playerName = player.name
+				if type(playerName) ~= "string" then
+					playerName = player.unitName
+				end
+				if type(playerName) ~= "string" then
+					playerName = "Combat " .. nr
+				end
+
+				local value = player[valueKey]
+				if type(value) == "nil" then
+					value = player.totalAmount
+				end
+				value = tonumber(value) or 0
+
+				local rate = player[rateKey]
+				if type(rate) == "nil" then
+					rate = player.rate
+				end
+				rate = tonumber(rate) or 0
+
 				if rate == 0 and options.getRateFunc then
 					rate = options.getRateFunc(set, player)
 				end
-				
+
+				local guid = player.sourceGUID
+				local id
+				if type(guid) == "string" and not issecretvalue(guid) then
+					id = guid
+				else
+					id = "player_" .. nr
+				end
+
 				local d = self:ReuseDatasetEntry(win.dataset, nr)
 				d._is_nodata = nil
-				d.id = player.sourceGUID or playerName
+				d.id = id
 				d.label = playerName
-				d.class = player.class or player.classFilename
+				d.class = SecretHelper:GetPlayerClass(player)
 				d.role = player.role
 				d.order = nr
 				d.value = value
-				
+
 				if value > max then max = value end
-				
+
 				local valueText = Skada:FormatNumber(value)
 				local rateText = options.formatRate and options.formatRate(rate) or Skada:FormatNumber(rate)
 				local percentText = (options.includePercent and totalValue > 0) and string.format("%02.1f%%", (value / totalValue) * 100) or nil
-				
+
 				if options.columns then
 					Skada:FormatValueText(d, valueText, options.columns[1], rateText, options.columns[2], percentText, options.columns[3])
 				else
@@ -147,38 +177,40 @@ end
 		- valueKey: Key for the value (default "totalAmount")
 ]]
 function ModuleBase:UpdateSimpleList(win, set, options)
-	if not set then return end
-	
+	if type(set) ~= "table" then return end
+
 	local view = Skada.NativeAPI:GetSessionView(set, options.damageType)
-	if not view then return end
-	
-	local sources = view.combatSources or {}
-	local hasSecretAPI = SecretHelper:HasSecretAPI()
-	
+	if type(view) ~= "table" then return end
+
+	local sources = view.combatSources
+	if type(sources) ~= "table" or issecretvalue(sources) then return end
+
+	local valueKey = options.valueKey or "totalAmount"
+
 	-- Detect secrets (using cached detection)
 	local cacheKey = "simplelist_" .. tostring(set.sessionType or 0) .. "_" .. tostring(options.damageType)
-	local hasSecretValues = SecretHelper:DetectSecretsCached(cacheKey, sources, options.valueKey or "totalAmount")
-	
+	local hasSecretValues = SecretHelper:DetectSecretsCached(cacheKey, sources, valueKey)
+
 	-- Update window metadata
 	SecretHelper:UpdateWindowMetadata(win, hasSecretValues)
-	
+
 	local max = 0
 	local nr = 1
-	
+
 	if hasSecretValues then
 		-- SLOW PATH
-		for _, player in pairs(sources) do
-			local playerName = SecretHelper:GetPlayerName(player)
-			if playerName then
-				local rawValue = player[options.valueKey] or player.totalAmount
-				local isSecret = hasSecretAPI and rawValue and issecretvalue(rawValue)
-				local value = SecretHelper:SafeNumber(rawValue)
-				
-				if value > 0 or isSecret then
+		for _, player in ipairs(sources) do
+			if type(player) == "table" and not issecretvalue(player) then
+				local rawValue = player[valueKey]
+				if type(rawValue) == "nil" then
+					rawValue = player.totalAmount
+				end
+
+				if type(rawValue) ~= "nil" then
 					local d = self:ReuseDatasetEntry(win.dataset, nr)
 					d._is_nodata = nil
 					d.id = "combat_" .. nr
-					d.label = playerName
+					d.label = SecretHelper:GetPlayerLabel(player, nr)
 					d.class = SecretHelper:GetPlayerClass(player)
 					d.role = player.role
 					d.order = nr
@@ -190,22 +222,41 @@ function ModuleBase:UpdateSimpleList(win, set, options)
 		end
 	else
 		-- FAST PATH
-		for _, player in pairs(sources) do
-			local playerName = player.name or player.unitName
-			if playerName then
-				local value = tonumber(player[options.valueKey] or player.totalAmount) or 0
-				
+		for _, player in ipairs(sources) do
+			if type(player) == "table" then
+				local playerName = player.name
+				if type(playerName) ~= "string" then
+					playerName = player.unitName
+				end
+				if type(playerName) ~= "string" then
+					playerName = "Combat " .. nr
+				end
+
+				local value = player[valueKey]
+				if type(value) == "nil" then
+					value = player.totalAmount
+				end
+				value = tonumber(value) or 0
+
 				if value > 0 then
+					local guid = player.sourceGUID
+					local id
+					if type(guid) == "string" and not issecretvalue(guid) then
+						id = guid
+					else
+						id = "player_" .. nr
+					end
+
 					local d = self:ReuseDatasetEntry(win.dataset, nr)
 					d._is_nodata = nil
-					d.id = player.sourceGUID or playerName
+					d.id = id
 					d.label = playerName
-					d.class = player.class or player.classFilename
+					d.class = SecretHelper:GetPlayerClass(player)
 					d.role = player.role
 					d.order = nr
 					d.value = value
 					d.valuetext = Skada:FormatNumber(value)
-					
+
 					if value > max then max = value end
 					nr = nr + 1
 				end
@@ -213,7 +264,7 @@ function ModuleBase:UpdateSimpleList(win, set, options)
 		end
 		max = (max > 0 and max or 1)
 	end
-	
+
 	win.metadata.maxvalue = hasSecretValues and (1000 - 1) or max
 end
 
@@ -235,26 +286,22 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 	local view = Skada.NativeAPI:GetSessionView(set, damageType)
 	local player = Skada:find_player_in_session(view, playerid)
 
-	if not player then
+	if type(player) ~= "table" then
 		player = Skada:find_player(set, playerid)
 	end
 
-	if not player then return end
+	if type(player) ~= "table" then return end
 
-	local realID = player.sourceGUID or player.guid or player.unitGUID or player.id or playerid
+	local realID = SecretHelper:GetPlayerID(player, playerid)
 	local spells = Skada.NativeAPI:GetPlayerSpells(realID, view or set, damageType)
 
-	if not spells then
+	if type(spells) == "nil" then
 		return
 	end
 
-	local hasSecretAPI = SecretHelper:HasSecretAPI()
-
 	-- If the spells collection itself is a secret value, we cannot iterate
-	-- it with pairs() or index it. The C_DamageMeter API marks spell source
-	-- data as SecretWhenInCombat — this is a Blizzard restriction that
-	-- prevents addons from reading spell details during active combat.
-	if hasSecretAPI and issecretvalue(spells) then
+	-- it with pairs() or index it.
+	if issecretvalue(spells) then
 		local d = self:ReuseDatasetEntry(win.dataset, 1)
 		d._is_nodata = nil
 		d.id = "secret_spells"
@@ -272,10 +319,10 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 	-- Calculate total (only for non-secrets)
 	local totalValue = 0
 	if not hasSecretValues then
-		for _, spell in pairs(spells) do
+		for _, spell in ipairs(spells) do
 			if type(spell) == "table" then
 				local value = spell[valueKey]
-				if value and type(value) == "number" then
+				if type(value) == "number" then
 					totalValue = totalValue + value
 				end
 			end
@@ -289,15 +336,22 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 		-- SLOW PATH: spell values are secret; we cannot do arithmetic or
 		-- comparisons on them, but we CAN pass them to string.format and
 		-- FontString:SetText for display.
-		for _, spell in pairs(spells) do
-			if type(spell) == "table" then
+		for _, spell in ipairs(spells) do
+			if type(spell) == "table" and not issecretvalue(spell) then
 				local rawValue = spell[valueKey]
-				-- Check type() before any comparison — type() is safe on
-				-- secrets, but ~= crashes on them.
-				local isSecret = hasSecretAPI and rawValue and issecretvalue(rawValue)
-				local isNonZeroNumber = (type(rawValue) == "number") and (rawValue ~= 0)
+				local isSecret = issecretvalue(rawValue)
+				local isNonZeroNumber = false
+
+				if not isSecret then
+					isNonZeroNumber = (type(rawValue) == "number") and (rawValue ~= 0)
+				end
+
 				if isSecret or isNonZeroNumber then
-					local spellID = spell.spellID or 0
+					local spellID = 0
+					if type(spell.spellID) == "number" then
+						spellID = spell.spellID
+					end
+
 					local d = self:ReuseDatasetEntry(win.dataset, nr)
 					d._is_nodata = nil
 					d.id = spellID
@@ -315,11 +369,15 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 		win.metadata.maxvalue = 1000 - 1
 	else
 		-- FAST PATH
-		for _, spell in pairs(spells) do
+		for _, spell in ipairs(spells) do
 			if type(spell) == "table" then
 				local value = tonumber(spell[valueKey]) or 0
 				if value ~= 0 then
-					local spellID = spell.spellID or 0
+					local spellID = 0
+					if type(spell.spellID) == "number" then
+						spellID = spell.spellID
+					end
+
 					local d = self:ReuseDatasetEntry(win.dataset, nr)
 					d._is_nodata = nil
 					d.id = spellID
@@ -355,29 +413,37 @@ end
 	@return number - Total value (or secret value if any found)
 ]]
 function ModuleBase:GetSetTotal(set, damageType, options)
-	if not set then return 0 end
-	
+	if type(set) ~= "table" then return 0 end
+
 	options = options or {}
 	local valueKey = options.valueKey or "totalAmount"
 	local sourcesKey = options.sourcesKey or "combatSources"
-	
+
 	local view = Skada.NativeAPI:GetSessionView(set, damageType)
-	if not view then return 0 end
-	
+	if type(view) ~= "table" then return 0 end
+
 	local total = 0
-	local sources = view[sourcesKey] or view.combatSources or {}
-	local hasSecretAPI = SecretHelper:HasSecretAPI()
-	
-	for _, p in pairs(sources) do
-		local value = p[valueKey] or p.totalAmount
-		if value then
-			if hasSecretAPI and issecretvalue(value) then
-				return value -- Return secret value if found
+	local sources = view[sourcesKey]
+	if type(sources) ~= "table" then
+		sources = view.combatSources
+	end
+	if type(sources) ~= "table" or issecretvalue(sources) then return 0 end
+
+	for _, p in ipairs(sources) do
+		if type(p) == "table" and not issecretvalue(p) then
+			local value = p[valueKey]
+			if type(value) == "nil" then
+				value = p.totalAmount
 			end
-			total = total + (tonumber(value) or 0)
+			if type(value) ~= "nil" then
+				if issecretvalue(value) then
+					return value -- Return secret value if found
+				end
+				total = total + (tonumber(value) or 0)
+			end
 		end
 	end
-	
+
 	return total
 end
 
@@ -419,72 +485,85 @@ end
 function ModuleBase:CreatePlayerTooltip(options)
 	return function(win, id, label, tooltip)
 		local set = win:get_selected_set()
-		if not set then return end
-		
+		if type(set) ~= "table" then return end
+
 		local view = Skada.NativeAPI:GetSessionView(set, options.damageType)
-		if not view then return end
-		
+		if type(view) ~= "table" then return end
+
 		-- Resolve player (crucial for artificial IDs)
 		local player = Skada:find_player_in_session(view, id)
-		if not player then
+		if type(player) ~= "table" then
 			player = Skada:find_player(set, id)
 		end
-		
-		if not player then return end
-		
+
+		if type(player) ~= "table" then return end
+
 		local totaltime = Skada:GetSetTime(view)
-		local rawValue = player[options.valueKey] or player.totalAmount or 0
-		local rawRate = player[options.rateKey] or player.amountPerSecond or 0
-		
-		tooltip:AddLine((player.name or label) .. " - " .. options.labelRate)
-		tooltip:AddDoubleLine(L["Segment time"], totaltime .. "s", 1, 1, 1, 1, 1, 1)
+		local rawValue = player[options.valueKey]
+		if type(rawValue) == "nil" then
+			rawValue = player.totalAmount
+		end
+		local rawRate = player[options.rateKey]
+		if type(rawRate) == "nil" then
+			rawRate = player.amountPerSecond
+		end
+
+		local playerName = label
+		local rawName = player.name
+		if type(rawName) == "string" and not issecretvalue(rawName) then
+			playerName = rawName
+		end
+		if issecretvalue(playerName) then
+			playerName = "?"
+		end
+		playerName = playerName or "?"
+
+		tooltip:AddLine(string.format("%s - %s", tostring(playerName), tostring(options.labelRate)))
+		tooltip:AddDoubleLine(L["Segment time"], string.format("%s s", Skada:FormatNumberSecret(totaltime)), 1, 1, 1, 1, 1, 1)
 		tooltip:AddDoubleLine(options.labelDamage, Skada:FormatNumberSecret(rawValue), 1, 1, 1, 1, 1, 1)
 		tooltip:AddDoubleLine(options.labelRate, Skada:FormatNumberSecret(rawRate), 1, 1, 1, 1, 1, 1)
-		
-		-- Add top spells
-		local realID = player.sourceGUID or player.guid or player.unitGUID or player.id or id
+
+		-- Add top spells (unavailable while the spell collection is secret)
+		local realID = SecretHelper:GetPlayerID(player, id)
 		local spells = Skada.NativeAPI:GetPlayerSpells(realID, view, options.damageType)
-		if spells then
+		if type(spells) == "table" and not issecretvalue(spells) then
 			local sorted = {}
 			local spellValueKey = options.spellValueKey or "totalAmount"
 
-			for _, s in pairs(spells) do
-				-- Only index if it's a real table; indexing a secret crashes
-				if type(s) == "table" then
+			for _, s in ipairs(spells) do
+				if type(s) == "table" and not issecretvalue(s) then
 					local rawAmount = s[spellValueKey]
-					if rawAmount then
+					if type(rawAmount) ~= "nil" then
 						table.insert(sorted, s)
 					end
 				end
 			end
-			
+
 			table.sort(sorted, function(a, b)
 				return SecretHelper:SafeNumber(a[spellValueKey]) > SecretHelper:SafeNumber(b[spellValueKey])
 			end)
-			
+
 			if #sorted > 0 then
 				tooltip:AddLine(" ")
 				tooltip:AddLine(L["Top Spells"])
-				
+
 				for i = 1, math.min(3, #sorted) do
 					local s = sorted[i]
-					
-					-- Data access
-					do
-						local spellID = s.spellID or 0
-						local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
-						local name = spellInfo and spellInfo.name or ("Spell " .. tostring(spellID))
-						
-						local rawVal = s[spellValueKey] or 0
-						
-						if SecretHelper:HasSecretAPI() and issecretvalue(rawVal) then
-							tooltip:AddDoubleLine(name, Skada:FormatNumberSecret(rawVal), 1, 1, 1, 1, 1, 1)
-						else
-							local val = tonumber(rawVal) or 0
-							local playerVal = SecretHelper:SafeNumber(rawValue)
-							local percent = playerVal > 0 and (val / playerVal) * 100 or 0
-							tooltip:AddDoubleLine(name, Skada:FormatNumber(val) .. " (" .. string.format("%02.1f%%", percent) .. ")", 1, 1, 1, 1, 1, 1)
-						end
+					local spellID = 0
+					if type(s.spellID) == "number" then
+						spellID = s.spellID
+					end
+					local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
+					local name = spellInfo and spellInfo.name or ("Spell " .. tostring(spellID))
+
+					local rawVal = s[spellValueKey]
+					if issecretvalue(rawVal) then
+						tooltip:AddDoubleLine(name, Skada:FormatNumberSecret(rawVal), 1, 1, 1, 1, 1, 1)
+					elseif type(rawVal) ~= "nil" then
+						local val = tonumber(rawVal) or 0
+						local playerVal = SecretHelper:SafeNumber(rawValue)
+						local percent = playerVal > 0 and (val / playerVal) * 100 or 0
+						tooltip:AddDoubleLine(name, Skada:FormatNumber(val) .. " (" .. string.format("%02.1f%%", percent) .. ")", 1, 1, 1, 1, 1, 1)
 					end
 				end
 			end
@@ -501,12 +580,14 @@ end
 function ModuleBase:CreateSimpleTooltip(labelTotal)
 	return function(win, id, label, tooltip)
 		local set = win:get_selected_set()
-		if not set then return end
-		
+		if type(set) ~= "table" then return end
+
 		local player = Skada:find_player(set, id)
-		if player then
-			local rawValue = player.totalAmount or 0
-			tooltip:AddDoubleLine(labelTotal, Skada:FormatNumberSecret(rawValue), 1, 1, 1, 1, 1, 1)
+		if type(player) == "table" then
+			local rawValue = player.totalAmount
+			if type(rawValue) ~= "nil" then
+				tooltip:AddDoubleLine(labelTotal, Skada:FormatNumberSecret(rawValue), 1, 1, 1, 1, 1, 1)
+			end
 		end
 	end
 end
@@ -523,27 +604,31 @@ end
 function ModuleBase:CreateDamageShareTooltip(options)
 	return function(win, id, label, tooltip)
 		local set = win:get_selected_set()
-		if not set then return end
-		
+		if type(set) ~= "table" then return end
+
 		local player = Skada:find_player(set, id)
-		if not player then return end
-		
-		local rawPlayerValue = player.totalAmount or 0
-		if SecretHelper:HasSecretAPI() and issecretvalue(rawPlayerValue) then
+		if type(player) ~= "table" then return end
+
+		local rawPlayerValue = player.totalAmount
+		if issecretvalue(rawPlayerValue) then
 			return
 		end
-		
+
 		local playerValue = tonumber(rawPlayerValue) or 0
 		local totalValue = 0
-		
+
 		local view = Skada.NativeAPI:GetSessionView(set, options.damageType)
-		if view then
-			local sources = view.combatSources or view.participants or {}
-			for _, p in pairs(sources) do
-				totalValue = totalValue + SecretHelper:SafeNumber(p.totalAmount)
+		if type(view) == "table" then
+			local sources = view.combatSources
+			if type(sources) == "table" then
+				for _, p in ipairs(sources) do
+					if type(p) == "table" and not issecretvalue(p) then
+						totalValue = totalValue + SecretHelper:SafeNumber(p.totalAmount)
+					end
+				end
 			end
 		end
-		
+
 		if totalValue > 0 then
 			local percent = (playerValue / totalValue) * 100
 			tooltip:AddDoubleLine(options.labelShare, ("%02.1f%%"):format(percent), 255, 255, 255, 255, 255, 255)
@@ -588,19 +673,21 @@ end
 ]]
 function ModuleBase:AddStandardFeeds(feedNamePersonal, feedNameRaid, rateType, label, labelRaid)
 	Skada:AddFeed(feedNamePersonal, function()
-		if Skada.current then
-			local player = Skada:find_player(Skada.current, UnitGUID("player"))
-			if player then
-				local rate = self:GetPlayerRate(Skada.current, player, rateType)
+		local set = Skada:GetActiveSet()
+		if type(set) == "table" then
+			local player = Skada:find_player(set, UnitGUID("player"))
+			if type(player) == "table" then
+				local rate = self:GetPlayerRate(set, player, rateType)
 				-- Use string.format to avoid concatenation crimes with secret values
 				return string.format("%s %s", Skada:FormatNumberSecret(rate), label or "")
 			end
 		end
 	end)
-	
+
 	Skada:AddFeed(feedNameRaid, function()
-		if Skada.current then
-			local rate = self:GetRaidRate(Skada.current, rateType)
+		local set = Skada:GetActiveSet()
+		if type(set) == "table" then
+			local rate = self:GetRaidRate(set, rateType)
 			-- Use string.format to avoid concatenation crimes with secret values
 			return string.format("%s %s", Skada:FormatNumberSecret(rate), labelRaid or "")
 		end

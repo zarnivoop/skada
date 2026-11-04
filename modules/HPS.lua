@@ -9,23 +9,17 @@ Skada:AddLoadableModule("HPS", nil, function(Skada, L)
 	local DAMAGE_TYPE = 2 -- Healing
 
 	function mod:Update(win, set)
-		if not set then return end
+		if type(set) ~= "table" then return end
 
 		local view = Skada.NativeAPI:GetSessionView(set, DAMAGE_TYPE)
-		if not view then return end
+		if type(view) ~= "table" then return end
 
-		local sources = view.combatSources or {}
-		local hasSecretAPI = SecretHelper:HasSecretAPI()
+		local sources = view.combatSources
+		if type(sources) ~= "table" or issecretvalue(sources) then return end
 
 		-- Detect secrets
-		local hasSecretValues = false
-		for _, player in pairs(sources) do
-			local amountVal = player.totalAmount
-			if amountVal and hasSecretAPI and issecretvalue(amountVal) then
-				hasSecretValues = true
-				break
-			end
-		end
+		local hasSecretValues = SecretHelper:DetectSecrets(sources, "amountPerSecond")
+			or SecretHelper:DetectSecrets(sources, "totalAmount")
 
 		-- Update window metadata
 		SecretHelper:UpdateWindowMetadata(win, hasSecretValues)
@@ -33,29 +27,33 @@ Skada:AddLoadableModule("HPS", nil, function(Skada, L)
 		local max = 0
 		local nr = 1
 
-		for _, player in pairs(sources) do
-			local rawAmount = player.totalAmount or 0
-			local isSecretAmount = hasSecretAPI and rawAmount and issecretvalue(rawAmount)
-			local amount = 0
-			if not isSecretAmount then
-				amount = tonumber(rawAmount) or 0
-			end
+		for _, player in ipairs(sources) do
+			if type(player) == "table" and not issecretvalue(player) then
+				local rawAmount = player.totalAmount
+				local isSecretAmount = issecretvalue(rawAmount)
+				local amount = 0
+				if not isSecretAmount then
+					amount = tonumber(rawAmount) or 0
+				end
 
-			if amount > 0 or isSecretAmount then
-				local hps = ModuleBase:GetPlayerRate(set, player, DAMAGE_TYPE)
-				local playerName = SecretHelper:GetPlayerName(player)
+				if amount > 0 or isSecretAmount then
+					local hps = ModuleBase:GetPlayerRate(set, player, DAMAGE_TYPE)
 
-				if playerName then
 					local d = win.dataset[nr] or {}
 					win.dataset[nr] = d
-					d.label = playerName
+					d.label = SecretHelper:GetPlayerLabel(player, nr)
 
 					if hasSecretValues then
 						d.id = "combat_" .. nr
 						d.value = 1000 - nr
 						d.valuetext = Skada:FormatNumberSecret(hps)
 					else
-						d.id = player.sourceGUID or playerName
+						local guid = player.sourceGUID
+						if type(guid) == "string" and not issecretvalue(guid) then
+							d.id = guid
+						else
+							d.id = "player_" .. nr
+						end
 						d.value = SecretHelper:SafeNumber(hps)
 						d.valuetext = Skada:FormatNumber(hps)
 						if hps > max then

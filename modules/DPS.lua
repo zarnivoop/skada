@@ -9,23 +9,16 @@ Skada:AddLoadableModule("DPS", nil, function(Skada, L)
 	local DAMAGE_TYPE = 0 -- DamageDone
 
 	function mod:Update(win, set)
-		if not set then return end
+		if type(set) ~= "table" then return end
 
 		local view = Skada.NativeAPI:GetSessionView(set, DAMAGE_TYPE)
-		if not view then return end
+		if type(view) ~= "table" then return end
 
-		local sources = view.combatSources or {}
-		local hasSecretAPI = SecretHelper:HasSecretAPI()
+		local sources = view.combatSources
+		if type(sources) ~= "table" or issecretvalue(sources) then return end
 
 		-- Detect secrets
-		local hasSecretValues = false
-		for _, player in pairs(sources) do
-			local dpsVal = player.amountPerSecond or player.rate
-			if dpsVal and hasSecretAPI and issecretvalue(dpsVal) then
-				hasSecretValues = true
-				break
-			end
-		end
+		local hasSecretValues = SecretHelper:DetectSecrets(sources, "amountPerSecond")
 
 		-- Update window metadata
 		SecretHelper:UpdateWindowMetadata(win, hasSecretValues)
@@ -33,27 +26,31 @@ Skada:AddLoadableModule("DPS", nil, function(Skada, L)
 		local max = 0
 		local nr = 1
 
-		for _, player in pairs(sources) do
-			local rawDps = player.amountPerSecond or player.rate
-			local isSecretDps = hasSecretAPI and rawDps and issecretvalue(rawDps)
-			local dps = 0
-			if not isSecretDps then
-				dps = tonumber(rawDps) or 0
-			end
+		for _, player in ipairs(sources) do
+			if type(player) == "table" and not issecretvalue(player) then
+				local rawDps = player.amountPerSecond
+				local isSecretDps = issecretvalue(rawDps)
+				local dps = 0
+				if not isSecretDps then
+					dps = tonumber(rawDps) or 0
+				end
 
-			if dps > 0 or isSecretDps then
-				local playerName = SecretHelper:GetPlayerName(player)
-				if playerName then
+				if dps > 0 or isSecretDps then
 					local d = win.dataset[nr] or {}
 					win.dataset[nr] = d
-					d.label = playerName
+					d.label = SecretHelper:GetPlayerLabel(player, nr)
 
 					if hasSecretValues then
 						d.id = "combat_" .. nr
 						d.value = 1000 - nr
 						d.valuetext = Skada:FormatNumberSecret(rawDps)
 					else
-						d.id = player.sourceGUID or playerName
+						local guid = player.sourceGUID
+						if type(guid) == "string" and not issecretvalue(guid) then
+							d.id = guid
+						else
+							d.id = "player_" .. nr
+						end
 						d.value = dps
 						d.valuetext = Skada:FormatNumber(dps)
 						if dps > max then

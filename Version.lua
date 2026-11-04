@@ -1,6 +1,19 @@
 local _, Skada = ...
 Skada.versions = {
 	{
+		id = "2.2.1",
+		title = "Skada 2.2.1",
+		message = "WoW: Forever support",
+		changes = {
+			"Added support for World of Warcraft: Forever (Interface 16001)",
+			"Added dedicated `Skada_Camelot.toc` / `Skada_Forever.toc` manifests",
+			"Updated C_DamageMeter session lookups and segment durations",
+			"Hardened secret-value handling during combat",
+			"Replaced deprecated chat and screen-resolution APIs",
+			"Fixed the total bar reusing stale percentage/column text",
+		}
+	},
+	{
 		id = "2.2.0",
 		title = "Skada 2.2.0",
 		message = "Polish, encounter names, and release workflow",

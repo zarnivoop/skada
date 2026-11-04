@@ -6,14 +6,14 @@ Skada is a modular damage meter for World of Warcraft with various viewing modes
 
 ---
 
-## Midnight Edition (WoW 12.0+)
+## Midnight & Forever Edition (WoW 12.0+ / Forever)
 
-This version of Skada is updated for **World of Warcraft: Midnight** and uses Blizzard's new session-based combat systems.
+This version of Skada is updated for **World of Warcraft: Midnight** and **World of Warcraft: Forever**. Both clients use Blizzard's modern session-based damage meter, so Skada reads `C_DamageMeter` instead of the combat log.
 
 ### Features
 
-- **Midnight Optimized**: Uses Blizzard's internal session data for performance and accuracy.
-- **Combat Reliability**: Handles modern combat data restrictions for a stable experience.
+- **Midnight & Forever Optimized**: Uses Blizzard's internal session data for performance and accuracy.
+- **Combat Reliability**: Handles modern combat data restrictions, including secret values, for a stable experience.
 - **Updated UI**: Includes new presets with smooth animations, gradients, and textures.
 - **Dynamic Elements**: Alternating row colors, highlight overlays, spark effects, and icon scaling.
 - **LDB Integration**: Compatible with Data Broker displays such as Titan Panel, ChocolateBar, and ElvUI.
@@ -41,7 +41,8 @@ Manage window designs with the built-in **Theme Engine**. You can import and exp
 
 ## Versions
 
-- **Midnight (Default)**: For WoW 12.0+ using the Native API.
+- **Midnight / Forever (Default)**: For WoW 12.0+ and WoW: Forever using the Native API.
+  Forever loads the dedicated `Skada_Camelot.toc` / `Skada_Forever.toc` manifests (Interface 16001).
 - **[Classic Version](https://github.com/zarnivoop/skada/tree/main)**: The version for older WoW releases.
 
 ## Support
