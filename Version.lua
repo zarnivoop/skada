@@ -1,6 +1,14 @@
 local _, Skada = ...
 Skada.versions = {
 	{
+		id = "2.2.3",
+		title = "Skada 2.2.3",
+		message = "Hotfix for 2.2.2",
+		changes = {
+			"Fixed a load-time error caused by a stale Forever Stone LibSharedMedia registration",
+		}
+	},
+	{
 		id = "2.2.2",
 		title = "Skada 2.2.2",
 		message = "Forever: Skyborne theme",

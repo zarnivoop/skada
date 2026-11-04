@@ -1,3 +1,7 @@
+## 2.2.3
+Hotfix for 2.2.2
+- Fixed a load-time error caused by a stale Forever Stone LibSharedMedia registration
+
 ## 2.2.2
 Forever: Skyborne theme
 - Added the new default Forever: Skyborne theme with transparent panel, hover-revealed title controls, mode-aware column headers, row separators, and a gold total crest

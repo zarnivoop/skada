@@ -2500,7 +2500,6 @@ function Skada:OnInitialize()
 	media:Register("background", "Copper", [[Interface\Addons\Skada\media\background\copper]])
 	media:Register("border", "Forever Line", [[Interface\Addons\Skada\media\border\ForeverLine.tga]])
 	media:Register("statusbar", "Forever Bar", [[Interface\Addons\Skada\media\statusbar\ForeverBar.tga]])
-	media:Register("background", "Forever Stone", [[Interface\Addons\Skada\media\background\ForeverStone.tga]])
 
 	-- Some sounds (copied from Omen).
 	media:Register("sound", "Rubber Ducky", 566121) --[[Sound\Doodad\Goblin_Lottery_Open01.ogg]]
