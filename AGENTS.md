@@ -45,7 +45,8 @@ Modules should be "Hardened" by default:
 - **Sorting Fallback**: When values are secret, use `1000 - nr` as the bar value to preserve the API-provided order while allowing the bar display to function.
 - **Total Bar**: The total bar should use `total + 1` to ensure it stays at the top of the list during active combat.
 - **Default theme**: `Forever: Skyborne` is the default for new profiles (`Options.lua` `windowdefaults` and `modules/Themes.lua`). It uses `Forever Bar` / `Forever Line` / `ForeverCrest` assets, a 12%-opaque panel, and 15px title buttons with 6px spacing.
-- **Typography**: Cinzel SemiBold 14 for the title, Marcellus 12 for bars, Marcellus 8 for headers. Title uses `MONOCHROME`, bar text uses `OUTLINEMONOCHROME` for crisp contrast over class colors; headers use empty flags. `textshadow` defaults **off**, with a Text shadow toggle in Bars for a 1px shadow. Fonts live in `media/fonts/` with OFL licenses. `Skada.ThemeFonts` falls back to ABF / Accidental Presidency on ruRU/koKR/zhCN/zhTW.
+- **Typography**: Cinzel SemiBold 14 for the title, ABF 13 for bars, Marcellus 8 for headers. All font flags are empty (no outline); `textshadow` defaults **off**. Text colors are near-white. Fonts live in `media/fonts/` with OFL licenses. `Skada.ThemeFonts` falls back to ABF / Accidental Presidency on ruRU/koKR/zhCN/zhTW.
+- **Bar backing**: `barbgcolor` is a neutral 10%-opaque dark fill and `alternaterows` is off by default, so the meter sits quietly against the game world. The title text is vertically centered against the title row/buttons.
 - **Theme toggles**: Bars > `Column headers` default **on**, `Row separators` default **off**. Headers are mode-aware (`% / DPS / DMG`, `% / HPS / HEAL`, `% / DTPS / DMG`) and hide on modes with no columns. Headers render inside the existing 30px title bar (title row compresses to 22px, header strip is 8px at bottom offset 6px), so enabling them does not grow the title bar or move the buttons. `Title bar` also exposes left padding, button spacing, button size, and `Show buttons on hover`.
 - **Hover controls**: With `hoverbuttons` enabled, all five title-bar buttons are alpha 0 at rest and fade in while the mouse is anywhere over the title bar. This keeps the default title bar clean without removing any action.
 - **Migration**: `Skada:ApplyThemeMigration()` runs once per profile and only replaces the old out-of-box look (`Skada Glass`, 260px bars); custom themes are left untouched.
@@ -56,7 +57,7 @@ Modules should be "Hardened" by default:
 - WoW client: `/home/stefan/Faugus/battlenet/drive_c/Program Files (x86)/World of Warcraft/_forever_`
 - AddOns path: `.../_forever_/Interface/AddOns/Skada`
 - Client build observed: `1.60.1.70790` (`wowf` flavor), Interface **16001**.
-- Installed addon version: **2.2.3** (`Skada-2.2.3-forever.zip` in the repo root).
+- Installed addon version: **2.2.4** (`Skada-2.2.4-forever.zip` in the repo root).
 
 ### Build + install
 
@@ -77,13 +78,13 @@ rsync -a --exclude='.git' --exclude='.tools' --exclude='release' --exclude='tool
   --exclude='README.md' --exclude='generate-version.py' \
   ./ release/Skada/
 # replace @project-version@ in all three TOCs with the release version
-rm -f Skada-2.2.3-forever.zip
-(cd release && 7z a -tzip -mx=9 ../Skada-2.2.3-forever.zip Skada >/dev/null)
+rm -f Skada-2.2.4-forever.zip
+(cd release && 7z a -tzip -mx=9 ../Skada-2.2.4-forever.zip Skada >/dev/null)
 
 # install (back up any existing install first)
 ADDONS="/home/stefan/Faugus/battlenet/drive_c/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns"
 [ -e "$ADDONS/Skada" ] && mv "$ADDONS/Skada" "$ADDONS/Skada.backup.$(date +%Y%m%d-%H%M%S)"
-7z x -y Skada-2.2.3-forever.zip -o"$ADDONS" >/dev/null
+7z x -y Skada-2.2.4-forever.zip -o"$ADDONS" >/dev/null
 ```
 
 ### TOC rule
@@ -96,7 +97,7 @@ ADDONS="/home/stefan/Faugus/battlenet/drive_c/Program Files (x86)/World of Warcr
 
 ### Release
 
-Tag `v2.2.3` and push; `.github/workflows/release-midnight.yml` runs `luacheck`, `forever-lint`, regenerates `Version.lua`, and runs the BigWigs packager. The packager recognizes the suffixed TOCs and `16001`.
+Tag `v2.2.4` and push; `.github/workflows/release-midnight.yml` runs `luacheck`, `forever-lint`, regenerates `Version.lua`, and runs the BigWigs packager. The packager recognizes the suffixed TOCs and `16001`.
 
 ---
 > [!IMPORTANT]

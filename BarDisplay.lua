@@ -847,13 +847,23 @@ function mod:ApplySettings(win)
 	end
 	g.button:SetNormalFontObject(fo)
 
-	-- Title text alignment and padding
+	local baseTitleHeight = p.title.height or 15
+	local headerHeight = applyColumnHeaders(win, p)
+	local titleRowHeight = baseTitleHeight
+	if headerHeight > 0 then
+		titleRowHeight = max(baseTitleHeight - headerHeight, 18)
+	end
+	g.button:SetHeight(baseTitleHeight)
+
+	-- Title text alignment: center it against the title row and the buttons,
+	-- not against the full title bar when a header strip is present.
 	local fs = g.button:GetFontString()
 	if fs then
 		fs:SetJustifyH(p.title.textalign or "LEFT")
-		fs:SetJustifyV("TOP")
+		fs:SetJustifyV("MIDDLE")
 		fs:ClearAllPoints()
-		fs:SetPoint("TOPLEFT", g.button, "TOPLEFT", p.title.paddingleft or 10, -(p.title.paddingtop or 5))
+		local titleY = (baseTitleHeight - titleRowHeight) / 2
+		fs:SetPoint("LEFT", g.button, "LEFT", p.title.paddingleft or 10, titleY)
 		applyFontShadow(fs, p.textshadow)
 	end
 
@@ -876,16 +886,6 @@ function mod:ApplySettings(win)
 	elseif tex then
 		tex:SetGradient("HORIZONTAL", CreateColor(1,1,1,1), CreateColor(1,1,1,1)) -- Reset if no gradient
 	end
-
-	local baseTitleHeight = p.title.height or 15
-	local headerHeight = applyColumnHeaders(win, p)
-	-- Keep the title bar the same height. When headers are enabled the title
-	-- row shrinks inside it and the header strip uses the bottom 10px.
-	local titleRowHeight = baseTitleHeight
-	if headerHeight > 0 then
-		titleRowHeight = max(baseTitleHeight - headerHeight, 18)
-	end
-	g.button:SetHeight(baseTitleHeight)
 
 	Skada:ApplyBorder(g.button, p.title.bordertexture, p.title.bordercolor, p.title.borderthickness)
 

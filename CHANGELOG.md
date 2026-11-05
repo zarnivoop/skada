@@ -1,3 +1,11 @@
+## 2.2.4
+Session and default-theme hotfix
+- Fixed set switching and missing bars by resolving an empty Current session through Expired, the newest tracked session, the last native snapshot, or the Total session
+- Default session detection now uses the documented Current/DamageDone types instead of probing unrelated damage types
+- Cached tracked sessions and session IDs so the set list and historical views survive empty API responses
+- Added `/skada api` diagnostics for live session/meter troubleshooting
+- Default Skyborne tuning: ABF 13 text, no font outline, near-white text, neutral 10%-opaque bar backing, vertically centered title
+
 ## 2.2.3
 Hotfix for 2.2.2
 - Fixed a load-time error caused by a stale Forever Stone LibSharedMedia registration

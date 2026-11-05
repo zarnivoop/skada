@@ -51,6 +51,29 @@ NativeAPI.sessionTypeCache = {
 	totalDamageType = 0
 }
 
+-- Last known good native sessions. The API can return an empty list or nil
+-- current session briefly around combat boundaries; keep the last valid data.
+NativeAPI.lastSessions = nil
+NativeAPI.lastCurrentSession = nil
+NativeAPI.sessionByIDCache = {}
+
+local function sessionHasSources(set)
+	if type(set) ~= "table" then return false end
+	-- A secret table cannot be inspected; keep it and let the display layer
+	-- decide how to represent it.
+	if issecretvalue(set) then return true end
+	local sources = set.combatSources
+	if type(sources) ~= "table" or issecretvalue(sources) then return false end
+	return #sources > 0
+end
+
+function NativeAPI:ClearSessionCache()
+	self.lastSessions = nil
+	self.lastCurrentSession = nil
+	self.lastTotalSession = nil
+	self.sessionByIDCache = {}
+end
+
 -- Verify C_DamageMeter is available
 if not C_DamageMeter then
 	error("Skada: C_DamageMeter API not available! This version requires WoW 12.0.0+")
@@ -439,9 +462,13 @@ end
 function NativeAPI:GetAvailableSessions()
 	local success, result = pcall(C_DamageMeter.GetAvailableCombatSessions)
 	if success and type(result) == "table" then
-		return result
+		if #result > 0 then
+			self.lastSessions = result
+			return result
+		end
+		return self.lastSessions or result
 	end
-	return {}
+	return self.lastSessions or {}
 end
 
 --[[
@@ -453,34 +480,47 @@ function NativeAPI:GetSessionByID(sessionID, damageType)
 	if type(sessionID) == "nil" then return nil end
 
 	damageType = damageType or 0
-	local success, result = pcall(C_DamageMeter.GetCombatSessionFromID, sessionID, damageType)
-	if not success or type(result) ~= "table" then
-		return nil
+	local cacheKey = tostring(sessionID) .. ":" .. tostring(damageType)
+	local result
+
+	-- Try the requested type first, then the remaining documented damage types.
+	-- GetCombatSessionFromID requires a type and may return nil for a mismatch.
+	local types = {damageType}
+	for i = 0, 10 do
+		if i ~= damageType then tinsert(types, i) end
 	end
-
-	-- C_DamageMeter sessions do not expose sessionID or their display name.
-	-- Attach both so GetSessionView can re-query the right pull and the title
-	-- can show a meaningful label.
-	pcall(function()
-		result.sessionID = sessionID
-	end)
-
-	local sessions = self:GetAvailableSessions()
-	for _, available in ipairs(sessions) do
-		if available.sessionID == sessionID then
+	for _, dtype in ipairs(types) do
+		local success, candidate = pcall(C_DamageMeter.GetCombatSessionFromID, sessionID, dtype)
+		if success and type(candidate) == "table" then
+			result = candidate
 			pcall(function()
-				if type(available.name) == "string" then
-					result.name = available.name
-				end
-				if type(available.durationSeconds) ~= "nil" then
-					result.durationSeconds = available.durationSeconds
-				end
+				result.sessionID = sessionID
 			end)
 			break
 		end
 	end
 
-	return result
+	if result then
+		-- C_DamageMeter sessions do not expose their display name; attach it.
+		local sessions = self:GetAvailableSessions()
+		for _, available in ipairs(sessions) do
+			if available.sessionID == sessionID then
+				pcall(function()
+					if type(available.name) == "string" then
+						result.name = available.name
+					end
+					if type(available.durationSeconds) ~= "nil" then
+						result.durationSeconds = available.durationSeconds
+					end
+				end)
+				break
+			end
+		end
+		self.sessionByIDCache[cacheKey] = result
+		return result
+	end
+
+	return self.sessionByIDCache[cacheKey]
 end
 
 --[[
@@ -515,28 +555,13 @@ end
 	Test all possible session types to find the correct one
 ]]
 function NativeAPI:TestSessionTypes()
-	-- Enum.DamageMeterSessionType: 0 = Overall, 1 = Current, 2 = Expired
-	-- Enum.DamageMeterType: 0 = DamageDone ... 10 = EnemyDamageTaken
-
-	local sessionTypes = {0, 1, 2}
-
-	for _, sessionType in ipairs(sessionTypes) do
-		for damageType = 0, 10 do
-			local success, result = pcall(C_DamageMeter.GetCombatSessionFromType, sessionType, damageType)
-
-			if success and type(result) == "table" then
-				if sessionType == 1 then -- Current
-					self.sessionTypeCache.current = sessionType
-					self.sessionTypeCache.currentDamageType = damageType
-				elseif sessionType == 0 then -- Overall
-					self.sessionTypeCache.total = sessionType
-					self.sessionTypeCache.totalDamageType = damageType
-				end
-
-				break -- Found working damage type for this session
-			end
-		end
-	end
+	-- Documented values: sessionType 0=Overall, 1=Current, 2=Expired;
+	-- damage type 0=DamageDone. Do not probe other damage types here: an empty
+	-- session for an unrelated type would otherwise become the cached current.
+	self.sessionTypeCache.current = 1
+	self.sessionTypeCache.currentDamageType = 0
+	self.sessionTypeCache.total = 0
+	self.sessionTypeCache.totalDamageType = 0
 end
 
 
@@ -592,11 +617,26 @@ function NativeAPI:GetSessionByParams(sessionType, damageType)
 end
 
 function NativeAPI:GetCurrentSession()
+	local set = self:GetSessionByParams(1, 0)
+	if type(set) == "table" then
+		if sessionHasSources(set) then
+			self.lastCurrentSession = set
+		end
+		return set
+	end
+	if self.lastCurrentSession then return self.lastCurrentSession end
 	return self:GetSessionByParams(self.sessionTypeCache.current or 1, self.sessionTypeCache.currentDamageType or 0)
 end
 
 function NativeAPI:GetTotalSession()
-	return self:GetSessionByParams(self.sessionTypeCache.total or 0, self.sessionTypeCache.totalDamageType or 0)
+	local set = self:GetSessionByParams(0, 0)
+	if type(set) == "table" then
+		if sessionHasSources(set) then
+			self.lastTotalSession = set
+		end
+		return set
+	end
+	return self.lastTotalSession or self:GetSessionByParams(self.sessionTypeCache.total or 0, self.sessionTypeCache.totalDamageType or 0)
 end
 
 function NativeAPI:GetDamageTakenSession()

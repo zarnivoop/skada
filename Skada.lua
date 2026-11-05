@@ -7,7 +7,7 @@ _G.Skada = Skada
 -- to the established UI fonts on locales it does not cover.
 Skada.ThemeFonts = {
 	title = "Cinzel",
-	bar = "Marcellus",
+	bar = "ABF",
 	header = "Marcellus",
 }
 do
@@ -859,6 +859,50 @@ function Skada:Print(msg)
 	print("|cFF33FF99Skada|r: " .. msg)
 end
 
+local function describeSession(set)
+	if type(set) ~= "table" then return "none" end
+	if issecretvalue(set) then return "secret" end
+	local name, sources
+	pcall(function()
+		name = set.name or set.encounterName
+		sources = set.combatSources
+	end)
+	local count = "?"
+	if type(sources) == "table" then
+		if issecretvalue(sources) then
+			count = "secret"
+		else
+			local ok, n = pcall(function() return #sources end)
+			count = ok and tostring(n) or "?"
+		end
+	else
+		count = "none"
+	end
+	return (type(name) == "string" and name or "unnamed") .. " sources=" .. count
+end
+
+function Skada:DumpAPIDiagnostics()
+	self:Print("Damage meter diagnostics:")
+	local sessions = self.NativeAPI:GetAvailableSessions()
+	local count = type(sessions) == "table" and (pcall(function() return #sessions end) and #sessions or "?") or 0
+	self:Print("Available sessions: " .. tostring(count))
+	for i, session in ipairs(sessions) do
+		if i > 8 then break end
+		local id = session.sessionID
+		local name = session.name
+		if issecretvalue(id) then id = "<secret>" end
+		if issecretvalue(name) then name = "<secret>" end
+		self:Print("  " .. tostring(id) .. " - " .. tostring(name or "?"))
+	end
+	self:Print("Current(1,0): " .. describeSession(self.NativeAPI:GetSessionByParams(1, 0)))
+	self:Print("Expired(2,0): " .. describeSession(self.NativeAPI:GetSessionByParams(2, 0)))
+	self:Print("Total(0,0): " .. describeSession(self.NativeAPI:GetSessionByParams(0, 0)))
+	self:Print("Last current snapshot: " .. describeSession(self.NativeAPI.lastCurrentSession))
+	for _, win in ipairs(self:GetWindows()) do
+		self:Print("Window " .. tostring(win.db.name) .. " set=" .. tostring(win.selectedset) .. " resolved=" .. describeSession(win:get_selected_set()))
+	end
+end
+
 function Skada:Debug(...)
 	if not Skada.db.profile.debug then return end
 	local msg = ""
@@ -883,6 +927,11 @@ end
 local function slashHandler(param)
 	local reportusage =
 	"/skada report [raid|party|instance|guild|officer|say] [current||total|set_num] [mode] [max_lines]"
+	if param == "api" then
+		Skada:DumpAPIDiagnostics()
+		return
+	end
+
 	if param == "cpu" then
 		local funcs = {}
 		UpdateAddOnCPUUsage()
@@ -1128,6 +1177,7 @@ function Skada:Reset()
 	if not self._resetting and self.NativeAPI then
 		self._resetting = true
 		self.NativeAPI:ResetAllSessions()
+		self.NativeAPI:ClearSessionCache()
 		self._resetting = nil
 	end
 
@@ -1279,20 +1329,58 @@ function Skada:RestoreView(win, theset, themode)
 	end
 end
 
+local function sessionHasSources(set)
+	if type(set) ~= "table" then return false end
+	-- A secret session cannot be inspected safely; return it and let the
+	-- display path handle or suppress it.
+	if issecretvalue(set) then return true end
+	local sources = set.combatSources
+	if type(sources) ~= "table" or issecretvalue(sources) then return false end
+	return #sources > 0
+end
+
 function Skada:find_set(s)
 	if s == "current" then
 		local set = self.NativeAPI:GetCurrentSession()
-		if type(set) == "table" then
+		if sessionHasSources(set) then
 			pcall(function() set.sessionType = 1 end)
-			local sourceCount = 0
-			if type(set.combatSources) == "table" and not issecretvalue(set.combatSources) then
-				sourceCount = #set.combatSources
-			end
-			self:Debug("find_set('current') returned session with", sourceCount, "sources")
-		else
-			self:Debug("find_set('current') returned nil")
+			return set
 		end
-		return set
+
+		-- The Current query can be empty or nil at a combat boundary. Try the
+		-- Expired session, then the newest tracked historical session, then the
+		-- last snapshot observed from the native API.
+		local expired = self.NativeAPI:GetSessionByParams(2, 0)
+		if sessionHasSources(expired) then
+			pcall(function() expired.sessionType = 2 end)
+			return expired
+		end
+
+		local sessions = self.NativeAPI:GetAvailableSessions()
+		if type(sessions) == "table" then
+			for i = #sessions, 1, -1 do
+				local available = sessions[i]
+				if type(available) == "table" and available.sessionID then
+					local byid = self.NativeAPI:GetSessionByID(available.sessionID, 0)
+					if sessionHasSources(byid) then return byid end
+				end
+			end
+		end
+
+		if sessionHasSources(self.NativeAPI.lastCurrentSession) then
+			local last = self.NativeAPI.lastCurrentSession
+			pcall(function() last.sessionType = 1 end)
+			return last
+		end
+
+		local total = self.NativeAPI:GetTotalSession()
+		if sessionHasSources(total) then
+			pcall(function() total.sessionType = 0 end)
+			return total
+		end
+
+		self:Debug("find_set('current') has no populated session")
+		return set or self.current
 	elseif s == "total" then
 		local set = self.NativeAPI:GetTotalSession()
 		if type(set) == "table" then
