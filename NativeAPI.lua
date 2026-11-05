@@ -56,6 +56,9 @@ NativeAPI.sessionTypeCache = {
 NativeAPI.lastSessions = nil
 NativeAPI.lastCurrentSession = nil
 NativeAPI.sessionByIDCache = {}
+NativeAPI.knownSessions = {}
+NativeAPI.lastKnownSessionID = nil
+NativeAPI.lastKnownDamageType = 0
 
 local function sessionHasSources(set)
 	if type(set) ~= "table" then return false end
@@ -72,6 +75,34 @@ function NativeAPI:ClearSessionCache()
 	self.lastCurrentSession = nil
 	self.lastTotalSession = nil
 	self.sessionByIDCache = {}
+	self.knownSessions = {}
+	self.lastKnownSessionID = nil
+	self.lastKnownDamageType = 0
+end
+
+function NativeAPI:TrackSession(sessionID, damageType)
+	if type(sessionID) ~= "number" or issecretvalue(sessionID) or sessionID == 0 then
+		return
+	end
+	local entry = self.knownSessions[sessionID]
+	if not entry then
+		entry = {sessionID = sessionID, name = "Combat " .. tostring(sessionID)}
+		self.knownSessions[sessionID] = entry
+	end
+	if type(damageType) == "number" and not issecretvalue(damageType) then
+		entry.damageType = damageType
+	end
+	self.lastKnownSessionID = sessionID
+	self.lastKnownDamageType = entry.damageType or 0
+end
+
+function NativeAPI:GetKnownSessions()
+	local list = {}
+	for _, entry in pairs(self.knownSessions) do
+		tinsert(list, entry)
+	end
+	table.sort(list, function(a, b) return a.sessionID > b.sessionID end)
+	return list
 end
 
 -- Verify C_DamageMeter is available
@@ -466,7 +497,14 @@ function NativeAPI:GetAvailableSessions()
 			self.lastSessions = result
 			return result
 		end
-		return self.lastSessions or result
+		if self.lastSessions then return self.lastSessions end
+	end
+
+	-- Some clients populate the session list only through events, not this
+	-- endpoint. Synthesize a list from the IDs we have seen.
+	local known = self:GetKnownSessions()
+	if #known > 0 then
+		return known
 	end
 	return self.lastSessions or {}
 end

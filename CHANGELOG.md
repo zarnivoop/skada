@@ -1,3 +1,9 @@
+## 2.2.5
+Session tracking fallback
+- Track combat session IDs from `DAMAGE_METER_COMBAT_SESSION_UPDATED` and synthesize the set list when `GetAvailableCombatSessions` returns empty
+- Resolve the last known session ID for the Current view when the live Current/Expired queries are empty
+- `/skada api` now reports API availability, combat-data restriction, known event sessions, and resolved window sets
+
 ## 2.2.4
 Session and default-theme hotfix
 - Fixed set switching and missing bars by resolving an empty Current session through Expired, the newest tracked session, the last native snapshot, or the Total session

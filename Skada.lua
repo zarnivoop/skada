@@ -883,6 +883,16 @@ end
 
 function Skada:DumpAPIDiagnostics()
 	self:Print("Damage meter diagnostics:")
+	if C_DamageMeter and C_DamageMeter.IsDamageMeterAvailable then
+		local ok, available, reason = pcall(C_DamageMeter.IsDamageMeterAvailable)
+		self:Print("API available: " .. (ok and tostring(available) or "error") .. (reason and (" - " .. tostring(reason)) or ""))
+	end
+	if _G.IsCombatDataRestricted then
+		local ok, restricted = pcall(_G.IsCombatDataRestricted)
+		self:Print("Combat data restricted: " .. (ok and tostring(restricted) or "error"))
+	end
+	local known = self.NativeAPI:GetKnownSessions()
+	self:Print("Known event sessions: " .. tostring(#known))
 	local sessions = self.NativeAPI:GetAvailableSessions()
 	local count = type(sessions) == "table" and (pcall(function() return #sessions end) and #sessions or "?") or 0
 	self:Print("Available sessions: " .. tostring(count))
@@ -1373,6 +1383,11 @@ function Skada:find_set(s)
 			return last
 		end
 
+		if self.NativeAPI.lastKnownSessionID then
+			local lastKnown = self.NativeAPI:GetSessionByID(self.NativeAPI.lastKnownSessionID, self.NativeAPI.lastKnownDamageType or 0)
+			if sessionHasSources(lastKnown) then return lastKnown end
+		end
+
 		local total = self.NativeAPI:GetTotalSession()
 		if sessionHasSources(total) then
 			pcall(function() total.sessionType = 0 end)
@@ -1462,8 +1477,12 @@ end
 -- Native API Event Handlers — invalidate any cached session snapshots so the
 -- next Tick() reads fresh data, then flag that data changed.
 -- The Tick() timer handles combat transitions and display updates.
-function Skada:DAMAGE_METER_COMBAT_SESSION_UPDATED()
-	if self.NativeAPI then self.NativeAPI:InvalidateCache() end
+function Skada:DAMAGE_METER_COMBAT_SESSION_UPDATED(event, damageType, sessionID)
+	-- AceEvent passes the event name as the first argument.
+	if self.NativeAPI then
+		self.NativeAPI:TrackSession(sessionID, damageType)
+		self.NativeAPI:InvalidateCache()
+	end
 	changed = true
 end
 

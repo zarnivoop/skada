@@ -57,7 +57,7 @@ Modules should be "Hardened" by default:
 - WoW client: `/home/stefan/Faugus/battlenet/drive_c/Program Files (x86)/World of Warcraft/_forever_`
 - AddOns path: `.../_forever_/Interface/AddOns/Skada`
 - Client build observed: `1.60.1.70790` (`wowf` flavor), Interface **16001**.
-- Installed addon version: **2.2.4** (`Skada-2.2.4-forever.zip` in the repo root).
+- Installed addon version: **2.2.5** (`Skada-2.2.5-forever.zip` in the repo root).
 
 ### Build + install
 
@@ -78,13 +78,13 @@ rsync -a --exclude='.git' --exclude='.tools' --exclude='release' --exclude='tool
   --exclude='README.md' --exclude='generate-version.py' \
   ./ release/Skada/
 # replace @project-version@ in all three TOCs with the release version
-rm -f Skada-2.2.4-forever.zip
-(cd release && 7z a -tzip -mx=9 ../Skada-2.2.4-forever.zip Skada >/dev/null)
+rm -f Skada-2.2.5-forever.zip
+(cd release && 7z a -tzip -mx=9 ../Skada-2.2.5-forever.zip Skada >/dev/null)
 
 # install (back up any existing install first)
 ADDONS="/home/stefan/Faugus/battlenet/drive_c/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns"
 [ -e "$ADDONS/Skada" ] && mv "$ADDONS/Skada" "$ADDONS/Skada.backup.$(date +%Y%m%d-%H%M%S)"
-7z x -y Skada-2.2.4-forever.zip -o"$ADDONS" >/dev/null
+7z x -y Skada-2.2.5-forever.zip -o"$ADDONS" >/dev/null
 ```
 
 ### TOC rule
@@ -97,7 +97,7 @@ ADDONS="/home/stefan/Faugus/battlenet/drive_c/Program Files (x86)/World of Warcr
 
 ### Release
 
-Tag `v2.2.4` and push; `.github/workflows/release-midnight.yml` runs `luacheck`, `forever-lint`, regenerates `Version.lua`, and runs the BigWigs packager. The packager recognizes the suffixed TOCs and `16001`.
+Tag `v2.2.5` and push; `.github/workflows/release-midnight.yml` runs `luacheck`, `forever-lint`, regenerates `Version.lua`, and runs the BigWigs packager. The packager recognizes the suffixed TOCs and `16001`.
 
 ---
 > [!IMPORTANT]

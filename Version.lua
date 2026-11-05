@@ -1,6 +1,16 @@
 local _, Skada = ...
 Skada.versions = {
 	{
+		id = "2.2.5",
+		title = "Skada 2.2.5",
+		message = "Session tracking fallback",
+		changes = {
+			"Track combat session IDs from `DAMAGE_METER_COMBAT_SESSION_UPDATED` and synthesize the set list when `GetAvailableCombatSessions` returns empty",
+			"Resolve the last known session ID for the Current view when the live Current/Expired queries are empty",
+			"`/skada api` now reports API availability, combat-data restriction, known event sessions, and resolved window sets",
+		}
+	},
+	{
 		id = "2.2.4",
 		title = "Skada 2.2.4",
 		message = "Session and default-theme hotfix",
