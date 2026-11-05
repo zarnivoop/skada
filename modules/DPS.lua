@@ -42,6 +42,8 @@ Skada:AddLoadableModule("DPS", nil, function(Skada, L)
 
 					if hasSecretValues then
 						d.id = "combat_" .. nr
+						d.sourceGUID = player.sourceGUID
+						d.sourceCreatureID = player.sourceCreatureID
 						d.value = 1000 - nr
 						d.valuetext = Skada:FormatNumberSecret(rawDps)
 					else

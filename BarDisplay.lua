@@ -8,6 +8,8 @@ local _, Skada = ...
 local L = LibStub("AceLocale-3.0"):GetLocale("Skada", true)
 
 local mod = Skada:NewModule("BarDisplay", "SpecializedLibBars-1.0")
+local titleHover
+local applyColumnGeometry
 local libwindow = LibStub("LibWindow-1.1")
 local media = LibStub("LibSharedMedia-3.0")
 
@@ -44,6 +46,23 @@ function mod:Create(window)
 		window.bargroup:AddButton(L["Mode"], L["Mode description"], "Interface\\GROUPFRAME\\UI-GROUP-MAINASSISTICON", "Interface\\GROUPFRAME\\UI-GROUP-MAINASSISTICON", function() Skada:ModeMenu(bargroup.win) end)
 		window.bargroup:AddButton(L["Report"], L["Report description"], "Interface\\Buttons\\UI-GuildButton-MOTD-Up", "Interface\\Buttons\\UI-GuildButton-MOTD-Up", function() Skada:OpenReportWindow(bargroup.win) end)
 
+		-- The library's resize grabber updates bars in its own OnUpdate, but
+		-- that can lag or be interrupted. Drive the bar length directly from
+		-- the group's real width so the bars track the drag immediately.
+		window.bargroup:HookScript("OnSizeChanged", function(g)
+			if g._skadaSyncingWidth then return end
+			local width = g:GetWidth()
+			if not width or width <= 1 then return end
+			g._skadaSyncingWidth = true
+			if g.length ~= width then
+				g:SetLength(width)
+			end
+			if g.barCount and g.barCount > 0 then
+				g:SortBars()
+			end
+			g._skadaSyncingWidth = nil
+		end)
+
 	end
 	window.bargroup.win = window
 	window.bargroup.RegisterCallback(mod, "AnchorMoved")
@@ -60,20 +79,20 @@ function mod:Create(window)
 	-- the button consumed the hover before the title bar saw it).
 	for _, btn in ipairs(window.bargroup.buttons or {}) do
 		btn:HookScript("OnEnter", function()
-			window.bargroup:SetButtonsOpacity(1.0)
+			titleHover(window, true)
 		end)
 		btn:HookScript("OnLeave", function()
 			if not window.bargroup.button:IsMouseOver() then
-				window.bargroup:SetButtonsOpacity(restButtonOpacity())
+				titleHover(window, false)
 			end
 		end)
 	end
 	window.bargroup.button:SetScript("OnEnter", function()
-		window.bargroup:SetButtonsOpacity(1.0)
+		titleHover(window, true)
 	end)
 	window.bargroup.button:SetScript("OnLeave", function()
 		if not window.bargroup.button:IsMouseOver() then
-			window.bargroup:SetButtonsOpacity(restButtonOpacity())
+			titleHover(window, false)
 		end
 	end)
 
@@ -144,11 +163,22 @@ local function showmode(win, id, label, mode)
 		tinsert(win.history, win.selectedmode)
 	end
 	-- Call the Enter function on the mode.
+	local ok, err
 	if mode.Enter then
-		mode:Enter(win, id, label)
+		ok, err = pcall(mode.Enter, mode, win, id, label)
+	end
+	if not ok and err then
+		Skada:RecordDisplayError("Drilldown enter", err)
+		-- Still switch mode/title; an Enter failure must not leave the window
+		-- stuck on the parent list.
 	end
 	-- Display mode.
-	win:DisplayMode(mode)
+	ok, err = pcall(win.DisplayMode, win, mode)
+	if not ok then
+		Skada:RecordDisplayError("Drilldown display", err)
+		win:set_mode_title()
+		win.changed = true
+	end
 end
 
 local function BarClickIgnore(bar, button)
@@ -163,6 +193,10 @@ local function BarClick(bar, button)
 	local click1 = win.metadata.click1
 	local click2 = win.metadata.click2
 	local click3 = win.metadata.click3
+	-- The bar owns the source identifiers even when the id/name are secret.
+	-- Pass them straight to C_DamageMeter when drilling into spells.
+	win._drillSourceGUID = bar.sourceGUID
+	win._drillSourceCreatureID = bar.sourceCreatureID
 
 	if button == "RightButton" and IsShiftKeyDown() then
 		Skada:OpenMenu(win)
@@ -176,6 +210,42 @@ local function BarClick(bar, button)
 		showmode(win, id, label, click3)
 	elseif click1 then
 		showmode(win, id, label, click1)
+	end
+end
+
+titleHover = function(window, hover)
+	local g = window.bargroup
+	local db = window.db
+	if not g then return end
+	local wasHover = g._titleHover
+	g._titleHover = hover and true or false
+
+	if db.hoverbuttons == false then
+		return
+	end
+
+	local base = db.title.height or 30
+	local size = db.buttonsize or 15
+	local header = g.columnheaders
+
+	if hover then
+		if header then
+			if not wasHover then
+				header._hoverWasShown = header:IsShown()
+			end
+			header:Hide()
+		end
+		g:SetButtonLayout(db.buttonspacing or 3, db.buttonpaddingright or 8, size, (base - size) / 2 + 2)
+		g:SetButtonsOpacity(1)
+	else
+		if header then
+			if header._hoverWasShown then
+				header:Show()
+			end
+			header._hoverWasShown = nil
+		end
+		g:SetButtonLayout(db.buttonspacing or 3, db.buttonpaddingright or 8, size, g._normalButtonOffset or max((base - size) / 2, 0))
+		g:SetButtonsOpacity(0)
 	end
 end
 
@@ -220,8 +290,12 @@ local function BarIconEnter(icon)
 	end
 end
 
-local function BarIconMouseDown(icon) -- shift-click to link spell into chat
+local function BarIconMouseDown(icon, button) -- shift-click to link spell into chat
 	local bar = icon.bar
+	if button == "LeftButton" and not IsShiftKeyDown() then
+		BarClick(bar, button)
+		return
+	end
 	if not IsShiftKeyDown() or not bar.link then return end
 	local activeEditBox = ChatFrameUtil.GetActiveWindow()
 	if activeEditBox then
@@ -236,7 +310,7 @@ local function value_sort(a, b)
 	return Skada.value_sort(a, b)
 end
 
-local alignColumnHeaders
+local applyColumnHeaders
 
 local function bar_order_sort(a,b)
 	return a and b and a.order and b.order and a.order < b.order
@@ -375,6 +449,8 @@ function mod:Update(win)
 
 				bar.link = nil
 				bar.spellid = nil
+				bar.sourceGUID = data.sourceGUID
+				bar.sourceCreatureID = data.sourceCreatureID
 				if data.spellid then
 					bar.spellid = data.spellid
 				elseif data.hyperlink then
@@ -439,9 +515,11 @@ function mod:Update(win)
 					if color then
 						bar.label:SetTextColor(color.r, color.g, color.b, color.a or 1)
 						-- Apply color to all columns
-						for i = 1, 3 do
-							if bar.columns[i] then
-								bar.columns[i]:SetTextColor(color.r, color.g, color.b, color.a or 1)
+						if bar.columns then
+							for i = 1, 3 do
+								if bar.columns[i] then
+									bar.columns[i]:SetTextColor(color.r, color.g, color.b, color.a or 1)
+								end
 							end
 						end
 					end
@@ -455,12 +533,14 @@ function mod:Update(win)
 					end
 					-- Apply value text color or default
 					local vtc = win.db.valuetextcolor
-					for i = 1, 3 do
-						if bar.columns[i] then
-							if vtc then
-								bar.columns[i]:SetTextColor(vtc.r, vtc.g, vtc.b, vtc.a or 1)
-							else
-								bar.columns[i]:SetTextColor(1,1,1,1)
+					if bar.columns then
+						for i = 1, 3 do
+							if bar.columns[i] then
+								if vtc then
+									bar.columns[i]:SetTextColor(vtc.r, vtc.g, vtc.b, vtc.a or 1)
+								else
+									bar.columns[i]:SetTextColor(1,1,1,1)
+								end
 							end
 						end
 					end
@@ -499,13 +579,18 @@ function mod:Update(win)
 			if data.valuetext then
 				-- No columns
 				bar:SetColumnText(3, data.valuetext)
+			elseif win.metadata.wasSecretValues then
+				-- Damage + DPS only; Percent requires math on the secret total.
+				bar:SetColumnText(1, nil)
+				bar:SetColumnText(2, data.valueText1)
+				bar:SetColumnText(3, data.valueText2)
 			else
-				-- Up to 3 columns - always call SetColumnText, it handles nil
-				-- Note: Boolean tests on secret values are not allowed in WoW 12.0
-				bar:SetColumnText(3, data.valueText1)
+				-- Damage, DPS, Percent, left to right.
+				bar:SetColumnText(1, data.valueText1)
 				bar:SetColumnText(2, data.valueText2)
-				bar:SetColumnText(1, data.valueText3)
+				bar:SetColumnText(3, data.valueText3)
 			end
+			applyColumnGeometry(bar)
 
 			if win.metadata.wipestale then
 				bar.checked = true
@@ -577,7 +662,14 @@ function mod:Update(win)
 		win.bargroup:SetSortFunction(nil)
 	end
 	win.bargroup:SortBars()
-	alignColumnHeaders(win)
+	-- Rebuild labels every update. The secret-state transition at combat end
+	-- can happen inside the mode update, so a cached header state is not a
+	-- reliable guard. This also keeps the 2-column combat / 3-column
+	-- post-combat layouts in sync with the actual value columns.
+	applyColumnHeaders(win, win.db)
+	if win.bargroup._titleHover then
+		titleHover(win, true)
+	end
 
 end
 
@@ -676,38 +768,6 @@ local function applyRowSeparator(bar, p)
 	end
 end
 
-function alignColumnHeaders(win)
-	local g = win.bargroup
-	local header = g and g.columnheaders
-	if not header or not header:IsShown() then return end
-
-	local row
-	for _, data in ipairs(win.dataset) do
-		if data.id and data.id ~= "total" then
-			row = data
-			break
-		end
-	end
-	if not row then row = win.dataset[1] end
-	if not row or not row.id then return end
-
-	local bar = g:GetBar(row.id)
-	if not bar or not bar.columns then return end
-	local barRight = bar:GetRight()
-	if not barRight then return end
-
-	for i = 1, 3 do
-		local f = header.labels and header.labels[i]
-		local col = bar.columns[i]
-		if f and col then
-			local colRight = col:GetRight()
-			if colRight then
-				f:ClearAllPoints()
-				f:SetPoint("RIGHT", header, "RIGHT", -(barRight - colRight), 0)
-			end
-		end
-	end
-end
 
 local function applyFontShadow(fs, enabled)
 	if not fs then return end
@@ -729,12 +789,66 @@ local function applyBarShadows(bar, enabled)
 	end
 end
 
-local function applyColumnHeaders(win, p)
+-- Single source of truth for the right-aligned column order. The same list
+-- drives header labels and the value-column layout; there are no per-order
+-- saved offsets that can go stale.
+local COLUMN_WIDTH = 64
+local COLUMN_GAP = 6
+local COLUMN_RIGHT_PAD = 4
+local function columnRightOffset(slot)
+	return COLUMN_RIGHT_PAD + (3 - slot) * (COLUMN_WIDTH + COLUMN_GAP)
+end
+local function columnHeaderSpec(columns, secret)
+	local spec = {}
+	if columns.Damage then
+		spec[#spec + 1] = "DMG"
+	elseif columns.Healing then
+		spec[#spec + 1] = "HEAL"
+	end
+	if columns.DPS then
+		spec[#spec + 1] = "DPS"
+	elseif columns.HPS then
+		spec[#spec + 1] = "HPS"
+	elseif columns.DTPS then
+		spec[#spec + 1] = "DTPS"
+	end
+	if columns.Percent and not secret then
+		spec[#spec + 1] = "%"
+	end
+	return spec
+end
+
+function applyColumnGeometry(bar)
+	if not bar or not bar.columns then return end
+	local c3 = bar.columns[3]
+	if c3 then
+		c3:ClearAllPoints()
+		c3:SetPoint("RIGHT", bar, "RIGHT", -COLUMN_RIGHT_PAD, 0)
+		c3:SetWidth(COLUMN_WIDTH)
+		c3:SetJustifyH("RIGHT")
+	end
+	local c2 = bar.columns[2]
+	if c2 and c3 then
+		c2:ClearAllPoints()
+		c2:SetPoint("RIGHT", c3, "LEFT", -COLUMN_GAP, 0)
+		c2:SetWidth(COLUMN_WIDTH)
+		c2:SetJustifyH("RIGHT")
+	end
+	local c1 = bar.columns[1]
+	if c1 and c2 then
+		c1:ClearAllPoints()
+		c1:SetPoint("RIGHT", c2, "LEFT", -COLUMN_GAP, 0)
+		c1:SetWidth(COLUMN_WIDTH)
+		c1:SetJustifyH("RIGHT")
+	end
+end
+
+function applyColumnHeaders(win, p)
 	local g = win.bargroup
 	local header = g.columnheaders
 	local mode = win.selectedmode
 	local columns = mode and mode.metadata and mode.metadata.columns
-	local hasColumns = columns and (columns.Damage or columns.Healing)
+	local hasColumns = type(columns) == "table" and (columns.Damage or columns.Healing)
 
 	g.headerSignature = hasColumns and ((mode and mode:GetName() or "") .. ":" .. (columns.Damage and "D" or "H")) or nil
 
@@ -763,27 +877,29 @@ local function applyColumnHeaders(win, p)
 
 	local font = p.columnheaderfontpath or media:Fetch("font", p.columnheaderfont or p.barfont)
 	local c = p.columnheadertextcolor or p.title.textcolor or {r = 0.8, g = 0.9, b = 1, a = 1}
-	-- BarDisplay assigns valueText3/valueText2/valueText1 to columns 1/2/3,
-	-- i.e. column 1 is the leftmost (percent) and column 3 the rightmost (damage).
-	local text = {
-		columns.Percent and "%",
-		columns.DPS and "DPS" or columns.HPS and "HPS" or columns.DTPS and "DTPS",
-		columns.Damage and "DMG" or columns.Healing and "HEAL",
-	}
-	local offsets = {p.columnheaderoffset1 or 12, p.columnheaderoffset2 or 64, p.columnheaderoffset3 or 112}
+	local secret = win.metadata and win.metadata.wasSecretValues
+	local spec = columnHeaderSpec(columns, secret)
 
 	for i = 1, 3 do
 		local f = header.labels[i]
 		f:SetFont(font, p.columnheaderfontsize or 8, p.columnheaderfontflags or "")
 		f:SetTextColor(c.r, c.g, c.b, (c.a or 1) * 0.80)
 		applyFontShadow(f, p.textshadow)
-		if text[i] then
-			f:SetText(text[i])
+		f:Hide()
+	end
+
+	-- Right-align the available columns. Two-column combat layouts therefore
+	-- occupy slots 2/3, matching the value layout; after combat the third slot
+	-- returns for Percent. No offsets are read from the profile.
+	local firstSlot = 4 - #spec
+	for i = 1, #spec do
+		local slot = firstSlot + i - 1
+		local f = header.labels[slot]
+		if f then
+			f:SetText(spec[i])
 			f:ClearAllPoints()
-			f:SetPoint("RIGHT", header, "RIGHT", -offsets[i], 0)
+			f:SetPoint("RIGHT", header, "RIGHT", -columnRightOffset(slot), 0)
 			f:Show()
-		else
-			f:Hide()
 		end
 	end
 
@@ -814,7 +930,15 @@ function mod:ApplySettings(win)
 	local p = win.db
 	g:ReverseGrowth(p.reversegrowth)
 	g:SetOrientation(p.barorientation)
-	g:SetBarHeight(p.barheight)
+	-- Snap row height and spacing to whole physical pixels. At non-integer UI
+	-- scales, fractional heights make the row step alternate between N and
+	-- N+1 pixels, which reads as an inconsistent 1px gap between some bars.
+	local uiScale = g:GetEffectiveScale() or 1
+	if uiScale <= 0 then uiScale = 1 end
+	local function snapPixels(value)
+		return math.floor((value or 0) * uiScale + 0.5) / uiScale
+	end
+	g:SetBarHeight(snapPixels(p.barheight))
 	g:SetHeight(p.background.height)
 	g:SetWidth(p.barwidth)
 	g:SetLength(p.barwidth)
@@ -828,7 +952,7 @@ function mod:ApplySettings(win)
 		end
 	end
 	g:SetFont(p.barfontpath or media:Fetch('font', p.barfont), p.barfontsize, p.barfontflags)
-	g:SetSpacing(p.barspacing)
+	g:SetSpacing(snapPixels(p.barspacing))
 	g:UnsetAllColors()
 	g:SetColorAt(0,p.barcolor.r,p.barcolor.g,p.barcolor.b, p.barcolor.a)
 	if p.barslocked then
@@ -841,7 +965,13 @@ function mod:ApplySettings(win)
 
 	-- Header
 	local fo = CreateFont("TitleFont"..win.db.name)
-	fo:SetFont(p.title.fontpath or media:Fetch('font', p.title.font), p.title.fontsize, p.title.fontflags)
+	local titleFontPath = p.title.fontpath or media:Fetch('font', p.title.font)
+	if not titleFontPath then
+		-- Expressway is registered by EllesmereUI when present; keep a sensible
+		-- bundled fallback for profiles created without that font available.
+		titleFontPath = media:Fetch('font', "Cinzel") or media:Fetch('font', "ABF") or "Fonts\\FRIZQT__.TTF"
+	end
+	fo:SetFont(titleFontPath, p.title.fontsize, p.title.fontflags)
 	if p.title.textcolor then
 		fo:SetTextColor(p.title.textcolor.r, p.title.textcolor.g, p.title.textcolor.b, p.title.textcolor.a)
 	end
@@ -855,15 +985,15 @@ function mod:ApplySettings(win)
 	end
 	g.button:SetHeight(baseTitleHeight)
 
-	-- Title text alignment: center it against the title row and the buttons,
-	-- not against the full title bar when a header strip is present.
+	-- Keep the title at the same vertical anchor whether or not the column
+	-- header strip is present. The header strip belongs to the bottom of the
+	-- bar and must not shift the title text.
 	local fs = g.button:GetFontString()
 	if fs then
 		fs:SetJustifyH(p.title.textalign or "LEFT")
 		fs:SetJustifyV("MIDDLE")
 		fs:ClearAllPoints()
-		local titleY = (baseTitleHeight - titleRowHeight) / 2
-		fs:SetPoint("LEFT", g.button, "LEFT", p.title.paddingleft or 10, titleY)
+		fs:SetPoint("LEFT", g.button, "LEFT", p.title.paddingleft or 10, -2)
 		applyFontShadow(fs, p.textshadow)
 	end
 
@@ -899,6 +1029,7 @@ function mod:ApplySettings(win)
 	-- combined title+header height, otherwise they look vertically centered.
 	local buttonSize = p.buttonsize or 12
 	local buttonOffset = p.buttonverticaloffset or max((titleRowHeight - buttonSize) / 2, 0)
+	g._normalButtonOffset = buttonOffset
 	g:SetButtonLayout(p.buttonspacing or 3, p.buttonpaddingright or 8, buttonSize, buttonOffset)
 
 	-- Button visibility.
@@ -910,6 +1041,9 @@ function mod:ApplySettings(win)
 	-- g:ShowButton(L["Stop"], p.buttons.stop)
 
 	g:SetButtonsOpacity(((p.hoverbuttons ~= false) and g.button:IsMouseOver()) and 1 or ((p.hoverbuttons ~= false) and 0 or 0.25))
+	if g._titleHover then
+		titleHover(win, true)
+	end
 
 	-- Window
 	local padtop = (p.enabletitle and not p.reversegrowth and baseTitleHeight)

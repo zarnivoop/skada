@@ -1,551 +1,320 @@
 local _, Skada = ...
 local L = LibStub("AceLocale-3.0"):GetLocale("Skada", true)
-local AceGUI = LibStub("AceGUI-3.0")
 
--- Mode menu list sorted by category
-local function _modeMenu(window, level)
-	local info = UIDropDownMenu_CreateInfo()
+local MenuUtil = _G.MenuUtil
+local ACCENT = { 0.36, 0.62, 0.83 }
 
+local function CreateContext(owner, generator)
+	if not MenuUtil or not MenuUtil.CreateContextMenu then return end
+	return MenuUtil.CreateContextMenu(owner or UIParent, generator)
+end
+
+local function AddModeEntries(root, window)
+	root:CreateTitle(L["Mode"])
 	local modes = Skada:GetModes()
-	local categorized = {}
-	for i, module in ipairs(modes) do
-		table.insert(categorized, module)
+	for i = 1, #modes do
+		local module = modes[i]
+		root:CreateRadio(module:GetName(), function()
+			return window.selectedmode == module
+		end, function()
+			window:DisplayMode(module)
+		end)
 	end
+end
 
-	table.sort(categorized, function(a, b)
-		local a_score = 0
-		local b_score = 0
-		if a.category == L['Other'] then
-				a_score = 1000
-		end
-		if b.category == L['Other'] then
-				b_score = 1000
-		end
-		a_score = a_score + (string.byte(a.category, 1) * 10) + string.byte(a:GetName(), 1)
-		b_score = b_score + (string.byte(b.category, 1) * 10) + string.byte(b:GetName(), 1)
-		return a_score < b_score
+local function AddSetEntries(root, window)
+	root:CreateTitle(L["Segment"])
+	root:CreateRadio(L["Total"], function() return window.selectedset == "total" end, function()
+		window.selectedset = "total"
+		Skada:Wipe()
+		Skada:UpdateDisplay(true)
 	end)
+	root:CreateRadio(L["Current"], function() return window.selectedset == "current" end, function()
+		window.selectedset = "current"
+		Skada:Wipe()
+		Skada:UpdateDisplay(true)
+	end)
+	for i, set in ipairs(Skada:GetSets()) do
+		local id = set.sessionID or set.startTime or set.starttime or i
+		root:CreateRadio(Skada:GetSetLabel(set), function() return window.selectedset == id end, function()
+			window.selectedset = id
+			Skada:Wipe()
+			Skada:UpdateDisplay(true)
+		end)
+	end
+end
 
-	local lastcat = nil
-	for i, module in ipairs(categorized) do
-		if not lastcat or lastcat ~= module.category then
-			if lastcat then
-				-- Add a blank separator
-				info = UIDropDownMenu_CreateInfo()
-				info.disabled = 1
-				info.notCheckable = 1
-				UIDropDownMenu_AddButton(info, level)
-			end
-
-			info = UIDropDownMenu_CreateInfo()
-			info.isTitle = 1
-			info.text = module.category
-			UIDropDownMenu_AddButton(info, level)
-			lastcat = module.category
+local function AddWindowEntries(root, window)
+	root:CreateTitle(window.db.name)
+	AddModeEntries(root, window)
+	root:CreateDivider()
+	AddSetEntries(root, window)
+	root:CreateDivider()
+	root:CreateCheckbox(L["Lock window"], function() return window.db.barslocked end, function()
+		window.db.barslocked = not window.db.barslocked
+		Skada:ApplySettings()
+	end)
+	root:CreateButton(L["Hide window"], function()
+		if window:IsShown() then
+			window.db.hidden = true
+			window:Hide()
+		else
+			window.db.hidden = false
+			window:Show()
 		end
-
-		info = UIDropDownMenu_CreateInfo()
-		info.text = module:GetName()
-		info.func = function() window:DisplayMode(module) end
-		info.checked = (window.selectedmode == module)
-		UIDropDownMenu_AddButton(info, level)
-	end
+	end)
 end
 
-local function getDropdownPoint()
-	local x, y = GetCursorPosition(UIParent)
-	x = x / UIParent:GetEffectiveScale()
-	y = y / UIParent:GetEffectiveScale()
-	local point
-	if x > GetScreenWidth() / 2 then
-		point = "RIGHT"
-	else
-		point = "LEFT"
-	end
-	if y > GetScreenHeight() / 2 then
-		point = "TOP"..point
-	else
-		point = "BOTTOM"..point
-	end
-	return point, x, y
-end
-
--- Configuration menu.
 function Skada:OpenMenu(window)
-	if not self.skadamenu then
-		self.skadamenu = CreateFrame("Frame", "SkadaMenu")
-	end
-	local skadamenu = self.skadamenu
-
-	skadamenu.displayMode = "MENU"
-	local info = UIDropDownMenu_CreateInfo()
-	skadamenu.initialize = function(self, level)
-		if not level then return end
-
-		if level == 1 then
-			-- Create the title of the menu
-			info = UIDropDownMenu_CreateInfo()
-			info.isTitle = 1
-			info.text = L["Skada Menu"]
-			info.notCheckable = 1
-			UIDropDownMenu_AddButton(info, level)
-
-			for i, win in ipairs(Skada:GetWindows()) do
-				info = UIDropDownMenu_CreateInfo()
-				info.text = win.db.name
-				info.hasArrow = 1
-				info.value = win
-				info.notCheckable = 1
-				UIDropDownMenu_AddButton(info, level)
-			end
-
-			-- Add a blank separator
-				info = UIDropDownMenu_CreateInfo()
-			info.disabled = 1
-			info.notCheckable = 1
-			UIDropDownMenu_AddButton(info, level)
-
-				-- Can't report if we are not in a mode.
-			if not window or (window and window.selectedmode) then
-				info = UIDropDownMenu_CreateInfo()
-				info.text = L["Report"]
-				info.func = function() Skada:OpenReportWindow(window) end
-				info.value = "report"
-				info.notCheckable = 1
-				UIDropDownMenu_AddButton(info, level)
-			end
-
-			-- Add a blank separator
-			info = UIDropDownMenu_CreateInfo()
-			info.disabled = 1
-			info.notCheckable = 1
-			UIDropDownMenu_AddButton(info, level)
-
-			info = UIDropDownMenu_CreateInfo()
-			info.text = L["Toggle window"]
-			info.func = function() Skada:ToggleWindow() end
-			info.notCheckable = 1
-			UIDropDownMenu_AddButton(info, level)
-
-			info = UIDropDownMenu_CreateInfo()
-			info.text = L["Reset"]
-			info.func = function() Skada:Reset() end
-			info.notCheckable = 1
-			UIDropDownMenu_AddButton(info, level)
-
-			info = UIDropDownMenu_CreateInfo()
-			info.text = L["Configure"]
-			info.func = function()
-				Skada:OpenOptions(window)
-			end
-			info.notCheckable = 1
-			UIDropDownMenu_AddButton(info, level)
-
-			-- Simulation Toggle
-			info = UIDropDownMenu_CreateInfo()
-			info.text = L["Simulation Mode"]
-			info.func = function()
-				if Skada.Simulation then
-					Skada.Simulation:SetEnabled(not Skada.Simulation.active)
-				end
-			end
-			info.checked = function() return Skada.Simulation and Skada.Simulation.active end
-			UIDropDownMenu_AddButton(info, level)
-
-			-- Close menu item
-			info = UIDropDownMenu_CreateInfo()
-			info.text = CLOSE
-			info.func = function() CloseDropDownMenus() end
-			info.checked = nil
-			info.notCheckable = 1
-			UIDropDownMenu_AddButton(info, level)
-
-		elseif level == 2 then
-			if type(UIDROPDOWNMENU_MENU_VALUE) == "table" then
-				local window = UIDROPDOWNMENU_MENU_VALUE
-				-- Display list of modes with current ticked; let user switch mode by checking one.
-				info = UIDropDownMenu_CreateInfo()
-				info.isTitle = 1
-				info.text = L["Mode"]
-				UIDropDownMenu_AddButton(info, level)
-
-				for i, module in ipairs(Skada:GetModes()) do
-					info = UIDropDownMenu_CreateInfo()
-					info.text = module:GetName()
-					info.func = function() window:DisplayMode(module) end
-					info.checked = (window.selectedmode == module)
-					UIDropDownMenu_AddButton(info, level)
-				end
-
-				-- Separator
-				info = UIDropDownMenu_CreateInfo()
-				info.disabled = 1
-				info.notCheckable = 1
-				UIDropDownMenu_AddButton(info, level)
-
-				-- Display list of sets with current ticked; let user switch set by checking one.
-				info = UIDropDownMenu_CreateInfo()
-				info.isTitle = 1
-				info.text = L["Segment"]
-				UIDropDownMenu_AddButton(info, level)
-
-				info = UIDropDownMenu_CreateInfo()
-				info.text = L["Total"]
-				info.func = function()
-					window.selectedset = "total"
-					Skada:Wipe()
-					Skada:UpdateDisplay(true)
-				end
-				info.checked = (window.selectedset == "total")
-				UIDropDownMenu_AddButton(info, level)
-
-				info = UIDropDownMenu_CreateInfo()
-				info.text = L["Current"]
-				info.func = function()
-					window.selectedset = "current"
-					Skada:Wipe()
-					Skada:UpdateDisplay(true)
-				end
-				info.checked = (window.selectedset == "current")
-				UIDropDownMenu_AddButton(info, level)
-
-				for i, set in ipairs(Skada:GetSets()) do
-					wipe(info)
-						info.text = Skada:GetSetLabel(set)
-						local setIdentifier = set.sessionID or set.startTime or set.starttime or i
-						info.func = function()
-							window.selectedset = setIdentifier
-							Skada:Wipe()
-							Skada:UpdateDisplay(true)
-						end
-						info.checked = (window.selectedset == setIdentifier)
-						UIDropDownMenu_AddButton(info, level)
-				end
-
-				-- Add a blank separator
-				info = UIDropDownMenu_CreateInfo()
-				info.disabled = 1
-				info.notCheckable = 1
-				UIDropDownMenu_AddButton(info, level)
-
-				info = UIDropDownMenu_CreateInfo()
-				info.text = L["Lock window"]
-				info.func = function()
-					window.db.barslocked = not window.db.barslocked
-					Skada:ApplySettings()
-				end
-				info.checked = window.db.barslocked
-				UIDropDownMenu_AddButton(info, level)
-
-				info = UIDropDownMenu_CreateInfo()
-				info.text = L["Hide window"]
-				info.func = function()
-					if window:IsShown() then
-						window.db.hidden = true
-						window:Hide()
-					else
-						window.db.hidden = false
-						window:Show()
-					end
-				end
-				info.checked = not window:IsShown()
-				UIDropDownMenu_AddButton(info, level)
-
-			elseif UIDROPDOWNMENU_MENU_VALUE == "delete" then
-				for i, set in ipairs(Skada:GetSets()) do
-					info = UIDropDownMenu_CreateInfo()
-					info.text = Skada:GetSetLabel(set)
-					info.func = function() Skada:DeleteSet(set) end
-					info.notCheckable = 1
-					UIDropDownMenu_AddButton(info, level)
-				end
-			elseif UIDROPDOWNMENU_MENU_VALUE == "keep" then
-				for i, set in ipairs(Skada:GetSets()) do
-					info = UIDropDownMenu_CreateInfo()
-					info.text = Skada:GetSetLabel(set)
-					info.func = function()
-						set.keep = not set.keep
-						Skada:Wipe()
-						Skada:UpdateDisplay(true)
-					end
-					info.checked = set.keep
-					UIDropDownMenu_AddButton(info, level)
-				end
-			end
-
-		elseif level == 3 then
-			if UIDROPDOWNMENU_MENU_VALUE == "modes" then
-				for i, module in ipairs(Skada:GetModes()) do
-					info = UIDropDownMenu_CreateInfo()
-					info.text = module:GetName()
-					info.checked = (Skada.db.profile.report.mode == module:GetName())
-					info.func = function() Skada.db.profile.report.mode = module:GetName() end
-					UIDropDownMenu_AddButton(info, level)
-				end
-			elseif UIDROPDOWNMENU_MENU_VALUE == "segment" then
-				info = UIDropDownMenu_CreateInfo()
-				info.text = L["Total"]
-				info.func = function() Skada.db.profile.report.set = "total" end
-				info.checked = (Skada.db.profile.report.set == "total")
-				UIDropDownMenu_AddButton(info, level)
-
-				info = UIDropDownMenu_CreateInfo()
-				info.text = L["Current"]
-				info.func = function() Skada.db.profile.report.set = "current" end
-				info.checked = (Skada.db.profile.report.set == "current")
-				UIDropDownMenu_AddButton(info, level)
-
-				for i, set in ipairs(Skada:GetSets()) do
-					info = UIDropDownMenu_CreateInfo()
-					info.text = Skada:GetSetLabel(set)
-					local setIdentifier = set.sessionID or set.startTime or set.starttime or i
-					info.func = function() Skada.db.profile.report.set = setIdentifier end
-					info.checked = (Skada.db.profile.report.set == setIdentifier)
-					UIDropDownMenu_AddButton(info, level)
-				end
-			end
-
+	local windows = Skada:GetWindows()
+	CreateContext(UIParent, function(_, root)
+		root:CreateTitle(L["Skada Menu"])
+		for i = 1, #windows do
+			local win = windows[i]
+			root:CreateButton(win.db.name, function()
+				CreateContext(UIParent, function(_, sub)
+					AddWindowEntries(sub, win)
+				end)
+			end)
 		end
-	end
-
-	local x, y
-	skadamenu.point, x, y = getDropdownPoint()
-	ToggleDropDownMenu(1, nil, skadamenu, "UIParent", x, y)
+		root:CreateDivider()
+		if not window or (window and window.selectedmode) then
+			root:CreateButton(L["Report"], function()
+				Skada:OpenReportWindow(window)
+			end)
+		end
+		root:CreateButton(L["Toggle window"], function() Skada:ToggleWindow() end)
+		root:CreateButton(L["Reset"], function() Skada:Reset() end)
+		root:CreateButton(L["Configure"], function() Skada:OpenOptions(window) end)
+		root:CreateDivider()
+		root:CreateCheckbox(L["Simulation Mode"], function()
+			return Skada.Simulation and Skada.Simulation.active
+		end, function()
+			if Skada.Simulation then
+				Skada.Simulation:SetEnabled(not Skada.Simulation.active)
+			end
+		end)
+	end)
 end
 
 function Skada:SegmentMenu(window)
-	if not self.segmentsmenu then
-		self.segmentsmenu = CreateFrame("Frame", "SkadaWindowButtonsSegments")
-	end
-	local segmentsmenu = self.segmentsmenu
-
-	segmentsmenu.displayMode = "MENU"
-	segmentsmenu.initialize = function(self, level)
-		if not level then return end
-
-		local info = UIDropDownMenu_CreateInfo()
-		info.isTitle = 1
-		info.text = L["Segment"]
-		UIDropDownMenu_AddButton(info, level)
-
-		info = UIDropDownMenu_CreateInfo()
-		info.text = L["Total"]
-		info.func = function()
-			window.selectedset = "total"
-			Skada:Wipe()
-			Skada:UpdateDisplay(true)
-		end
-		info.checked = (window.selectedset == "total")
-		UIDropDownMenu_AddButton(info, level)
-
-		info = UIDropDownMenu_CreateInfo()
-		info.text = L["Current"]
-		info.func = function()
-			window.selectedset = "current"
-				Skada:Wipe()
-			Skada:UpdateDisplay(true)
-		end
-		info.checked = (window.selectedset == "current")
-		UIDropDownMenu_AddButton(info, level)
-
-		for i, set in ipairs(Skada:GetSets()) do
-			info = UIDropDownMenu_CreateInfo()
-			info.text = Skada:GetSetLabel(set)
-			local setIdentifier = set.sessionID or set.startTime or set.starttime or i
-			info.func = function()
-				window.selectedset = setIdentifier
-				Skada:Wipe()
-				Skada:UpdateDisplay(true)
-			end
-			info.checked = (window.selectedset == setIdentifier)
-			UIDropDownMenu_AddButton(info, level)
-		end
-	end
-	local x, y
-	segmentsmenu.point, x, y = getDropdownPoint()
-	ToggleDropDownMenu(1, nil, segmentsmenu, "UIParent", x, y)
+	CreateContext(UIParent, function(_, root)
+		AddSetEntries(root, window)
+	end)
 end
 
 function Skada:ModeMenu(window)
-	if not self.modesmenu then
-		self.modesmenu = CreateFrame("Frame", "SkadaWindowButtonsModes")
-	end
-	local modesmenu = self.modesmenu
-
-	modesmenu.displayMode = "MENU"
-	modesmenu.initialize = function(self, level)
-		if not level then return end
-		_modeMenu(window, level)
-	end
-	local x, y
-	modesmenu.point, x, y = getDropdownPoint()
-	ToggleDropDownMenu(1, nil, modesmenu, "UIParent", x, y)
+	CreateContext(UIParent, function(_, root)
+		AddModeEntries(root, window)
+	end)
 end
 
-function Skada:OpenReportWindow(window)
-	if self.ReportWindow==nil then
-		self:CreateReportWindow(window)
-	end
+-- Report window -------------------------------------------------------------
 
-	--self:UpdateReportWindow()
-	self.ReportWindow:Show()
+local function destroyReportWindow()
+	local frame = Skada.ReportWindow
+	if frame then
+		frame:Hide()
+		frame:SetParent(nil)
+		Skada.ReportWindow = nil
+	end
 end
 
-local function destroywindow()
-	if Skada.ReportWindow then
-		-- remove AceGUI hacks before recycling the widget
-		local frame = Skada.ReportWindow
-		frame.LayoutFinished = frame.orig_LayoutFinished
-		frame.frame:SetScript("OnKeyDown", nil)
-		frame.frame:EnableKeyboard(false)
-		frame.frame:SetPropagateKeyboardInput(false)
-
-
-		frame:ReleaseChildren()
-		frame:Release()
+local function reportChannels()
+	local channellist = {
+		whisper = { L["Whisper"], "whisper", true },
+		target = { L["Whisper Target"], "whisper" },
+		say = { L["Say"], "preset" },
+		raid = { L["Raid"], "preset" },
+		party = { L["Party"], "preset" },
+		instance_chat = { L["Instance"], "preset" },
+		guild = { L["Guild"], "preset" },
+		officer = { L["Officer"], "preset" },
+		self = { L["Self"], "self" },
+		bnet = { BATTLENET_OPTIONS_LABEL, "bnet", true },
+	}
+	local list = { GetChannelList() }
+	for i = 1, #list, 3 do
+		local chan = list[i + 1]
+		if chan ~= "Trade" and chan ~= "General" and chan ~= "LocalDefense" and chan ~= "LookingForGroup" then
+			channellist[chan] = { ("%s: %d/%s"):format(L["Channel"], list[i], chan), "channel" }
+		end
 	end
-	Skada.ReportWindow = nil
+	return channellist
+end
+
+local function MakeLabel(parent, text, size, color)
+	local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	fs:SetFont(fs:GetFont(), size or 12)
+	fs:SetText(text or "")
+	fs:SetJustifyH("LEFT")
+	if color then fs:SetTextColor(color[1], color[2], color[3], color[4] or 1) end
+	return fs
+end
+
+local function AddDropdown(parent, width, defaultText, getValues, getSelected, setSelected)
+	local template = Skada.dropdownTemplate
+	if not template then return nil end
+	local dropdown = CreateFrame("DropdownButton", nil, parent, template)
+	dropdown:SetSize(width or 150, 26)
+	dropdown:SetDefaultText(defaultText or "")
+	dropdown:SetupMenu(function(_, root)
+		local values = getValues()
+		for _, entry in ipairs(values) do
+			root:CreateRadio(entry.label, function() return getSelected() == entry.value end, function()
+				setSelected(entry.value)
+			end)
+		end
+	end)
+	return dropdown
 end
 
 function Skada:CreateReportWindow(window)
-	-- ASDF = window
-	self.ReportWindow = AceGUI:Create("Window")
-	local frame = self.ReportWindow
-	frame:EnableResize(false)
-	frame:SetWidth(250)
-	frame:SetLayout("List")
-	frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
-	frame.frame:SetClampedToScreen(true)
-
-	-- slight AceGUI hack to auto-set height of Window widget:
-	frame.orig_LayoutFinished = frame.LayoutFinished
-	frame.LayoutFinished = function(self, _, height) frame:SetHeight(height + 57) end
-	-- another AceGUI hack to hide on Escape:
-	frame.frame:SetScript("OnKeyDown", function(self, key)
-		if GetBindingFromClick(key) == "TOGGLEGAMEMENU" then
-			destroywindow()
-		end
-	end)
-	frame.frame:EnableKeyboard(true)
-	frame.frame:SetPropagateKeyboardInput(true)
-
-	if window then
-		frame:SetTitle(L["Report"] .. (" - %s"):format(window.db.name))
-	else
-		frame:SetTitle(L["Report"])
-	end
-	frame:SetCallback("OnClose", function(widget, callback) destroywindow() end)
-
+	destroyReportWindow()
 	if window then
 		Skada.db.profile.report.set = window.selectedset
 		Skada.db.profile.report.mode = window.db.mode
-	else
-		-- Mode, default last chosen or first available.
-		local modebox = AceGUI:Create("Dropdown")
-		modebox:SetLabel(L["Mode"])
-		modebox:SetList({})
-		for i, mode in ipairs(Skada:GetModes()) do
-			modebox:AddItem(mode:GetName(), mode:GetName())
-		end
-		modebox:SetCallback("OnValueChanged", function(f, e, value) Skada.db.profile.report.mode = value end)
-		modebox:SetValue(Skada.db.profile.report.mode or Skada:GetModes()[1])
-		frame:AddChild(modebox)
+	end
+	local frame = CreateFrame("Frame", "SkadaReportFrame", UIParent, "BackdropTemplate")
+	frame:SetSize(330, window and 300 or 400)
+	frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+	frame:SetFrameStrata("DIALOG")
+	frame:SetMovable(true)
+	frame:EnableMouse(true)
+	frame:RegisterForDrag("LeftButton")
+	frame:SetScript("OnDragStart", frame.StartMoving)
+	frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+	if frame.SetBackdrop then
+		frame:SetBackdrop({
+			bgFile = "Interface\\Buttons\\WHITE8X8",
+			edgeFile = "Interface\\Buttons\\WHITE8X8",
+			edgeSize = 1,
+		})
+		frame:SetBackdropColor(0.025, 0.035, 0.05, 0.96)
+		frame:SetBackdropBorderColor(ACCENT[1], ACCENT[2], ACCENT[3], 0.45)
+	end
+	self.ReportWindow = frame
 
-		-- Segment, default last chosen or last set.
-		local setbox = AceGUI:Create("Dropdown")
-		setbox:SetLabel(L["Segment"])
-		setbox:SetList({total = L["Total"], current = L["Current"]})
+	local title = MakeLabel(frame, L["Report"], 14, { 1, 1, 1, 1 })
+	title:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -12)
+	local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
+	close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -4, -4)
+	close:SetScript("OnClick", destroyReportWindow)
+
+	local y = -44
+	local function place(row)
+		row:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, y)
+		row:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -14, y)
+		y = y - (row:GetHeight() + 6)
+	end
+
+	if not window then
+		local modeRow = CreateFrame("Frame", nil, frame)
+		modeRow:SetHeight(36)
+		place(modeRow)
+		local modeLabel = MakeLabel(modeRow, L["Mode"], 12)
+		modeLabel:SetPoint("LEFT", modeRow, "LEFT", 0, 0)
+		local modes = {}
+		for _, module in ipairs(Skada:GetModes()) do
+			modes[#modes + 1] = { value = module:GetName(), label = module:GetName() }
+		end
+		local modeDrop = AddDropdown(modeRow, 160, Skada.db.profile.report.mode or "", function() return modes end,
+			function() return Skada.db.profile.report.mode end,
+			function(value) Skada.db.profile.report.mode = value end)
+		if modeDrop then modeDrop:SetPoint("RIGHT", modeRow, "RIGHT", 0, 0) end
+
+		local setRow = CreateFrame("Frame", nil, frame)
+		setRow:SetHeight(36)
+		place(setRow)
+		local setLabel = MakeLabel(setRow, L["Segment"], 12)
+		setLabel:SetPoint("LEFT", setRow, "LEFT", 0, 0)
+		local sets = {
+			{ value = "total", label = L["Total"] },
+			{ value = "current", label = L["Current"] },
+		}
 		for i, set in ipairs(Skada:GetSets()) do
-			local setIdentifier = set.sessionID or set.startTime or set.starttime or i
-			setbox:AddItem(setIdentifier, (Skada:GetSetLabel(set)))
+			local id = set.sessionID or set.startTime or set.starttime or i
+			sets[#sets + 1] = { value = id, label = Skada:GetSetLabel(set) }
 		end
-		setbox:SetCallback("OnValueChanged", function(f, e, value) Skada.db.profile.report.set = value end)
-		setbox:SetValue(Skada.db.profile.report.set or Skada:GetSets()[1])
-		frame:AddChild(setbox)
+		local setDrop = AddDropdown(setRow, 160, Skada.db.profile.report.set or "current", function() return sets end,
+			function() return Skada.db.profile.report.set end,
+			function(value) Skada.db.profile.report.set = value end)
+		if setDrop then setDrop:SetPoint("RIGHT", setRow, "RIGHT", 0, 0) end
 	end
 
-	local channellist = {
-		whisper = { L["Whisper"], "whisper", true},
-		target = { L["Whisper Target"], "whisper"},
-		say = { L["Say"], "preset"},
-		raid = { L["Raid"], "preset"},
-		party = { L["Party"], "preset"},
-		instance_chat = { L["Instance"], "preset"},
-		guild = { L["Guild"], "preset"},
-		officer = { L["Officer"], "preset"},
-		self = { L["Self"], "self"},
-		bnet = { BATTLENET_OPTIONS_LABEL, "bnet", true},
-	}
-	local list = {GetChannelList()}
-	for i=1, #list, 3 do
-		local chan = list[i+1]
-		if chan ~= "Trade" and chan ~= "General" and chan ~= "LocalDefense" and chan ~= "LookingForGroup" then -- These should be localized.
-			channellist[chan] = {("%s: %d/%s"):format(L["Channel"], list[i], chan), "channel"}
-		end
-	end
+	local channellist = reportChannels()
+	local currentChannel = Skada.db.profile.report.channel or "say"
+	if not channellist[currentChannel] then currentChannel = "say" end
 
-	-- Channel, default last chosen or Say.
-	local channelbox = AceGUI:Create("Dropdown")
-	channelbox:SetLabel(L["Channel"])
-	channelbox:SetList( {} )
+	local channelRow = CreateFrame("Frame", nil, frame)
+	channelRow:SetHeight(36)
+	place(channelRow)
+	local channelLabel = MakeLabel(channelRow, L["Channel"], 12)
+	channelLabel:SetPoint("LEFT", channelRow, "LEFT", 0, 0)
+	local channelEntries = {}
 	for chan, kind in pairs(channellist) do
-		channelbox:AddItem(chan, kind[1])
+		channelEntries[#channelEntries + 1] = { value = chan, label = kind[1] }
 	end
-	local origchan = Skada.db.profile.report.channel or "say"
-	if not channellist[origchan] then origchan = "say" end -- ticket 455: upgrading old settings
-	channelbox:SetValue(origchan)
-	channelbox:SetCallback("OnValueChanged", function(f, e, value)
-		Skada.db.profile.report.channel = value
-		Skada.db.profile.report.chantype = channellist[value][2]
-		if channellist[origchan][3] ~= channellist[value][3] then
-			-- redraw in-place to add/remove whisper widget
-			local pos = { frame:GetPoint() }
-			destroywindow()
+	table.sort(channelEntries, function(a, b) return a.label < b.label end)
+	local channelDrop = AddDropdown(channelRow, 160, channellist[currentChannel][1], function() return channelEntries end,
+		function() return currentChannel end,
+		function(value)
+			Skada.db.profile.report.channel = value
+			Skada.db.profile.report.chantype = channellist[value][2]
 			Skada:CreateReportWindow(window)
-			Skada.ReportWindow:SetPoint(unpack(pos))
-		end
-	end)
-	frame:AddChild(channelbox)
-
-	local lines = AceGUI:Create("Slider")
-	lines:SetLabel(L["Lines"])
-	lines:SetValue(Skada.db.profile.report.number ~= nil and Skada.db.profile.report.number	 or 10)
-	lines:SetSliderValues(1, 25, 1)
-	lines:SetCallback("OnValueChanged", function(self, event, value) Skada.db.profile.report.number = value end)
-	lines:SetFullWidth(true)
-	frame:AddChild(lines)
-
-	if channellist[origchan][3] then
-		local whisperbox = AceGUI:Create("EditBox")
-		whisperbox:SetLabel(L["Whisper Target"])
-		whisperbox:SetText(Skada.db.profile.report.target or "")
-		whisperbox:SetCallback("OnEnterPressed", function(box, event, text)
-			if strlenutf8(text) == #text then -- remove spaces which are always non-meaningful and can sometimes cause problems
-				local ntext = text:gsub("%s","")
-				if ntext ~= text then
-					text = ntext
-					whisperbox:SetText(text)
-				end
-			end
-			Skada.db.profile.report.target = text
-			frame.button.frame:Click()
 		end)
-		whisperbox:SetCallback("OnTextChanged", function(box, event, text) Skada.db.profile.report.target = text end)
-		whisperbox:SetFullWidth(true)
-		frame:AddChild(whisperbox)
+	if channelDrop then channelDrop:SetPoint("RIGHT", channelRow, "RIGHT", 0, 0) end
+
+	local lineRow = CreateFrame("Frame", nil, frame)
+	lineRow:SetHeight(36)
+	place(lineRow)
+	local lineLabel = MakeLabel(lineRow, L["Lines"], 12)
+	lineLabel:SetPoint("LEFT", lineRow, "LEFT", 0, 0)
+	local slider = CreateFrame("Slider", "SkadaReportLines", lineRow, "OptionsSliderTemplate")
+	slider:SetOrientation("HORIZONTAL")
+	slider:SetPoint("RIGHT", lineRow, "RIGHT", -8, 0)
+	slider:SetWidth(180)
+	slider:SetMinMaxValues(1, 25)
+	slider:SetValueStep(1)
+	slider:SetValue(Skada.db.profile.report.number or 10)
+	slider:SetScript("OnValueChanged", function(_, value)
+		Skada.db.profile.report.number = math.floor(value + 0.5)
+	end)
+	if _G["SkadaReportLinesLow"] then _G["SkadaReportLinesLow"]:SetText("") end
+	if _G["SkadaReportLinesHigh"] then _G["SkadaReportLinesHigh"]:SetText("") end
+
+	local needsTarget = channellist[currentChannel][3]
+	if needsTarget then
+		local targetRow = CreateFrame("Frame", nil, frame)
+		targetRow:SetHeight(36)
+		place(targetRow)
+		local targetLabel = MakeLabel(targetRow, L["Whisper Target"], 12)
+		targetLabel:SetPoint("LEFT", targetRow, "LEFT", 0, 0)
+		local box = CreateFrame("EditBox", nil, targetRow, "InputBoxTemplate")
+		box:SetSize(160, 26)
+		box:SetPoint("RIGHT", targetRow, "RIGHT", 0, 0)
+		box:SetAutoFocus(false)
+		box:SetText(Skada.db.profile.report.target or "")
+		box:SetScript("OnTextChanged", function(self)
+			Skada.db.profile.report.target = self:GetText()
+		end)
 	end
 
-	local report = AceGUI:Create("Button")
-	frame.button = report
-	report:SetText(L["Report"])
-	report:SetCallback("OnClick", function()
-		local mode, set, channel, chantype, number = Skada.db.profile.report.mode, Skada.db.profile.report.set, Skada.db.profile.report.channel, Skada.db.profile.report.chantype, Skada.db.profile.report.number
+	frame:SetHeight(math.max(190, -y + 58))
 
+	local reportButton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+	reportButton:SetSize(150, 28)
+	reportButton:SetPoint("BOTTOM", frame, "BOTTOM", 0, 14)
+	reportButton:SetText(L["Report"])
+	reportButton:SetScript("OnClick", function()
+		local mode = Skada.db.profile.report.mode
+		local set = Skada.db.profile.report.set
+		local channel = Skada.db.profile.report.channel
+		local chantype = Skada.db.profile.report.chantype
+		local number = Skada.db.profile.report.number
 		if channel == "whisper" then
 			channel = Skada.db.profile.report.target
-			if channel and #strtrim(channel) == 0 then
-				channel = nil
-			end
+			if channel and #strtrim(channel) == 0 then channel = nil end
 		elseif channel == "bnet" then
 			if BNet_GetBNetIDAccount then
 				channel = BNet_GetBNetIDAccount(Skada.db.profile.report.target)
@@ -555,24 +324,24 @@ function Skada:CreateReportWindow(window)
 		elseif channel == "target" then
 			if UnitExists("target") then
 				local toon, realm = UnitName("target")
-				if realm and #realm > 0 then
-					channel = toon .. "-" .. realm
-				else
-					channel = toon
-				end
+				if realm and #realm > 0 then channel = toon .. "-" .. realm else channel = toon end
 			else
 				channel = nil
 			end
 		end
-
 		if channel and chantype and mode and set and number then
 			Skada:Report(channel, chantype, mode, set, number, window)
-			frame:Hide()
+			destroyReportWindow()
 		else
 			Skada:Print("Error: Whisper target not found")
 		end
-
 	end)
-	report:SetFullWidth(true)
-	frame:AddChild(report)
+
+	tinsert(_G.UISpecialFrames, "SkadaReportFrame")
+end
+
+function Skada:OpenReportWindow(window)
+	destroyReportWindow()
+	self:CreateReportWindow(window)
+	if self.ReportWindow then self.ReportWindow:Show() end
 end

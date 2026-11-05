@@ -85,6 +85,8 @@ function ModuleBase:UpdatePlayerList(win, set, options)
 					local d = self:ReuseDatasetEntry(win.dataset, nr)
 					d._is_nodata = nil
 					d.id = "combat_" .. nr
+					d.sourceGUID = player.sourceGUID
+					d.sourceCreatureID = player.sourceCreatureID
 					d.label = SecretHelper:GetPlayerLabel(player, nr)
 					d.class = SecretHelper:GetPlayerClass(player)
 					d.role = player.role
@@ -210,6 +212,8 @@ function ModuleBase:UpdateSimpleList(win, set, options)
 					local d = self:ReuseDatasetEntry(win.dataset, nr)
 					d._is_nodata = nil
 					d.id = "combat_" .. nr
+					d.sourceGUID = player.sourceGUID
+					d.sourceCreatureID = player.sourceCreatureID
 					d.label = SecretHelper:GetPlayerLabel(player, nr)
 					d.class = SecretHelper:GetPlayerClass(player)
 					d.role = player.role
@@ -283,17 +287,29 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 	options = options or {}
 	local valueKey = options.valueKey or "totalAmount"
 
-	local view = Skada.NativeAPI:GetSessionView(set, damageType)
-	local player = Skada:find_player_in_session(view, playerid)
+	local sourceGUID = win._drillSourceGUID
+	local sourceCreatureID = win._drillSourceCreatureID
+	local view, player
 
-	if type(player) ~= "table" then
-		player = Skada:find_player(set, playerid)
+	if type(sourceGUID) == "nil" then
+		view = Skada.NativeAPI:GetSessionView(set, damageType)
+		player = Skada:find_player_in_session(view, playerid)
+		if type(player) ~= "table" then
+			player = Skada:find_player(set, playerid)
+		end
+		if type(player) ~= "table" then return end
 	end
 
-	if type(player) ~= "table" then return end
+	local realID
+	if type(sourceGUID) ~= "nil" then
+		realID = sourceGUID
+	else
+		realID = SecretHelper:GetPlayerID(player, playerid)
+	end
+	local viewSet
+	if type(view) ~= "nil" then viewSet = view else viewSet = set end
+	local spells = Skada.NativeAPI:GetPlayerSpells(realID, viewSet, damageType, sourceCreatureID)
 
-	local realID = SecretHelper:GetPlayerID(player, playerid)
-	local spells = Skada.NativeAPI:GetPlayerSpells(realID, view or set, damageType)
 
 	if type(spells) == "nil" then
 		return
@@ -313,7 +329,11 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 	end
 
 	-- Detect secrets and calculate total (using cached detection)
-	local cacheKey = "spelllist_" .. tostring(set.sessionType or 0) .. "_" .. tostring(damageType)
+	local sessionType = 0
+	if type(set) == "table" and not issecretvalue(set) then
+		sessionType = set.sessionType or 0
+	end
+	local cacheKey = "spelllist_" .. tostring(sessionType) .. "_" .. tostring(damageType)
 	local hasSecretValues = SecretHelper:DetectSecretsCached(cacheKey, spells, valueKey)
 
 	-- Calculate total (only for non-secrets)
@@ -347,21 +367,43 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 				end
 
 				if isSecret or isNonZeroNumber then
-					local spellID = 0
-					if type(spell.spellID) == "number" then
-						spellID = spell.spellID
+					local rawSpellID = spell.spellID
+					local secretSpellID = issecretvalue(rawSpellID)
+					local plainSpellID
+					if not secretSpellID and type(rawSpellID) == "number" then
+						plainSpellID = rawSpellID
 					end
 
 					local d = self:ReuseDatasetEntry(win.dataset, nr)
 					d._is_nodata = nil
-					d.id = spellID
+					-- A secret value cannot be a table key. Use a stable synthetic
+					-- id and keep the real id only when it is safe to read.
+					d.id = "spell_" .. nr
+					d.spellid = nil
 
-					local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
-					d.label = spellInfo and spellInfo.name or ("Spell " .. tostring(spellID))
+					local spellName
+					if secretSpellID then
+						local ok, name = pcall(function() return C_Spell.GetSpellName(rawSpellID) end)
+						if ok and type(name) == "string" then spellName = name end
+						local okInfo, info = pcall(function() return C_Spell.GetSpellInfo(rawSpellID) end)
+						if type(spellName) ~= "string" and okInfo and type(info) == "table" then
+							spellName = info.name
+						end
+					elseif plainSpellID and plainSpellID > 0 then
+						local info = C_Spell.GetSpellInfo(plainSpellID)
+						spellName = info and info.name
+						d.id = plainSpellID
+						d.spellid = plainSpellID
+					end
+					if type(spellName) == "string" then
+						d.label = spellName
+					else
+						d.label = "Spell " .. tostring(nr)
+					end
 
 					d.value = SecretHelper:GetDisplayValue(rawValue, nr)
 					d.valuetext = Skada:FormatNumberSecret(rawValue)
-					d.icon = Skada:GetSpellIcon(spellID)
+					d.icon = Skada:GetSpellIcon(rawSpellID)
 					nr = nr + 1
 				end
 			end

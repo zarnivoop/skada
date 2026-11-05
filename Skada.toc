@@ -17,7 +17,7 @@
 ## SavedVariables: SkadaDB
 ## SavedVariablesPerCharacter: SkadaPerCharDB
 
-## OptionalDeps: Ace3, LibSharedMedia-3.0, LibWindow-1.1, LibDBIcon-1.0, AceGUI-3.0-SharedMediaWidgets, LibDualSpec-1.0, LibNotify-1.0
+## OptionalDeps: LibSharedMedia-3.0, LibWindow-1.1, LibDBIcon-1.0, LibDualSpec-1.0, LibNotify-1.0
 
 ## X-Curse-Project-ID: 17718
 ## X-Wago-ID: Q6aEVa6W
@@ -57,6 +57,7 @@ ModuleBase.lua
 Skada.lua
 Menus.lua
 Options.lua
+Settings.lua
 BarDisplay.lua
 InlineDisplay.lua
 BrokerDisplay.lua

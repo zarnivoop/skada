@@ -127,7 +127,7 @@ end
 --[[
 	Get detailed session source data (spells, etc.)
 ]]
-function NativeAPI:GetSessionSource(sourceGUID, set, damageType)
+function NativeAPI:GetSessionSource(sourceGUID, set, damageType, sourceCreatureID)
 	if type(sourceGUID) == "nil" then return nil end
 
 	-- 1. Try simulation
@@ -155,17 +155,23 @@ function NativeAPI:GetSessionSource(sourceGUID, set, damageType)
 
 	if not cache.available then return nil end
 
-	local sessionID = type(set) == "table" and set.sessionID or nil
-	local sessionType = (type(set) == "table" and (set.sessionType or (set == Skada.total and 0 or 1))) or 1
+	local sessionID, sessionType
+	if type(set) == "table" and not issecretvalue(set) then
+		sessionID = set.sessionID
+		sessionType = set.sessionType or (set == Skada.total and 0 or 1)
+	else
+		sessionType = 1
+	end
 
 	-- Only cache if sourceGUID is not secret (concatenating secrets makes the key secret)
-	local isSecret = issecretvalue(sourceGUID)
+	local isSecret = issecretvalue(sourceGUID) or issecretvalue(sourceCreatureID)
 	local cacheKey
 	if not isSecret then
 		cacheKey = "source_"
 			.. tostring(sessionID or sessionType) .. "_"
 			.. tostring(damageType) .. "_"
-			.. tostring(sourceGUID)
+			.. tostring(sourceGUID) .. "_"
+			.. tostring(sourceCreatureID or "")
 		local cached = cache.results[cacheKey]
 		if cached and now < cached.expires then
 			local value = cached.value
@@ -178,9 +184,9 @@ function NativeAPI:GetSessionSource(sourceGUID, set, damageType)
 	-- 3. Query by session ID when we have one (historical pulls), otherwise by type.
 	local success, result
 	if sessionID then
-		success, result = pcall(C_DamageMeter.GetCombatSessionSourceFromID, sessionID, damageType, sourceGUID)
+		success, result = pcall(C_DamageMeter.GetCombatSessionSourceFromID, sessionID, damageType, sourceGUID, sourceCreatureID)
 	else
-		success, result = pcall(C_DamageMeter.GetCombatSessionSourceFromType, sessionType, damageType, sourceGUID)
+		success, result = pcall(C_DamageMeter.GetCombatSessionSourceFromType, sessionType, damageType, sourceGUID, sourceCreatureID)
 	end
 
 	if success and type(result) == "table" then
@@ -206,8 +212,8 @@ function NativeAPI:GetSessionSource(sourceGUID, set, damageType)
 			end
 		end
 
-		if type(view) == "table" and view.sessionID then
-			local okID, resID = pcall(C_DamageMeter.GetCombatSessionSourceFromID, view.sessionID, damageType, sourceGUID)
+		if type(view) == "table" and not issecretvalue(view) and view.sessionID then
+			local okID, resID = pcall(C_DamageMeter.GetCombatSessionSourceFromID, view.sessionID, damageType, sourceGUID, sourceCreatureID)
 			if okID and type(resID) == "table" then
 				result = resID
 			end
@@ -234,6 +240,9 @@ end
 
 function NativeAPI:GetSessionView(set, damageType)
 	if type(set) ~= "table" then return nil end
+	-- A secret session cannot be indexed; callers that have a source GUID can
+	-- query that source directly by type instead.
+	if issecretvalue(set) then return set end
 
 	local sessionID = set.sessionID
 	local sessionType = set.sessionType or (set == Skada.total and 0 or 1)
@@ -443,8 +452,8 @@ local function ExtractSpellsFromSource(source)
 	return nil
 end
 
-function NativeAPI:GetPlayerSpells(playerID, set, damageType)
-	local source = self:GetSessionSource(playerID, set, damageType)
+function NativeAPI:GetPlayerSpells(playerID, set, damageType, sourceCreatureID)
+	local source = self:GetSessionSource(playerID, set, damageType, sourceCreatureID)
 
 	if type(source) == "nil" then
 		if Skada.db.profile.debug then

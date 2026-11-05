@@ -4,18 +4,13 @@ enable-nolib-creation: no
 externals:
   lib/AceAddon-3.0: https://repos.wowace.com/wow/ace3/trunk/AceAddon-3.0
   lib/AceEvent-3.0: https://repos.wowace.com/wow/ace3/trunk/AceEvent-3.0
-  lib/AceConfigDialog-3.0: https://repos.wowace.com/wow/ace3/trunk/AceConfig-3.0/AceConfigDialog-3.0
-  lib/AceConfigRegistry-3.0: https://repos.wowace.com/wow/ace3/trunk/AceConfig-3.0/AceConfigRegistry-3.0
   lib/AceDB-3.0: https://repos.wowace.com/wow/ace3/trunk/AceDB-3.0
-  lib/AceDBOptions-3.0: https://repos.wowace.com/wow/ace3/trunk/AceDBOptions-3.0
-  lib/AceGUI-3.0: https://repos.wowace.com/wow/ace3/trunk/AceGUI-3.0
   lib/AceLocale-3.0: https://repos.wowace.com/wow/ace3/trunk/AceLocale-3.0
   lib/AceTimer-3.0: https://repos.wowace.com/wow/ace3/trunk/AceTimer-3.0
   lib/CallbackHandler-1.0: https://repos.wowace.com/wow/ace3/trunk/CallbackHandler-1.0
   lib/LibSharedMedia-3.0: https://repos.wowace.com/wow/libsharedmedia-3-0/trunk/LibSharedMedia-3.0
   lib/LibDBIcon-1.0: https://repos.wowace.com/wow/libdbicon-1-0/trunk/LibDBIcon-1.0
   lib/LibWindow-1.1: https://repos.wowace.com/wow/libwindow-1-1/trunk/LibWindow-1.1
-  lib/AceGUI-3.0-SharedMediaWidgets: https://repos.wowace.com/wow/ace-gui-3-0-shared-media-widgets/trunk
 
 ignore:
   - README.md

@@ -1,3 +1,17 @@
+## 2.3.0
+Modern UI and combat-data fixes
+- Replaced the AceConfigDialog/AceGUI configuration and menu UI with a native Blizzard Settings page, native context menus, and a custom report dialog
+- Added a custom Profiles page for switching, creating, copying, deleting, and resetting profiles
+- Removed unused AceConfig, AceGUI, AceDBOptions, and shared-media widget libraries and from `.pkgmeta` externals
+- Fixed combat spell breakdowns by passing the clicked source GUID/CID directly to `C_DamageMeter` and handling secret spell IDs, icons, and row IDs
+- Fixed set/session fallback, event-tracked session IDs, and tracked session lists when the native session endpoint is empty
+- Corrected column order to Damage → DPS → Percent with fixed-width column slots and matching headers in and out of combat
+- Fixed title vertical alignment, hover-header behavior, pixel-snapped row spacing, and instant bar-width updates while resizing
+- Added a native window-name prompt and a visible Delete Window action
+- Default Skyborne title font is now Expressway 13, with fallbacks when Expressway is not registered
+- Added `/skada api` session diagnostics
+- Fixed set labels showing `SecondsToTimeAbbrev` format patterns such as `%d m` instead of the duration
+
 ## 2.2.5
 Session tracking fallback
 - Track combat session IDs from `DAMAGE_METER_COMBAT_SESSION_UPDATED` and synthesize the set list when `GetAvailableCombatSessions` returns empty

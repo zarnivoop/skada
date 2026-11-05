@@ -344,6 +344,15 @@ local spellCacheTTL = 300  -- 5 minutes TTL
 	Cached version of Skada:GetSpellIcon that avoids repeated API calls
 ]]
 function SecretHelper:GetSpellIcon(spellID)
+	if issecretvalue(spellID) then
+		-- Combat spell IDs are secret. Do not use them as cache keys or compare
+		-- them; pass them through pcall and use only the returned plain icon.
+		local okInfo, info = pcall(function() return C_Spell.GetSpellInfo(spellID) end)
+		if okInfo and type(info) == "table" then return info.iconID end
+		local okTex, tex = pcall(function() return C_Spell.GetSpellTexture(spellID) end)
+		if okTex and tex ~= nil then return tex end
+		return nil
+	end
 	if type(spellID) ~= "number" or spellID == 0 then return nil end
 	
 	local now = GetTime()

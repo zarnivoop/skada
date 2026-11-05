@@ -2,6 +2,21 @@ local _, Skada = ...
 local L = LibStub("AceLocale-3.0"):GetLocale("Skada", true)
 local media = LibStub("LibSharedMedia-3.0")
 
+-- The option schema historically used these AceGUI shared-media lists. Keep
+-- the tables available for the new Settings renderer without requiring AceGUI.
+AceGUIWidgetLSMlists = {
+	font = {},
+	statusbar = {},
+	background = {},
+	border = {},
+	sound = {},
+}
+for kind, target in pairs(AceGUIWidgetLSMlists) do
+	for _, name in ipairs(media:List(kind)) do
+		target[name] = name
+	end
+end
+
 Skada.resetoptions = { [1] = L["No"], [2] = L["Yes"], [3] = L["Ask"] }
 
 Skada.windowdefaults = {
@@ -53,13 +68,10 @@ Skada.windowdefaults = {
 	textshadow = false,
 	columnheaderbottom = 6,
 	columnheadertextcolor = { r = 0.95, g = 0.97, b = 1.00, a = 1 },
-	columnheaderoffset1 = 12,
-	columnheaderoffset2 = 64,
-	columnheaderoffset3 = 112,
 	showrowseparators = false,
 	rowseparatorcolor = { r = 0.45, g = 0.62, b = 0.75, a = 0.25 },
 
-	title = { textcolor = { r = 0.98, g = 0.99, b = 1.00, a = 1 }, height = 30, font = Skada.ThemeFonts.title, fontsize = 14, paddingleft = 12, paddingtop = 3, texture = "Forever Bar", bordercolor = { r = 0.32, g = 0.48, b = 0.62, a = 0.12 }, bordertexture = "Forever Line", borderthickness = 1, color = { r = 0.06, g = 0.11, b = 0.20, a = 0.68 }, color2 = { r = 0.015, g = 0.028, b = 0.055, a = 0.68 }, fontflags = "", textalign = "LEFT" },
+	title = { textcolor = { r = 0.98, g = 0.99, b = 1.00, a = 1 }, height = 30, font = Skada.ThemeFonts.title, fontsize = 13, paddingleft = 12, paddingtop = 3, texture = "Forever Bar", bordercolor = { r = 0.32, g = 0.48, b = 0.62, a = 0.12 }, bordertexture = "Forever Line", borderthickness = 1, color = { r = 0.06, g = 0.11, b = 0.20, a = 0.68 }, color2 = { r = 0.015, g = 0.028, b = 0.055, a = 0.68 }, fontflags = "", textalign = "LEFT" },
 	background = {
 		height = 300,
 		texture = "None",

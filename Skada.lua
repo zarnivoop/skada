@@ -6,7 +6,7 @@ _G.Skada = Skada
 -- Forever display/table faces. Cinzel is a Latin-only display face; fall back
 -- to the established UI fonts on locales it does not cover.
 Skada.ThemeFonts = {
-	title = "Cinzel",
+	title = "Expressway",
 	bar = "ABF",
 	header = "Marcellus",
 }
@@ -23,7 +23,6 @@ end
 
 local L = LibStub("AceLocale-3.0"):GetLocale("Skada", true)
 
-local acd = LibStub("AceConfigDialog-3.0")
 local icon = LibStub("LibDBIcon-1.0", true)
 local media = LibStub("LibSharedMedia-3.0")
 local lds = LibStub("LibDualSpec-1.0", true)
@@ -499,13 +498,31 @@ function Window:DisplayMode(mode)
 end
 
 local numsetfmts = 8
+-- SecondsToTimeAbbrev returns a format pattern on some clients (For example
+-- "%d m"), so build the short duration ourselves instead of showing the
+-- pattern or formatting the raw seconds into it.
+local function FormatDurationAbbrev(seconds)
+	seconds = tonumber(seconds)
+	if not seconds or seconds < 0 then return "" end
+	seconds = math.floor(seconds)
+	if seconds >= 3600 then
+		local hours = math.floor(seconds / 3600)
+		local minutes = math.floor((seconds % 3600) / 60)
+		if minutes > 0 then return string.format("%dh %dm", hours, minutes) end
+		return string.format("%dh", hours)
+	elseif seconds >= 60 then
+		return string.format("%dm", math.floor(seconds / 60))
+	end
+	return string.format("%ds", seconds)
+end
+
 local function SetLabelFormat(name, starttime, endtime, fmt)
 	fmt = fmt or Skada.db.profile.setformat
 	local namelabel = name
 	if fmt < 1 or fmt > numsetfmts then fmt = 3 end
 	local timelabel = ""
 	if starttime and endtime and fmt > 1 then
-		local duration = SecondsToTimeAbbrev(endtime - starttime)
+		local duration = FormatDurationAbbrev(endtime - starttime)
 		-- translate locale time abbreviations, whose escape sequences are not legal in chat
 		Skada.getsetlabel_fs = Skada.getsetlabel_fs or UIParent:CreateFontString(nil, "ARTWORK", "ChatFontNormal")
 		Skada.getsetlabel_fs:SetText(duration)
@@ -571,7 +588,7 @@ function Skada:GetSetLabel(set) -- return a nicely-formatted label for a set
 	-- Native API sessions expose durationSeconds instead of start/end times.
 	local duration = set.durationSeconds
 	if type(duration) == "number" and not issecretvalue(duration) and duration > 0 then
-		local durationText = SecondsToTimeAbbrev(duration)
+		local durationText = FormatDurationAbbrev(duration)
 		if type(durationText) == "string" and #durationText > 0 then
 			return name .. " (" .. durationText .. ")"
 		end
@@ -908,8 +925,44 @@ function Skada:DumpAPIDiagnostics()
 	self:Print("Expired(2,0): " .. describeSession(self.NativeAPI:GetSessionByParams(2, 0)))
 	self:Print("Total(0,0): " .. describeSession(self.NativeAPI:GetSessionByParams(0, 0)))
 	self:Print("Last current snapshot: " .. describeSession(self.NativeAPI.lastCurrentSession))
+	local win = self:GetWindows()[1]
+	local available = 0
+	if type(sessions) == "table" then
+		local ok, count = pcall(function() return #sessions end)
+		available = ok and count or 0
+	end
+	local knownCount = #known
+	local summary = table.concat({
+		"api=" .. tostring(C_DamageMeter and C_DamageMeter.IsDamageMeterAvailable and select(2, pcall(C_DamageMeter.IsDamageMeterAvailable)) or "?"),
+		"restricted=" .. tostring(_G.IsCombatDataRestricted and select(2, pcall(_G.IsCombatDataRestricted)) or "?"),
+		"available=" .. tostring(available),
+		"known=" .. tostring(knownCount),
+		"current=" .. describeSession(self.NativeAPI:GetSessionByParams(1, 0)),
+		"expired=" .. describeSession(self.NativeAPI:GetSessionByParams(2, 0)),
+		"total=" .. describeSession(self.NativeAPI:GetSessionByParams(0, 0)),
+		"set=" .. (win and tostring(win.selectedset) or "?"),
+		"resolved=" .. (win and describeSession(win:get_selected_set()) or "?"),
+	}, " | ")
+	self:Print("SUMMARY " .. summary)
+	if self.db and self.db.profile then
+		self.db.profile.apiDump = summary
+		self.db.profile.apiDumpTime = time and time() or nil
+	end
 	for _, win in ipairs(self:GetWindows()) do
 		self:Print("Window " .. tostring(win.db.name) .. " set=" .. tostring(win.selectedset) .. " resolved=" .. describeSession(win:get_selected_set()))
+	end
+end
+
+
+function Skada:RecordDisplayError(context, err)
+	local text = tostring(context or "Display") .. ": " .. tostring(err)
+	if self.db and self.db.profile then
+		self.db.profile.lastError = text
+		self.db.profile.lastErrorTime = time and time() or nil
+	end
+	if not self._displayErrorShown then
+		self._displayErrorShown = true
+		self:Print("Display error - " .. text)
 	end
 end
 
@@ -1414,6 +1467,7 @@ end
 -- Helper to find player in Native API session
 function Skada:find_player_in_session(session, playerGUID)
 	if type(session) ~= "table" or type(playerGUID) == "nil" then return nil end
+	if issecretvalue(session) then return nil end
 	local sources = session.combatSources
 	if type(sources) ~= "table" then
 		sources = session.participants
@@ -1424,7 +1478,7 @@ function Skada:find_player_in_session(session, playerGUID)
 	local idIsSecret = issecretvalue(playerGUID)
 
 	-- Handle artificial combat IDs
-	if idType == "string" and not idIsSecret and playerGUID:sub(1, 7) == "combat_" then
+	if idType == "string" and not idIsSecret and (playerGUID:sub(1, 7) == "combat_" or playerGUID:sub(1, 7) == "player_") then
 		local index = tonumber(playerGUID:sub(8))
 		if index then
 			local nr = 1
@@ -1617,8 +1671,11 @@ function Skada:UpdateDisplay(force)
 				-- Let mode update data.
 				if win.selectedmode.Update then
 					local ok, err = pcall(win.selectedmode.Update, win.selectedmode, win, set)
-					if not ok and self.db.profile.debug then
-						self:Debug("Mode Update Error:", win.selectedmode:GetName(), err)
+					if not ok then
+						if self.db.profile.debug then
+							self:Debug("Mode Update Error:", win.selectedmode:GetName(), err)
+						end
+						self:RecordDisplayError("Mode update in " .. tostring(win.selectedmode:GetName()), err)
 					end
 				else
 					self:Print("Mode " .. win.selectedmode:GetName() .. " does not have an Update function!")
@@ -1668,8 +1725,11 @@ function Skada:UpdateDisplay(force)
 				if win.display and win.display.Update then
 
 					local success, err = pcall(win.display.Update, win.display, win)
-					if not success and Skada.db.profile.debug then
-						Skada:Debug("Display Update Error (Inside Mode):", err)
+					if not success then
+						if Skada.db.profile.debug then
+							Skada:Debug("Display Update Error (Inside Mode):", err)
+						end
+						self:RecordDisplayError("Display update", err)
 					end
 				end
 			elseif win.selectedset then
@@ -1824,6 +1884,25 @@ end
 
 -- One-time Forever theme migration. It only replaces the old out-of-box
 -- window look, never a user's custom theme.
+-- Migrate the old Skyborne display title (Cinzel 14) to the current default
+-- (Expressway 13). Only windows still using the Skyborne Forever assets are
+-- touched; custom title fonts and other presets are preserved.
+function Skada:ApplyTitleFontMigration()
+	if self.db.profile.titleFontMigrated then return 0 end
+	self.db.profile.titleFontMigrated = true
+	local migrated = 0
+	for _, win in ipairs(self:GetWindows()) do
+		local title = win.db.title
+		if title and title.font == "Cinzel" and title.fontsize == 14
+			and win.db.bartexture == "Forever Bar" and title.texture == "Forever Bar" then
+			title.font = "Expressway"
+			title.fontsize = 13
+			migrated = migrated + 1
+		end
+	end
+	return migrated
+end
+
 function Skada:ApplyThemeMigration()
 	if self.db.profile.themeMigrated then
 		return 0
@@ -2628,42 +2707,11 @@ function Skada:OnInitialize()
 	if type(SkadaPerCharDB) ~= "table" then SkadaPerCharDB = {} end
 	self.char = SkadaPerCharDB
 	-- self.char.sets not used with Native API
-	LibStub("AceConfigRegistry-3.0"):RegisterOptionsTable("Skada", self.options, true)
-
-	-- Profiles
-	LibStub("AceConfigRegistry-3.0"):RegisterOptionsTable("Skada-Profiles",
-		LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db), true)
-	local profiles = LibStub('AceDBOptions-3.0'):GetOptionsTable(self.db)
-	profiles.order = 600
-	profiles.disabled = false
-	Skada.options.args.profiles = profiles
-
-	-- Dual spec profiles
+	-- Dual spec database enhancement is backend-only; the old AceDBOptions
+	-- profile page has been replaced by Skada's own Profiles page.
 	if lds then
 		lds:EnhanceDatabase(self.db, "SkadaDB")
-		lds:EnhanceOptions(LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db), self.db)
 	end
-
-	-- Blizzard options frame
-	local panel = CreateFrame("Frame", "SkadaBlizzOptions")
-	panel.name = "Skada"
-	InterfaceOptions_AddCategory(panel)
-
-	local fs = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-	fs:SetPoint("TOPLEFT", 10, -15)
-	fs:SetPoint("BOTTOMRIGHT", panel, "TOPRIGHT", 10, -45)
-	fs:SetJustifyH("LEFT")
-	fs:SetJustifyV("TOP")
-	fs:SetText("Skada")
-
-	local button = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-	button:SetText(L["Configure"])
-	button:SetWidth(128)
-	button:SetPoint("TOPLEFT", 10, -48)
-	button:SetScript('OnClick', function()
-		while CloseWindows() do end
-		return Skada:OpenOptions()
-	end)
 
 	-- Slash Handler
 	SLASH_SKADA1 = "/skada"
@@ -2679,15 +2727,8 @@ function Skada:OnInitialize()
 	self:SetNotifyIcon("Interface\\Icons\\Spell_Lightning_LightningBolt01")
 	self:SetNotifyStorage(self.db.profile.versions)
 	self:NotifyOnce(self.versions)
-end
-
-function Skada:OpenOptions(window)
-	acd:SetDefaultSize("Skada", 800, 600)
-	if window then
-		acd:Open("Skada")
-		acd:SelectGroup("Skada", "windows", window.db.name)
-	elseif not acd:Close("Skada") then
-		acd:Open("Skada")
+	if self.SetupSettingsCategory then
+		self:SetupSettingsCategory()
 	end
 end
 
@@ -2709,6 +2750,7 @@ function Skada:OnEnable()
 	end
 
 	self:ApplyThemeMigration()
+	self:ApplyTitleFontMigration()
 
 	-- Register for native damage meter events (just flag data as changed)
 	self:RegisterEvent("DAMAGE_METER_COMBAT_SESSION_UPDATED")
