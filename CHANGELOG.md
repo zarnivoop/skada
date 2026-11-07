@@ -1,3 +1,15 @@
+## 2.4.0
+Performance and contextual UX
+- Cache native session lookups per tick and avoid duplicate session resolution during window updates
+- Reapply fixed column geometry when bars update so headers and values share exact right edges; snap visible rows to an integer physical-pixel stride so fractional UI scales do not leave uneven 1px gaps
+- Fixed secret-value combat bars rendering nearly full: the fallback now scales ranks against the actual row count
+- Consolidated redundant DPS/HPS modes into the Damage/Healing rate columns; saved old mode choices are migrated
+- Added contextual Auto combat mode (healer → Healing, tank → Damage Taken, damage/solo → Damage)
+- Made columns responsive: full width shows Damage/DPS/%, compact widths drop the rate or percentage column
+- Added timestamped fight-history labels and a compact Compare mode for current vs previous session
+- Added a native Deaths mode that shows death time from `deathTimeSeconds`, orders deaths chronologically, falls back across current/expired/overall death sessions, shows an explicit empty-state row, and opens the Blizzard death recap; `/skada deaths` reports session diagnostics
+- Added one-click Compact / Standard / Detailed layout presets to Windows settings
+
 ## 2.3.0
 Modern UI and combat-data fixes
 - Replaced the AceConfigDialog/AceGUI configuration and menu UI with a native Blizzard Settings page, native context menus, and a custom report dialog

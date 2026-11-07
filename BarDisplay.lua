@@ -9,6 +9,7 @@ local L = LibStub("AceLocale-3.0"):GetLocale("Skada", true)
 
 local mod = Skada:NewModule("BarDisplay", "SpecializedLibBars-1.0")
 local titleHover
+local TITLE_TEXT_Y = 0
 local applyColumnGeometry
 local libwindow = LibStub("LibWindow-1.1")
 local media = LibStub("LibSharedMedia-3.0")
@@ -235,7 +236,7 @@ titleHover = function(window, hover)
 			end
 			header:Hide()
 		end
-		g:SetButtonLayout(db.buttonspacing or 3, db.buttonpaddingright or 8, size, (base - size) / 2 + 2)
+		g:SetButtonLayout(db.buttonspacing or 3, db.buttonpaddingright or 8, size, (base - size) / 2 - TITLE_TEXT_Y)
 		g:SetButtonsOpacity(1)
 	else
 		if header then
@@ -325,11 +326,95 @@ function mod:SetTitle(win, title)
 	-- Set title.
 	-- WoW 12.0+ restriction: Button:SetText() does not allow secret values during combat.
 	-- However, FontString:SetText() does allow them. We use the internal FontString to bypass this.
+	if not issecretvalue(title) and win._lastSetTitle == title then return end
+	win._lastSetTitle = issecretvalue(title) and nil or title
 	local fs = win.bargroup.button:GetFontString()
 	if fs then
 		fs:SetText(title)
 	else
 		win.bargroup.button:SetText(title)
+	end
+end
+
+-- Ordered columns shared by values and headers. Width thresholds also keep
+-- compact windows readable without a separate setting.
+local function buildColumnSpec(win)
+	local mode = win.selectedmode
+	local columns = mode and mode.metadata and mode.metadata.columns
+	local custom = mode and mode.metadata and mode.metadata.columnSpec
+	if type(custom) == "table" then
+		local spec = {}
+		for i = 1, #custom do
+			local entry = custom[i]
+			if type(entry) == "table" and entry.label and entry.value then
+				spec[#spec + 1] = { label = entry.label, value = entry.value }
+			end
+		end
+		return spec
+	end
+	if type(columns) ~= "table" then return {} end
+	local secret = win.metadata and win.metadata.wasSecretValues
+	local width = win.bargroup and win.bargroup:GetWidth() or 0
+	if not width or width < 1 then width = win.db.barwidth or 470 end
+
+	local spec = {}
+	if columns.Damage then
+		spec[#spec + 1] = { label = "DMG", value = "valueText1" }
+	elseif columns.Healing then
+		spec[#spec + 1] = { label = "HEAL", value = "valueText1" }
+	end
+	if width >= 300 then
+		if columns.DPS then
+			spec[#spec + 1] = { label = "DPS", value = "valueText2" }
+		elseif columns.HPS then
+			spec[#spec + 1] = { label = "HPS", value = "valueText2" }
+		elseif columns.DTPS then
+			spec[#spec + 1] = { label = "DTPS", value = "valueText2" }
+		end
+	end
+	if width >= 400 and not secret and columns.Percent then
+		spec[#spec + 1] = { label = "%", value = "valueText3" }
+	end
+	return spec
+end
+
+-- Snap every visible row to the same physical-pixel grid. The bar library
+-- anchors each row relative to the previous one, so at fractional UI scales
+-- rounding can make one gap look wider than its neighbour. Doing this after
+-- SortBars keeps the visual stride exact without touching the mode data.
+local function snapBarRows(win)
+	local g = win and win.bargroup
+	if not g then return end
+	local es = g:GetEffectiveScale() or 1
+	if es <= 0 then es = 1 end
+	local thickness = g:GetThickness() or win.db.barheight or 22
+	local spacing = g:GetSpacing() or win.db.barspacing or 0
+	local heightPx = math.max(1, math.floor(thickness * es + 0.5))
+	local gapPx = math.max(0, math.floor(spacing * es + 0.5))
+	local stride = (heightPx + gapPx) / es
+	local height = heightPx / es
+
+	local visible = {}
+	for _, bar in pairs(g:GetBars() or {}) do
+		if bar:IsShown() then visible[#visible + 1] = bar end
+	end
+	if #visible == 0 then return end
+
+	table.sort(visible, function(a, b)
+		if g.growup then return (a:GetBottom() or 0) < (b:GetBottom() or 0) end
+		return (a:GetTop() or 0) > (b:GetTop() or 0)
+	end)
+
+	for i, bar in ipairs(visible) do
+		bar:ClearAllPoints()
+		if g.growup then
+			bar:SetPoint("BOTTOMLEFT", g, "BOTTOMLEFT", 0, (i - 1) * stride)
+			bar:SetPoint("BOTTOMRIGHT", g, "BOTTOMRIGHT", 0, (i - 1) * stride)
+		else
+			bar:SetPoint("TOPLEFT", g, "TOPLEFT", 0, -(i - 1) * stride)
+			bar:SetPoint("TOPRIGHT", g, "TOPRIGHT", 0, -(i - 1) * stride)
+		end
+		bar:SetHeight(height)
 	end
 end
 
@@ -341,12 +426,18 @@ function mod:Update(win)
 	if win.bargroup.headerSignature ~= sig then
 		mod:ApplySettings(win)
 	end
-	-- Some modes may alter title continously.
+	-- Some modes may alter title continously, but most ticks repeat the same
+	-- string. Secret titles still need a write (they cannot be compared).
+	local title = win.metadata.title
+	local titleSecret = issecretvalue(title)
 	local fs = win.bargroup.button:GetFontString()
-	if fs then
-		fs:SetText(win.metadata.title)
-	else
-		win.bargroup.button:SetText(win.metadata.title)
+	if titleSecret or win._lastTitleText ~= title then
+		win._lastTitleText = titleSecret and nil or title
+		if fs then
+			fs:SetText(title)
+		else
+			win.bargroup.button:SetText(title)
+		end
 	end
 
 	-- Sort if we are showing spots with "showspots".
@@ -382,6 +473,8 @@ function mod:Update(win)
 		end
 	end
 
+	local columnSpec = buildColumnSpec(win)
+	win._columnSpec = columnSpec
 	local nr = 1
 	local activeBarIds = {}
 	for i, data in ipairs(win.dataset) do
@@ -577,18 +670,17 @@ function mod:Update(win)
 			end
 
 			if data.valuetext then
-				-- No columns
-				bar:SetColumnText(3, data.valuetext)
-			elseif win.metadata.wasSecretValues then
-				-- Damage + DPS only; Percent requires math on the secret total.
 				bar:SetColumnText(1, nil)
-				bar:SetColumnText(2, data.valueText1)
-				bar:SetColumnText(3, data.valueText2)
+				bar:SetColumnText(2, nil)
+				bar:SetColumnText(3, data.valuetext)
 			else
-				-- Damage, DPS, Percent, left to right.
-				bar:SetColumnText(1, data.valueText1)
-				bar:SetColumnText(2, data.valueText2)
-				bar:SetColumnText(3, data.valueText3)
+				bar:SetColumnText(1, nil)
+				bar:SetColumnText(2, nil)
+				bar:SetColumnText(3, nil)
+				local firstSlot = 4 - #columnSpec
+				for ci = 1, #columnSpec do
+					bar:SetColumnText(firstSlot + ci - 1, data[columnSpec[ci].value])
+				end
 			end
 			applyColumnGeometry(bar)
 
@@ -662,6 +754,7 @@ function mod:Update(win)
 		win.bargroup:SetSortFunction(nil)
 	end
 	win.bargroup:SortBars()
+	snapBarRows(win)
 	-- Rebuild labels every update. The secret-state transition at combat end
 	-- can happen inside the mode update, so a cached header state is not a
 	-- reliable guard. This also keeps the 2-column combat / 3-column
@@ -705,11 +798,13 @@ function mod:WindowResized(cbk, group)
 
 	-- Re-layout all bars at the new width
 	group:SortBars()
+	snapBarRows(group.win)
 end
 
 function mod:Show(win)
 	win.bargroup:Show()
 	win.bargroup:SortBars()
+	snapBarRows(win)
 end
 
 function mod:Hide(win)
@@ -798,28 +893,12 @@ local COLUMN_RIGHT_PAD = 4
 local function columnRightOffset(slot)
 	return COLUMN_RIGHT_PAD + (3 - slot) * (COLUMN_WIDTH + COLUMN_GAP)
 end
-local function columnHeaderSpec(columns, secret)
-	local spec = {}
-	if columns.Damage then
-		spec[#spec + 1] = "DMG"
-	elseif columns.Healing then
-		spec[#spec + 1] = "HEAL"
-	end
-	if columns.DPS then
-		spec[#spec + 1] = "DPS"
-	elseif columns.HPS then
-		spec[#spec + 1] = "HPS"
-	elseif columns.DTPS then
-		spec[#spec + 1] = "DTPS"
-	end
-	if columns.Percent and not secret then
-		spec[#spec + 1] = "%"
-	end
-	return spec
-end
 
 function applyColumnGeometry(bar)
 	if not bar or not bar.columns then return end
+	-- Apply on every update: the bar library re-anchors columns when the bar
+	-- size changes, which would otherwise leave header labels and values
+	-- aligned to different right edges.
 	local c3 = bar.columns[3]
 	if c3 then
 		c3:ClearAllPoints()
@@ -849,10 +928,11 @@ function applyColumnHeaders(win, p)
 	local mode = win.selectedmode
 	local columns = mode and mode.metadata and mode.metadata.columns
 	local hasColumns = type(columns) == "table" and (columns.Damage or columns.Healing)
+	local spec = buildColumnSpec(win)
 
 	g.headerSignature = hasColumns and ((mode and mode:GetName() or "") .. ":" .. (columns.Damage and "D" or "H")) or nil
 
-	if not p.showcolumnheaders or not hasColumns then
+	if not p.showcolumnheaders or #spec == 0 then
 		if header then header:Hide() end
 		return 0
 	end
@@ -877,8 +957,17 @@ function applyColumnHeaders(win, p)
 
 	local font = p.columnheaderfontpath or media:Fetch("font", p.columnheaderfont or p.barfont)
 	local c = p.columnheadertextcolor or p.title.textcolor or {r = 0.8, g = 0.9, b = 1, a = 1}
-	local secret = win.metadata and win.metadata.wasSecretValues
-	local spec = columnHeaderSpec(columns, secret)
+	local headerKey = table.concat({
+		mode and mode.GetName and mode:GetName() or "none",
+		tostring(#spec),
+		tostring(p.showcolumnheaders),
+		tostring(p.columnheaderfont or p.barfont),
+		tostring(p.columnheaderfontsize or 8),
+		tostring(p.columnheaderfontflags or ""),
+		tostring(c.r) .. "," .. tostring(c.g) .. "," .. tostring(c.b),
+	}, ":")
+	if header._headerKey == headerKey then return height end
+	header._headerKey = headerKey
 
 	for i = 1, 3 do
 		local f = header.labels[i]
@@ -896,7 +985,7 @@ function applyColumnHeaders(win, p)
 		local slot = firstSlot + i - 1
 		local f = header.labels[slot]
 		if f then
-			f:SetText(spec[i])
+			f:SetText(spec[i].label)
 			f:ClearAllPoints()
 			f:SetPoint("RIGHT", header, "RIGHT", -columnRightOffset(slot), 0)
 			f:Show()
@@ -993,7 +1082,7 @@ function mod:ApplySettings(win)
 		fs:SetJustifyH(p.title.textalign or "LEFT")
 		fs:SetJustifyV("MIDDLE")
 		fs:ClearAllPoints()
-		fs:SetPoint("LEFT", g.button, "LEFT", p.title.paddingleft or 10, -2)
+		fs:SetPoint("LEFT", g.button, "LEFT", p.title.paddingleft or 10, TITLE_TEXT_Y)
 		applyFontShadow(fs, p.textshadow)
 	end
 

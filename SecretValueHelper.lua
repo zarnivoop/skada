@@ -280,9 +280,14 @@ end
 	@param order - Order/index for fallback when secret
 	@return number - Value to use for bar sizing
 ]]
-function SecretHelper:GetDisplayValue(value, order)
+function SecretHelper:GetDisplayValue(value, order, count)
 	if issecretvalue(value) then
-		return 1000 - (order or 1)
+		local total = tonumber(count) or 0
+		local index = tonumber(order) or 1
+		if total > 0 then
+			return math.max(1, total - index + 1)
+		end
+		return 1000 - index
 	end
 	return tonumber(value) or 0
 end
@@ -296,7 +301,7 @@ end
 ]]
 function SecretHelper:GetMaxValue(hasSecrets, max, count)
 	if hasSecrets then
-		return 1000 - 1
+		return math.max(1, tonumber(count) or 0)
 	end
 	return (max > 0 and max or 1)
 end

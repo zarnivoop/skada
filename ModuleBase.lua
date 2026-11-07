@@ -69,6 +69,12 @@ function ModuleBase:UpdatePlayerList(win, set, options)
 
 	local max = 0
 	local nr = 1
+	local sourceCount = 0
+	for _, player in ipairs(sources) do
+		if type(player) == "table" and not issecretvalue(player) then
+			sourceCount = sourceCount + 1
+		end
+	end
 
 	if hasSecretValues then
 		-- SLOW PATH: values are protected. Use synthetic order values for the
@@ -91,7 +97,7 @@ function ModuleBase:UpdatePlayerList(win, set, options)
 					d.class = SecretHelper:GetPlayerClass(player)
 					d.role = player.role
 					d.order = nr
-					d.value = SecretHelper:GetDisplayValue(rawValue, nr)
+					d.value = SecretHelper:GetDisplayValue(rawValue, nr, sourceCount)
 
 					local valueText = Skada:FormatNumberSecret(rawValue)
 					local rateText = Skada:FormatNumberSecret(rawRate)
@@ -105,7 +111,7 @@ function ModuleBase:UpdatePlayerList(win, set, options)
 				end
 			end
 		end
-		win.metadata.maxvalue = 1000 - 1
+		win.metadata.maxvalue = SecretHelper:GetMaxValue(true, 0, sourceCount)
 	else
 		-- FAST PATH: Standard arithmetic and comparisons (no secrets)
 		for _, player in ipairs(sources) do
@@ -198,6 +204,12 @@ function ModuleBase:UpdateSimpleList(win, set, options)
 
 	local max = 0
 	local nr = 1
+	local sourceCount = 0
+	for _, player in ipairs(sources) do
+		if type(player) == "table" and not issecretvalue(player) then
+			sourceCount = sourceCount + 1
+		end
+	end
 
 	if hasSecretValues then
 		-- SLOW PATH
@@ -218,7 +230,7 @@ function ModuleBase:UpdateSimpleList(win, set, options)
 					d.class = SecretHelper:GetPlayerClass(player)
 					d.role = player.role
 					d.order = nr
-					d.value = SecretHelper:GetDisplayValue(rawValue, nr)
+					d.value = SecretHelper:GetDisplayValue(rawValue, nr, sourceCount)
 					d.valuetext = Skada:FormatNumberSecret(rawValue)
 					nr = nr + 1
 				end
@@ -269,7 +281,7 @@ function ModuleBase:UpdateSimpleList(win, set, options)
 		max = (max > 0 and max or 1)
 	end
 
-	win.metadata.maxvalue = hasSecretValues and (1000 - 1) or max
+	win.metadata.maxvalue = hasSecretValues and SecretHelper:GetMaxValue(true, 0, sourceCount) or max
 end
 
 --[[
@@ -322,9 +334,9 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 		d._is_nodata = nil
 		d.id = "secret_spells"
 		d.label = L["Spell details available after combat"]
-		d.value = 999
+		d.value = 1
 		d.valuetext = "?"
-		win.metadata.maxvalue = 1000 - 1
+		win.metadata.maxvalue = 1
 		return
 	end
 
@@ -401,14 +413,14 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 						d.label = "Spell " .. tostring(nr)
 					end
 
-					d.value = SecretHelper:GetDisplayValue(rawValue, nr)
+					d.value = SecretHelper:GetDisplayValue(rawValue, nr, #spells)
 					d.valuetext = Skada:FormatNumberSecret(rawValue)
 					d.icon = Skada:GetSpellIcon(rawSpellID)
 					nr = nr + 1
 				end
 			end
 		end
-		win.metadata.maxvalue = 1000 - 1
+		win.metadata.maxvalue = SecretHelper:GetMaxValue(true, 0, #spells)
 	else
 		-- FAST PATH
 		for _, spell in ipairs(spells) do

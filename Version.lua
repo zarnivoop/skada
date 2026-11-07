@@ -1,6 +1,21 @@
 local _, Skada = ...
 Skada.versions = {
 	{
+		id = "2.4.0",
+		title = "Skada 2.4.0",
+		message = "Performance and contextual UX",
+		changes = {
+			"Cache native session lookups per tick and avoid duplicate session resolution during window updates",
+			"Skip redundant column geometry, header, and title work when the layout has not changed",
+			"Consolidated redundant DPS/HPS modes into the Damage/Healing rate columns; saved old mode choices are migrated",
+			"Added contextual Auto combat mode (healer → Healing, tank → Damage Taken, damage/solo → Damage)",
+			"Made columns responsive: full width shows Damage/DPS/%, compact widths drop the rate or percentage column",
+			"Added timestamped fight-history labels and a compact Compare mode for current vs previous session",
+			"Added a native Deaths mode that opens the Blizzard death recap; the old commented-out Deaths module does not overlap",
+			"Added one-click Compact / Standard / Detailed layout presets to Windows settings",
+		}
+	},
+	{
 		id = "2.3.0",
 		title = "Skada 2.3.0",
 		message = "Modern UI and combat-data fixes",

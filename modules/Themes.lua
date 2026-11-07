@@ -165,7 +165,7 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 			barspacing = 0,
 			reversegrowth = false,
 			smoothing = true,
-			modeincombat = "",
+			modeincombat = "auto",
 			scale = 1,
 			enabletitle = true,
 			classcolorbars = true,

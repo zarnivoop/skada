@@ -1,13 +1,11 @@
 local _, Skada = ...
 
 local L = LibStub("AceLocale-3.0"):GetLocale("Skada", true)
-local LSM = LibStub("LibSharedMedia-3.0")
 local SettingsAPI = _G.Settings
 local MenuUtil = _G.MenuUtil
 
 local ACCENT = { 0.36, 0.62, 0.83 }
 local MUTED = { 0.72, 0.76, 0.82 }
-local PANEL_BG = { 0.035, 0.045, 0.060, 0.92 }
 
 local UI = {}
 
@@ -779,6 +777,47 @@ function UI:BuildWindowsPage(page)
 			end)
 		else
 			deleteButton:Disable()
+		end
+	end
+
+	if selected then
+		local winObj
+		for _, win in ipairs(windows) do
+			if win.db.name == selected then winObj = win; break end
+		end
+		if winObj then
+			AddSection(page, L["Layout presets"] or "Layout presets")
+			local presetRow = CreateFrame("Frame", nil, page)
+			presetRow:SetHeight(34)
+			presetRow:SetPoint("LEFT", page, "LEFT", 0, 0)
+			presetRow:SetPoint("RIGHT", page, "RIGHT", 0, 0)
+			Place(page, presetRow)
+			local presets = {
+				{ label = L["Compact"] or "Compact", width = 320, height = 18, background = 180, spacing = 1, headers = true, ranks = false },
+				{ label = L["Standard"] or "Standard", width = 470, height = 22, background = 300, spacing = 1, headers = true, ranks = true },
+				{ label = L["Detailed"] or "Detailed", width = 620, height = 26, background = 380, spacing = 2, headers = true, ranks = true },
+			}
+			local last
+			for _, preset in ipairs(presets) do
+				local presetData = preset
+				local button = AddFlatButton(presetRow, presetData.label, function()
+					local db = winObj.db
+					db.barwidth = presetData.width
+					db.barheight = presetData.height
+					db.barspacing = presetData.spacing
+					db.background.height = presetData.background
+					db.showcolumnheaders = presetData.headers
+					db.showranks = presetData.ranks
+					Skada:ApplySettings()
+					self:BuildPage()
+				end, 120)
+				if last then
+					button:SetPoint("LEFT", last, "RIGHT", 8, 0)
+				else
+					button:SetPoint("LEFT", presetRow, "LEFT", 10, 0)
+				end
+				last = button
+			end
 		end
 	end
 

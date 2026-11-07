@@ -325,6 +325,7 @@ function Window:AddOptions()
 				values = function()
 					local modes = {}
 					modes[""] = L["None"]
+					modes["auto"] = L["Auto"]
 					for i, mode in ipairs(Skada:GetModes()) do
 						modes[mode:GetName()] = mode:GetName()
 					end
@@ -590,6 +591,10 @@ function Skada:GetSetLabel(set) -- return a nicely-formatted label for a set
 	if type(duration) == "number" and not issecretvalue(duration) and duration > 0 then
 		local durationText = FormatDurationAbbrev(duration)
 		if type(durationText) == "string" and #durationText > 0 then
+			local startedAt = set.startedAt
+			if type(startedAt) == "number" and not issecretvalue(startedAt) then
+				return name .. " " .. date("%H:%M", startedAt) .. " (" .. durationText .. ")"
+			end
 			return name .. " (" .. durationText .. ")"
 		end
 	end
@@ -898,6 +903,51 @@ local function describeSession(set)
 	return (type(name) == "string" and name or "unnamed") .. " sources=" .. count
 end
 
+function Skada:DumpDeathsDiagnostics()
+	self:Print("Death session diagnostics:")
+	local win = windows and windows[1]
+	local set = win and win:get_selected_set()
+	if set and type(set) == "table" and not issecretvalue(set) then
+		self:Print("Selected set: sessionType=" .. tostring(set.sessionType) .. " sessionID=" .. tostring(set.sessionID))
+	else
+		self:Print("Selected set: unavailable/secret")
+	end
+
+	local function describe(view)
+		if type(view) ~= "table" then return tostring(view) end
+		if issecretvalue(view) then return "secret" end
+		local sources = view.combatSources
+		if type(sources) ~= "table" then return "sources=" .. type(sources) end
+		if issecretvalue(sources) then return "sources=secret" end
+		local n = #sources
+		local first = n > 0 and sources[1]
+		local fields = ""
+		if type(first) == "table" and not issecretvalue(first) then
+			local keys = {}
+			for k in pairs(first) do keys[#keys + 1] = tostring(k) end
+			fields = " firstFields=" .. table.concat(keys, ",")
+			if not issecretvalue(first.deathRecapID) then
+				fields = fields .. " recap=" .. tostring(first.deathRecapID)
+			end
+		end
+		return "sources=" .. tostring(n) .. fields
+	end
+
+	for _, sessionType in ipairs({1, 2, 0}) do
+		local ok, view = pcall(C_DamageMeter.GetCombatSessionFromType, sessionType, 9)
+		self:Print("Type " .. sessionType .. ": " .. (ok and describe(view) or ("error " .. tostring(view))))
+	end
+	if set and type(set) == "table" and not issecretvalue(set) and set.sessionID then
+		local ok, view = pcall(C_DamageMeter.GetCombatSessionFromID, set.sessionID, 9)
+		self:Print("ID " .. tostring(set.sessionID) .. ": " .. (ok and describe(view) or ("error " .. tostring(view))))
+	end
+	local recent = _G.C_DeathRecap and _G.C_DeathRecap.GetMostRecentDeathRecap
+	if recent then
+		local ok, id = pcall(recent)
+		self:Print("Most recent recap: " .. (ok and tostring(id) or "error"))
+	end
+end
+
 function Skada:DumpAPIDiagnostics()
 	self:Print("Damage meter diagnostics:")
 	if C_DamageMeter and C_DamageMeter.IsDamageMeterAvailable then
@@ -992,6 +1042,10 @@ local function slashHandler(param)
 	"/skada report [raid|party|instance|guild|officer|say] [current||total|set_num] [mode] [max_lines]"
 	if param == "api" then
 		Skada:DumpAPIDiagnostics()
+		return
+	end
+	if param == "deaths" then
+		Skada:DumpDeathsDiagnostics()
 		return
 	end
 
@@ -1302,9 +1356,51 @@ end
 
 -- NewSegment removed - with Native API, sessions are managed by WoW
 
+-- Contextual auto-mode: pick a sensible meter for the player's role when in a
+-- group. Solo play stays on Damage rather than assuming the role is relevant.
+function Skada:GetAutoModeName()
+	local role = _G.UnitGroupRolesAssigned and UnitGroupRolesAssigned("player") or "NONE"
+	if (IsInGroup() or IsInRaid()) and role == "HEALER" then
+		return L["Healing"]
+	elseif (IsInGroup() or IsInRaid()) and role == "TANK" then
+		return L["Damage Taken"]
+	end
+	return L["Damage"]
+end
+
+-- DPS/HPS were redundant once Damage/Healing gained rate columns. Redirect
+-- saved old mode choices to the consolidated modes.
+function Skada:ApplyModeConsolidation()
+	if self.db.profile.modesConsolidated then return end
+	self.db.profile.modesConsolidated = true
+	for _, win in ipairs(self:GetWindows()) do
+		if win.db.mode == L["DPS"] then
+			win.db.mode = L["Damage"]
+		elseif win.db.mode == L["HPS"] then
+			win.db.mode = L["Healing"]
+		end
+		if win.db.modeincombat == L["DPS"] then
+			win.db.modeincombat = L["Damage"]
+		elseif win.db.modeincombat == L["HPS"] then
+			win.db.modeincombat = L["Healing"]
+		end
+		if win.db.wipemode == L["DPS"] then
+			win.db.wipemode = L["Damage"]
+		elseif win.db.wipemode == L["HPS"] then
+			win.db.wipemode = L["Healing"]
+		end
+		-- Existing profiles that never opted into a specific combat mode get
+		-- the new contextual default once.
+		if win.db.modeincombat == "" then
+			win.db.modeincombat = "auto"
+		end
+	end
+end
+
 -- Main tick function: handles combat transitions and display updates.
 -- Replaces the old OnCombatStart/OnCombatEnd + 6 event handler approach.
 function Skada:Tick()
+	if self.NativeAPI then self.NativeAPI:BeginTick() end
 	-- Simulation mode: generate mock data and update
 	if self.Simulation and self.Simulation.active then
 		self.Simulation:Update()
@@ -1325,8 +1421,12 @@ function Skada:Tick()
 				win.restore_mode = win.selectedmode and win.selectedmode:GetName()
 			end
 			win.selectedset = "current"
-			if win.db.modeincombat and win.db.modeincombat ~= "" then
-				local mymode = find_mode(win.db.modeincombat)
+			local combatMode = win.db.modeincombat
+			if combatMode == "auto" then
+				combatMode = self:GetAutoModeName()
+			end
+			if combatMode and combatMode ~= "" then
+				local mymode = find_mode(combatMode)
 				if mymode then
 					win:DisplayMode(mymode)
 				end
@@ -2751,6 +2851,7 @@ function Skada:OnEnable()
 
 	self:ApplyThemeMigration()
 	self:ApplyTitleFontMigration()
+	self:ApplyModeConsolidation()
 
 	-- Register for native damage meter events (just flag data as changed)
 	self:RegisterEvent("DAMAGE_METER_COMBAT_SESSION_UPDATED")

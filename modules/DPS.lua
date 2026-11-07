@@ -44,7 +44,7 @@ Skada:AddLoadableModule("DPS", nil, function(Skada, L)
 						d.id = "combat_" .. nr
 						d.sourceGUID = player.sourceGUID
 						d.sourceCreatureID = player.sourceCreatureID
-						d.value = 1000 - nr
+						d.value = SecretHelper:GetDisplayValue(rawDps, nr, #sources)
 						d.valuetext = Skada:FormatNumberSecret(rawDps)
 					else
 						local guid = player.sourceGUID
@@ -69,7 +69,7 @@ Skada:AddLoadableModule("DPS", nil, function(Skada, L)
 			end
 		end
 
-		win.metadata.maxvalue = SecretHelper:GetMaxValue(hasSecretValues, max, nr - 1)
+		win.metadata.maxvalue = SecretHelper:GetMaxValue(hasSecretValues, max, #sources)
 	end
 
 	function mod:OnEnable()

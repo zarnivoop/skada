@@ -41,6 +41,14 @@ function NativeAPI:InvalidateCache()
 	if self.cache and self.cache.results then
 		wipe(self.cache.results)
 	end
+	wipe(self.sessionFrameCache)
+	self.availableFrameCache = nil
+end
+
+function NativeAPI:BeginTick()
+	self.tickSerial = (self.tickSerial or 0) + 1
+	wipe(self.sessionFrameCache)
+	self.availableFrameCache = nil
 end
 
 -- Persistent cache for discovered session types
@@ -59,6 +67,9 @@ NativeAPI.sessionByIDCache = {}
 NativeAPI.knownSessions = {}
 NativeAPI.lastKnownSessionID = nil
 NativeAPI.lastKnownDamageType = 0
+NativeAPI.tickSerial = 0
+NativeAPI.sessionFrameCache = {}
+NativeAPI.availableFrameCache = nil
 
 local function sessionHasSources(set)
 	if type(set) ~= "table" then return false end
@@ -78,6 +89,8 @@ function NativeAPI:ClearSessionCache()
 	self.knownSessions = {}
 	self.lastKnownSessionID = nil
 	self.lastKnownDamageType = 0
+	wipe(self.sessionFrameCache)
+	self.availableFrameCache = nil
 end
 
 function NativeAPI:TrackSession(sessionID, damageType)
@@ -86,7 +99,7 @@ function NativeAPI:TrackSession(sessionID, damageType)
 	end
 	local entry = self.knownSessions[sessionID]
 	if not entry then
-		entry = {sessionID = sessionID, name = "Combat " .. tostring(sessionID)}
+		entry = {sessionID = sessionID, name = "Combat " .. tostring(sessionID), startedAt = time()}
 		self.knownSessions[sessionID] = entry
 	end
 	if type(damageType) == "number" and not issecretvalue(damageType) then
@@ -500,22 +513,38 @@ end
 	}
 ]]
 function NativeAPI:GetAvailableSessions()
+	if self.availableFrameCache and self.availableFrameCache.tick == self.tickSerial then
+		return self.availableFrameCache.value
+	end
 	local success, result = pcall(C_DamageMeter.GetAvailableCombatSessions)
 	if success and type(result) == "table" then
 		if #result > 0 then
 			self.lastSessions = result
+			for _, available in ipairs(result) do
+				local known = available.sessionID and self.knownSessions[available.sessionID]
+				if known and known.startedAt and not available.startedAt then
+					pcall(function() available.startedAt = known.startedAt end)
+				end
+			end
+			self.availableFrameCache = {tick = self.tickSerial, value = result}
 			return result
 		end
-		if self.lastSessions then return self.lastSessions end
+		if self.lastSessions then
+			self.availableFrameCache = {tick = self.tickSerial, value = self.lastSessions}
+			return self.lastSessions
+		end
 	end
 
 	-- Some clients populate the session list only through events, not this
 	-- endpoint. Synthesize a list from the IDs we have seen.
 	local known = self:GetKnownSessions()
 	if #known > 0 then
+		self.availableFrameCache = {tick = self.tickSerial, value = known}
 		return known
 	end
-	return self.lastSessions or {}
+	local empty = self.lastSessions or {}
+	self.availableFrameCache = {tick = self.tickSerial, value = empty}
+	return empty
 end
 
 --[[
@@ -621,6 +650,11 @@ end
 	All Get*Session() methods delegate to this.
 ]]
 function NativeAPI:GetSessionByParams(sessionType, damageType)
+	local cacheKey = tostring(sessionType) .. ":" .. tostring(damageType)
+	local cached = self.sessionFrameCache[cacheKey]
+	if cached then
+		return cached.value
+	end
 	-- Prioritize simulation (safety: only out of combat)
 	if Skada.Simulation and Skada.Simulation.active and not InCombatLockdown() then
 		return Skada.Simulation:GetMockSession(sessionType, damageType)
@@ -628,6 +662,7 @@ function NativeAPI:GetSessionByParams(sessionType, damageType)
 
 	local success, result = pcall(C_DamageMeter.GetCombatSessionFromType, sessionType, damageType)
 	if success and type(result) == "table" then
+		self.sessionFrameCache[cacheKey] = {value = result}
 		return result
 	end
 
@@ -655,11 +690,13 @@ function NativeAPI:GetSessionByParams(sessionType, damageType)
 
 			success, result = pcall(C_DamageMeter.GetCombatSessionFromType, enumSessionType, enumDamageType)
 			if success and type(result) == "table" then
+				self.sessionFrameCache[cacheKey] = {value = result}
 				return result
 			end
 		end
 	end
 
+	self.sessionFrameCache[cacheKey] = {value = false}
 	return nil
 end
 
