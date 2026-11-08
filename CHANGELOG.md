@@ -1,6 +1,7 @@
 ## 2.5.0
 Quick mode switching and post-combat summary
-- Left-clicking the title opens the mode menu, right-clicking opens the segment menu, and the title highlights and explains this on hover (no wheel cycling, no legacy back-navigation on title right-click)
+- The title bar now exposes the menus directly: left-click opens modes, right-click opens segments, and hover shows a short hint
+- Removed wheel mode cycling and legacy back-navigation from title right-click
 - Added configurable role defaults for contextual Auto combat mode (tank/healer/damager)
 - Added a post-combat summary panel with duration, raid DPS/HPS, deaths, avoidable damage, interrupts, dispels, top damage, and top avoidable ability
 - Summary can open from the window menu or `/skada summary`
@@ -9,7 +10,7 @@ Quick mode switching and post-combat summary
 - Added one always-on humorous verdict line
 - Combat summary closes immediately when combat starts
 - The summary panel remembers its dragged position per profile
-- Combat updates now default to 0.10s instead of 0.25s, and kept smoothing is about twice as fast
+- Combat updates now default to 0.10s instead of 0.25s; smoothing is still enabled but settles faster
 - Added `Summary.lua` to the manifest and summary-related settings
 
 ## 2.4.1
