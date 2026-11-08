@@ -562,4 +562,3 @@ L["Absorb share"] = "Absorb share"
 -- Title-bar interaction hints.
 L["Left click: mode"] = "Left click: mode"
 L["Right click: segment"] = "Right click: segment"
-L["Scroll: cycle modes"] = "Scroll: cycle modes"

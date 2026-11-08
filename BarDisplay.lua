@@ -99,7 +99,6 @@ function mod:Create(window)
 			GameTooltip:ClearLines()
 			GameTooltip:AddLine(L["Left click: mode"])
 			GameTooltip:AddLine(L["Right click: segment"])
-			GameTooltip:AddLine(L["Scroll: cycle modes"])
 			GameTooltip:Show()
 		end)
 		titleButton:HookScript("OnLeave", function(button)
@@ -1113,10 +1112,8 @@ function mod:ApplySettings(win)
 	end
 	g:SetFont(p.barfontpath or media:Fetch('font', p.barfont), p.barfontsize, p.barfontflags)
 	if g.button then
-		g.button:EnableMouseWheel(true)
-		g.button:SetScript("OnMouseWheel", function(_, delta)
-			if win then Skada:CycleMode(win, delta) end
-		end)
+		g.button:EnableMouseWheel(false)
+		g.button:SetScript("OnMouseWheel", nil)
 	end
 	g:SetSpacing(snapPixels(p.barspacing))
 	g:UnsetAllColors()

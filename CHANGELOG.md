@@ -1,7 +1,6 @@
 ## 2.5.0
 Quick mode switching and post-combat summary
-- Mouse-wheel over the window title cycles through modes
-- Left-clicking the title opens the mode menu, right-clicking opens the segment menu, and the title highlights and explains this on hover
+- Left-clicking the title opens the mode menu, right-clicking opens the segment menu, and the title highlights and explains this on hover (no wheel cycling)
 - Added configurable role defaults for contextual Auto combat mode (tank/healer/damager)
 - Added a post-combat summary panel with duration, raid DPS/HPS, deaths, avoidable damage, interrupts, dispels, top damage, and top avoidable ability
 - Summary can open from the window menu or `/skada summary`

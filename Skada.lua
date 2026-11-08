@@ -1412,23 +1412,6 @@ function Skada:GetAutoModeName()
 	return L["Damage"]
 end
 
--- Mouse-wheel cycling over the title bar. Kept next to GetModes so the order
--- matches the mode list exactly.
-function Skada:CycleMode(win, direction)
-	if not win or not win.selectedmode then return end
-	local current = win.selectedmode
-	local index = 1
-	for i, mode in ipairs(modes) do
-		if mode == current then index = i; break end
-	end
-	if direction and direction > 0 then
-		index = index % #modes + 1
-	else
-		index = ((index - 2) % #modes) + 1
-	end
-	win:DisplayMode(modes[index])
-end
-
 -- DPS/HPS were redundant once Damage/Healing gained rate columns. Redirect
 -- saved old mode choices to the consolidated modes.
 function Skada:ApplyModeConsolidation()
