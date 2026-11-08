@@ -9,6 +9,7 @@ Quick mode switching and post-combat summary
 - Added one always-on humorous verdict line
 - Combat summary closes immediately when combat starts
 - The summary panel remembers its dragged position per profile
+- Combat updates now default to 0.10s instead of 0.25s, and kept smoothing is about twice as fast
 - Added `Summary.lua` to the manifest and summary-related settings
 
 ## 2.4.1

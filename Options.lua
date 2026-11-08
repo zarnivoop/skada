@@ -142,7 +142,7 @@ Skada.defaults = {
 		combatsummaryscope = "boss",
 		roledefaults = { TANK = "", HEALER = "", DAMAGER = "" },
 		sortmodesbyusage = true,
-		updatefrequency = 0.25,
+		updatefrequency = 0.10,
 
 		modules = {},
 		columns = {},
@@ -534,7 +534,7 @@ Skada.options = {
 					min = 0.10,
 					max = 1,
 					step = 0.05,
-					get = function() return Skada.db.profile.updatefrequency end,
+					get = function() return Skada.db.profile.updatefrequency or 0.10 end,
 					set = function(self, opt)
 						Skada.db.profile.updatefrequency = opt
 						Skada:ApplyUpdateFrequency()

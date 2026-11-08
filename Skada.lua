@@ -824,6 +824,9 @@ function Skada:CreateWindow(name, db, display)
 	if not db.scale then
 		db.scale = 1
 	end
+	if db.smoothing == nil then
+		db.smoothing = true
+	end
 
 	if not db.version then
 		-- On changes that needs updates to window data structure, increment version in defaults and handle it after this bit.
@@ -1312,6 +1315,9 @@ function Skada:DeleteSet(set)
 end
 
 function Skada:ReloadSettings()
+	if self.db.profile.updatefrequency == nil then
+		self.db.profile.updatefrequency = 0.10
+	end
 	if type(self.db.profile.roledefaults) ~= "table" then
 		self.db.profile.roledefaults = { TANK = "", HEALER = "", DAMAGER = "" }
 	end
@@ -2928,7 +2934,7 @@ function Skada:OnEnable()
 	self.NativeAPI:TestSessionTypes()
 
 	-- Single repeating timer handles combat transitions, simulation, and display updates
-	self.tickTimer = self:ScheduleRepeatingTimer("Tick", self.db.profile.updatefrequency or 0.25)
+	self.tickTimer = self:ScheduleRepeatingTimer("Tick", self.db.profile.updatefrequency or 0.10)
 
 	-- Group and zone change events for data reset triggers
 	self:RegisterEvent("GROUP_ROSTER_UPDATE")
@@ -2954,7 +2960,7 @@ function Skada:ApplyUpdateFrequency()
 		self:CancelTimer(self.tickTimer)
 		self.tickTimer = nil
 	end
-	self.tickTimer = self:ScheduleRepeatingTimer("Tick", self.db.profile.updatefrequency or 0.25)
+	self.tickTimer = self:ScheduleRepeatingTimer("Tick", self.db.profile.updatefrequency or 0.10)
 end
 
 function Skada:AddLoadableModule(name, description, func)
