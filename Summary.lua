@@ -17,7 +17,7 @@ local function formatDuration(seconds)
 end
 
 local function formatNumber(value)
-	if value == nil then return "—" end
+	if value == nil then return "-" end
 	if not issecretvalue(value) and type(value) == "number" and value == 0 then return "0" end
 	return Skada:FormatNumberSecret(value)
 end
@@ -30,22 +30,62 @@ local function formatRate(total, duration)
 	return Skada:FormatNumber(rate)
 end
 
+local function percentage(value, total)
+	if issecretvalue(value) or issecretvalue(total) then return nil end
+	if type(value) ~= "number" or type(total) ~= "number" or total <= 0 then return nil end
+	return (value / total) * 100
+end
+
+local function formatPercent(value)
+	if type(value) ~= "number" then return nil end
+	return string.format("%.0f%%", value)
+end
+
+local function perMinute(value, duration)
+	if issecretvalue(value) or issecretvalue(duration) then return nil end
+	if type(value) ~= "number" or type(duration) ~= "number" or duration <= 0 then return nil end
+	return value * 60 / duration
+end
+
+local function formatPerMinute(value)
+	if type(value) ~= "number" then return nil end
+	return string.format("%.1f/min", value)
+end
+
 local function bestSource(set, damageType)
-	local view = Skada.NativeAPI:GetSessionView(set, damageType)
+	local view = NativeAPI:GetSessionView(set, damageType)
 	if type(view) ~= "table" or issecretvalue(view) then return nil end
 	local sources = view.combatSources
 	if type(sources) ~= "table" or issecretvalue(sources) then return nil end
-	local best, bestValue
+	local best, bestValue, bestIndex
 	for i, source in ipairs(sources) do
 		if type(source) == "table" and not issecretvalue(source) then
 			local value = source.totalAmount
 			if not issecretvalue(value) and type(value) == "number" and (not bestValue or value > bestValue) then
-				best, bestValue = source, value
-				best.index = i
+				best, bestValue, bestIndex = source, value, i
 			end
 		end
 	end
-	return best, bestValue
+	return best, bestValue, bestIndex
+end
+
+local function firstDeath(set)
+	local view = NativeAPI:GetSessionView(set, 9)
+	if type(view) ~= "table" or issecretvalue(view) then return nil end
+	local sources = view.combatSources
+	if type(sources) ~= "table" or issecretvalue(sources) then return nil end
+	local firstTime, firstName
+	for i, source in ipairs(sources) do
+		if type(source) == "table" and not issecretvalue(source) then
+			local deathTime = source.deathTimeSeconds
+			if not issecretvalue(deathTime) and type(deathTime) == "number"
+				and (not firstTime or deathTime < firstTime) then
+				firstTime = deathTime
+				firstName = SecretHelper:GetPlayerLabel(source, i)
+			end
+		end
+	end
+	return firstName, firstTime
 end
 
 local function spellName(spell)
@@ -60,11 +100,11 @@ local function spellName(spell)
 end
 
 local function topAvoidable(set)
-	local source = bestSource(set, 8)
-	if not source then return "—" end
-	local playerName = SecretHelper:GetPlayerLabel(source, source.index or 1)
+	local source, _, sourceIndex = bestSource(set, 8)
+	if not source then return nil end
+	local playerName = SecretHelper:GetPlayerLabel(source, sourceIndex or 1)
 	local spells = NativeAPI:GetPlayerSpells(source.sourceGUID, set, 8, source.sourceCreatureID)
-	if type(spells) ~= "table" or issecretvalue(spells) then return tostring(playerName or "—") end
+	if type(spells) ~= "table" or issecretvalue(spells) then return tostring(playerName or "-") end
 	local best, bestValue
 	for _, spell in ipairs(spells) do
 		if type(spell) == "table" and not issecretvalue(spell) then
@@ -76,19 +116,19 @@ local function topAvoidable(set)
 	end
 	local name = best and spellName(best)
 	if name then return name .. " (" .. tostring(playerName) .. ")" end
-	return tostring(playerName or "—")
+	return tostring(playerName or "-")
 end
 
-local function buildSummary(set)
+local function summarisedStats(set)
 	local duration = Skada:GetSetTime(set)
 	local damage = ModuleBase:GetSetTotal(set, 0)
 	local healing = ModuleBase:GetSetTotal(set, 2)
+	local absorbs = ModuleBase:GetSetTotal(set, 4)
 	local avoidable = ModuleBase:GetSetTotal(set, 8)
 	local interrupts = ModuleBase:GetSetTotal(set, 5)
 	local dispels = ModuleBase:GetSetTotal(set, 6)
+	local damageTaken = ModuleBase:GetSetTotal(set, 7)
 
-	-- A Deaths source is a person who died; use the row count rather than
-	-- trusting a damage-like totalAmount field from other metric types.
 	local deaths
 	do
 		local view = NativeAPI:GetSessionView(set, 9)
@@ -100,17 +140,76 @@ local function buildSummary(set)
 		end
 	end
 
-	local topDamage = "—"
-	local source, amount = bestSource(set, 0)
-	if source then
-		local name = SecretHelper:GetPlayerLabel(source, source.index or 1)
-		topDamage = tostring(name or "—") .. " (" .. Skada:FormatNumber(amount or 0) .. ")"
-	end
-	local avoidableTop = topAvoidable(set)
+	local topSource, topAmount, topIndex = bestSource(set, 0)
+	local topName = topSource and SecretHelper:GetPlayerLabel(topSource, topIndex or 1) or nil
+	local firstDeathName, firstDeathTime = firstDeath(set)
+	local avoidableSource = topAvoidable(set)
 
+	local healingAndAbsorbs = nil
+	if not issecretvalue(healing) and not issecretvalue(absorbs)
+		and type(healing) == "number" and type(absorbs) == "number" then
+		healingAndAbsorbs = healing + absorbs
+	end
+
+	return {
+		duration = duration,
+		damage = damage,
+		healing = healing,
+		absorbs = absorbs,
+		avoidable = avoidable,
+		interrupts = interrupts,
+		dispels = dispels,
+		damageTaken = damageTaken,
+		deaths = deaths,
+		topSource = topSource,
+		topAmount = topAmount,
+		topName = topName,
+		topShare = percentage(topAmount, damage),
+		firstDeathName = firstDeathName,
+		firstDeathTime = firstDeathTime,
+		avoidableTax = percentage(avoidable, damageTaken),
+		interruptRate = perMinute(interrupts, duration),
+		dispelRate = perMinute(dispels, duration),
+		deathRate = perMinute(deaths, duration),
+		absorbShare = percentage(absorbs, healingAndAbsorbs),
+		avoidableTop = avoidableSource,
+	}
+end
+
+local function plainNumber(value)
+	return type(value) == "number" and not issecretvalue(value)
+end
+
+local function verdictFor(stats)
+	if plainNumber(stats.deaths) and stats.deaths == 0 then
+		return "Nobody died. Suspicious. The healer may want a raise."
+	end
+	if plainNumber(stats.avoidableTax) and stats.avoidableTax > 20 then
+		return "The floor has filed a formal complaint."
+	end
+	if plainNumber(stats.interrupts) and stats.interrupts == 0 and IsInInstance() then
+		return "Kick button not found. Please check under the action bars."
+	end
+	if plainNumber(stats.topShare) and stats.topShare > 40 then
+		return "Carry permit required. Please stretch before the next pull."
+	end
+	if plainNumber(stats.absorbShare) and stats.absorbShare > 50 then
+		return "The healers were mostly decorative. The shields did the work."
+	end
+	if plainNumber(stats.deaths) and stats.deaths >= 3 then
+		return "The floor sends its regards."
+	end
+	if plainNumber(stats.duration) and stats.duration < 30 then
+		return "Blink and you missed it. The boss has requested a rematch."
+	end
+	return "The data does not lie. The boss might."
+end
+
+local function buildSummary(set)
+	local stats = summarisedStats(set)
 	local rows = {}
 	local function add(rowLabel, value, show)
-		if show ~= false and value ~= nil and value ~= "—" then
+		if show ~= false and value ~= nil and value ~= "-" then
 			rows[#rows + 1] = { label = rowLabel, value = value }
 		end
 	end
@@ -119,16 +218,41 @@ local function buildSummary(set)
 		return type(value) == "number" and value > 0
 	end
 
-	add(label("Duration", "Duration"), formatDuration(duration), duration ~= nil)
-	add(label("Raid DPS", "Raid DPS"), formatRate(damage, duration), positive(damage) and positive(duration))
-	add(label("Raid HPS", "Raid HPS"), formatRate(healing, duration), positive(healing) and positive(duration))
-	add(label("Deaths", "Deaths"), formatNumber(deaths), positive(deaths))
-	add(label("Avoidable damage", "Avoidable damage"), formatNumber(avoidable), positive(avoidable))
-	add(label("Interrupts", "Interrupts"), formatNumber(interrupts), positive(interrupts))
-	add(label("Dispels", "Dispels"), formatNumber(dispels), positive(dispels))
-	add(label("Top damage", "Top damage"), topDamage, source ~= nil)
-	add(label("Top avoidable", "Top avoidable"), avoidableTop, avoidableTop ~= "—")
-	return rows, Skada:GetSetLabel(set)
+	local deathText = formatNumber(stats.deaths)
+	if stats.deathRate then deathText = deathText .. " (" .. formatPerMinute(stats.deathRate) .. ")" end
+
+	add(label("Duration", "Duration"), formatDuration(stats.duration), stats.duration ~= nil)
+	add(label("Raid DPS", "Raid DPS"), formatRate(stats.damage, stats.duration), positive(stats.damage) and positive(stats.duration))
+	add(label("Raid HPS", "Raid HPS"), formatRate(stats.healing, stats.duration), positive(stats.healing) and positive(stats.duration))
+	add(label("Deaths", "Deaths"), deathText, positive(stats.deaths))
+	if stats.firstDeathTime then
+		add(label("First death", "First death"), formatDuration(stats.firstDeathTime) .. " (" .. tostring(stats.firstDeathName) .. ")", true)
+	end
+	local avoidableText = formatNumber(stats.avoidable)
+	local avoidableTaxText = formatPercent(stats.avoidableTax)
+	if avoidableTaxText then avoidableText = avoidableText .. " (" .. avoidableTaxText .. " of taken)" end
+	add(label("Avoidable damage", "Avoidable damage"), avoidableText, positive(stats.avoidable))
+	local interruptText = formatNumber(stats.interrupts)
+	if stats.interruptRate then interruptText = interruptText .. " (" .. formatPerMinute(stats.interruptRate) .. ")" end
+	add(label("Interrupts", "Interrupts"), interruptText, positive(stats.interrupts))
+	local dispelText = formatNumber(stats.dispels)
+	if stats.dispelRate then dispelText = dispelText .. " (" .. formatPerMinute(stats.dispelRate) .. ")" end
+	add(label("Dispels", "Dispels"), dispelText, positive(stats.dispels))
+
+	if stats.topSource then
+		local topShare = formatPercent(stats.topShare)
+		local topText = tostring(stats.topName or "-") .. " (" .. formatNumber(stats.topAmount)
+		if topShare then topText = topText .. ", " .. topShare .. " share" end
+		topText = topText .. ")"
+		add(label("Top damage", "Top damage"), topText, true)
+	end
+	if stats.avoidableTop then
+		add(label("Top avoidable", "Top avoidable"), stats.avoidableTop, true)
+	end
+	if stats.absorbShare then
+		add(label("Absorb share", "Absorb share"), formatPercent(stats.absorbShare), true)
+	end
+	return rows, Skada:GetSetLabel(set), verdictFor(stats)
 end
 
 local function ensureFrame()
@@ -182,8 +306,13 @@ local function ensureFrame()
 	close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -4, -4)
 	close:SetScript("OnClick", function() frame:Hide() end)
 
+	frame.verdict = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	frame.verdict:SetJustifyH("LEFT")
+	frame.verdict:SetTextColor(ACCENT[1], ACCENT[2], ACCENT[3], 1)
+	frame.verdict:Hide()
+
 	frame.rows = {}
-	for i = 1, 12 do
+	for i = 1, 14 do
 		local row = CreateFrame("Frame", nil, frame)
 		row:SetHeight(24)
 		row:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -48 - (i - 1) * 24)
@@ -207,10 +336,9 @@ end
 function Skada:ShowCombatSummary(set)
 	if type(set) ~= "table" then set = self:GetActiveSet() end
 	if type(set) ~= "table" then return end
-	local rows, setLabel = buildSummary(set)
+	local rows, setLabel, verdict = buildSummary(set)
 	local frame = ensureFrame()
 	frame.subtitle:SetText(setLabel or "")
-	frame:SetHeight(56 + #rows * 24 + 10)
 	for i, row in ipairs(frame.rows) do
 		local data = rows[i]
 		if data then
@@ -220,6 +348,17 @@ function Skada:ShowCombatSummary(set)
 		else
 			row:Hide()
 		end
+	end
+	if verdict then
+		frame.verdict:ClearAllPoints()
+		frame.verdict:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -48 - #rows * 24 - 2)
+		frame.verdict:SetPoint("RIGHT", frame, "RIGHT", -14, 0)
+		frame.verdict:SetText(verdict)
+		frame.verdict:Show()
+		frame:SetHeight(56 + #rows * 24 + 28)
+	else
+		frame.verdict:Hide()
+		frame:SetHeight(56 + #rows * 24 + 10)
 	end
 	frame:Show()
 end

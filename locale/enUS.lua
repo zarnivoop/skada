@@ -552,3 +552,8 @@ L["Boss fights only"] = "Boss fights only"
 L["All instance fights"] = "All instance fights"
 L["All group fights"] = "All group fights"
 L["Choose when the summary opens automatically. It is still available from the menu and /skada summary."] = "Choose when the summary opens automatically. It is still available from the menu and /skada summary."
+
+
+-- Combat summary personality labels.
+L["First death"] = "First death"
+L["Absorb share"] = "Absorb share"
