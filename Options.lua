@@ -138,8 +138,11 @@ Skada.defaults = {
 		hidecombat = false,
 		feed = "",
 		showtotals = false,
+		showcombatsummary = false,
+		combatsummaryscope = "boss",
+		roledefaults = { TANK = "", HEALER = "", DAMAGER = "" },
 		sortmodesbyusage = true,
-		updatefrequency = 0.25,
+		updatefrequency = 0.10,
 
 		modules = {},
 		columns = {},
@@ -339,6 +342,71 @@ Skada.options = {
 				},
 
 
+				roledefaults = {
+					type = "group",
+					name = L["Role defaults"],
+					desc = L["Modes used by contextual Auto combat mode for each group role."],
+					inline = true,
+					order = 4,
+					args = {
+						tank = {
+							type = "select",
+							name = L["Tank"],
+							values = function()
+								local values = { [""] = L["Automatic"] }
+								for _, mode in ipairs(Skada:GetModes()) do values[mode:GetName()] = mode:GetName() end
+								return values
+							end,
+							get = function() return Skada.db.profile.roledefaults.TANK or "" end,
+							set = function(_, value) Skada.db.profile.roledefaults.TANK = value end,
+						},
+						healer = {
+							type = "select",
+							name = L["Healer"],
+							values = function()
+								local values = { [""] = L["Automatic"] }
+								for _, mode in ipairs(Skada:GetModes()) do values[mode:GetName()] = mode:GetName() end
+								return values
+							end,
+							get = function() return Skada.db.profile.roledefaults.HEALER or "" end,
+							set = function(_, value) Skada.db.profile.roledefaults.HEALER = value end,
+						},
+						damager = {
+							type = "select",
+							name = L["Damage"],
+							values = function()
+								local values = { [""] = L["Automatic"] }
+								for _, mode in ipairs(Skada:GetModes()) do values[mode:GetName()] = mode:GetName() end
+								return values
+							end,
+							get = function() return Skada.db.profile.roledefaults.DAMAGER or "" end,
+							set = function(_, value) Skada.db.profile.roledefaults.DAMAGER = value end,
+						},
+					},
+				},
+				showcombatsummary = {
+					type = "toggle",
+					name = L["Combat summary"],
+					desc = L["Show a summary panel after combat ends."],
+					order = 14,
+					get = function() return Skada.db.profile.showcombatsummary end,
+					set = function() Skada.db.profile.showcombatsummary = not Skada.db.profile.showcombatsummary end,
+				},
+				combatsummaryscope = {
+					type = "select",
+					name = L["Combat summary scope"],
+					desc = L["Choose when the summary opens automatically. It is still available from the menu and /skada summary."],
+					order = 15,
+					values = {
+						boss = L["Boss fights only"],
+						instance = L["All instance fights"],
+						group = L["All group fights"],
+					},
+					get = function() return Skada.db.profile.combatsummaryscope or "boss" end,
+					set = function(_, value) Skada.db.profile.combatsummaryscope = value end,
+					disabled = function() return not Skada.db.profile.showcombatsummary end,
+				},
+
 				hidesolo = {
 					type = "toggle",
 					name = L["Hide when solo"],
@@ -466,7 +534,7 @@ Skada.options = {
 					min = 0.10,
 					max = 1,
 					step = 0.05,
-					get = function() return Skada.db.profile.updatefrequency end,
+					get = function() return Skada.db.profile.updatefrequency or 0.10 end,
 					set = function(self, opt)
 						Skada.db.profile.updatefrequency = opt
 						Skada:ApplyUpdateFrequency()

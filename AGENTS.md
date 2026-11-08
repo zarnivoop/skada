@@ -63,7 +63,10 @@ Modules should be "Hardened" by default:
 - **Native metric coverage**: Absorbs, Avoidable Damage Taken, and Enemy Damage Taken are exposed from `C_DamageMeter`; all three support player/spell drilldowns. Enemy sources may be creature-ID-only, so source lookup and spell drilldown accept `sourceCreatureID` without a GUID.
 - **Native metric factory**: `modules/NativeMetrics.lua` now also owns Damage Taken, Interrupts, and Dispels. Simple modes use `UpdateSimpleList`; player modes use `UpdatePlayerList`. Damage/Healing and the special Threat/Deaths/Compare modes stay custom.
 - **Secret labels**: never build a rank prefix with `string.format` around a secret player name; pass the secret label directly to the FontString so combat rows remain readable. The same applies to tooltip lines: use the secret label directly and skip class-color/rank composition.
-- **Performance**: session lookups are cached per tick; header labels and title writes are skipped when their layout key has not changed. Fixed column geometry is reapplied after bars update because the bar library can re-anchor columns on resize; visible rows are snapped to a physical-pixel stride after sorting to avoid uneven gaps at fractional UI scales, with the same top inset applied before the first row (including the total bar). Snapping is reapplied after scroll, settings changes, and width-resize hooks because those paths call `SortBars` directly.
+- **Performance**: session lookups are cached per tick; header labels and title writes are skipped when their layout key has not changed. Fixed column geometry is reapplied after bars update because the bar library can re-anchor columns on resize; visible rows are snapped to a physical-pixel stride after sorting to avoid uneven gaps at fractional UI scales, with the same top inset applied before the first row (including the total bar). Snapping is reapplied after scroll, settings changes, and width-resize hooks because those paths call `SortBars` directly. Combat updates default to 0.10s; bar smoothing is kept but interpolates at 25% per frame instead of 10%.
+- **Quick mode**: left-clicking the title opens the mode menu and right-clicking opens the segment menu. Hover highlights the title and shows the interaction hint. Wheel mode cycling is intentionally not used, and title right-click does not also run the legacy back-navigation handler.
+- **Role defaults**: contextual Auto mode can map tank/healer/damager to any mode in General options.
+- **Combat summary**: `Summary.lua` provides a post-combat panel with duration, raid DPS/HPS, deaths, avoidable damage, interrupts, dispels, top damage, and top avoidable ability. It opens from the window menu or `/skada summary`. Auto-display is off by default; when enabled it defaults to boss fights only and omits zero-value rows. It derives top damage share, first death and death rate, avoidable tax, interrupt/dispel cadence, and absorb share, and always ends with one short humorous verdict. Its dragged position is stored per profile, and it hides immediately on `PLAYER_REGEN_DISABLED`.
 - **Migration**: `Skada:ApplyThemeMigration()` runs once per profile and only replaces the old out-of-box look (`Skada Glass`, 260px bars); custom themes are left untouched.
 
 ## 4. Local Machine Setup (Stefan)
@@ -72,7 +75,7 @@ Modules should be "Hardened" by default:
 - WoW client: `/home/stefan/Faugus/battlenet/drive_c/Program Files (x86)/World of Warcraft/_forever_`
 - AddOns path: `.../_forever_/Interface/AddOns/Skada`
 - Client build observed: `1.60.1.70790` (`wowf` flavor), Interface **16001**.
-- Installed addon version: **2.4.1** (`Skada-2.4.1-forever.zip` in the repo root).
+- Installed addon version: **2.5.0** (`Skada-2.5.0-forever.zip` in the repo root).
 
 ### Build + install
 
@@ -93,13 +96,13 @@ rsync -a --exclude='.git' --exclude='.tools' --exclude='release' --exclude='tool
   --exclude='README.md' --exclude='generate-version.py' \
   ./ release/Skada/
 # replace @project-version@ in all three TOCs with the release version
-rm -f Skada-2.4.1-forever.zip
-(cd release && 7z a -tzip -mx=9 ../Skada-2.4.1-forever.zip Skada >/dev/null)
+rm -f Skada-2.5.0-forever.zip
+(cd release && 7z a -tzip -mx=9 ../Skada-2.5.0-forever.zip Skada >/dev/null)
 
 # install (back up any existing install first)
 ADDONS="/home/stefan/Faugus/battlenet/drive_c/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns"
 [ -e "$ADDONS/Skada" ] && mv "$ADDONS/Skada" "$ADDONS/Skada.backup.$(date +%Y%m%d-%H%M%S)"
-7z x -y Skada-2.4.1-forever.zip -o"$ADDONS" >/dev/null
+7z x -y Skada-2.5.0-forever.zip -o"$ADDONS" >/dev/null
 ```
 
 ### TOC rule
@@ -112,7 +115,7 @@ ADDONS="/home/stefan/Faugus/battlenet/drive_c/Program Files (x86)/World of Warcr
 
 ### Release
 
-Tag `v2.4.1` and push; `.github/workflows/release-midnight.yml` runs `luacheck`, `forever-lint`, regenerates `Version.lua`, and runs the BigWigs packager. The packager recognizes the suffixed TOCs and `16001`.
+Tag `v2.5.0` and push; `.github/workflows/release-midnight.yml` runs `luacheck`, `forever-lint`, regenerates `Version.lua`, and runs the BigWigs packager. The packager recognizes the suffixed TOCs and `16001`.
 
 ---
 > [!IMPORTANT]

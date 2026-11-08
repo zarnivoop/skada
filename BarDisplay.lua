@@ -68,11 +68,61 @@ function mod:Create(window)
 
 	end
 	window.bargroup.win = window
+	local titleButton = window.bargroup.button
+	if titleButton and not titleButton._skadaTitleClickHooked then
+		titleButton._skadaTitleClickHooked = true
+		titleButton:HookScript("OnMouseDown", function(button)
+			button._skadaClickLeft = button:GetParent():GetLeft()
+			button._skadaClickTop = button:GetParent():GetTop()
+		end)
+		titleButton:HookScript("OnMouseUp", function(button, mouseButton)
+			local group = button:GetParent()
+			local left, top = group:GetLeft(), group:GetTop()
+			local moved = math.abs((button._skadaClickLeft or left) - (left or 0)) > 3
+				or math.abs((button._skadaClickTop or top) - (top or 0)) > 3
+			if not moved then
+				if mouseButton == "LeftButton" then
+					Skada:ModeMenu(window)
+				elseif mouseButton == "RightButton" then
+					Skada:SegmentMenu(window)
+				end
+			end
+		end)
+		titleButton:HookScript("OnEnter", function(button)
+			local fs = button:GetFontString()
+			if fs then
+				local r, g, b, a = fs:GetTextColor()
+				button._skadaTitleColor = { r, g, b, a }
+				fs:SetTextColor(0.55, 0.80, 1.00, 1)
+			end
+			GameTooltip:SetOwner(button, "ANCHOR_TOP")
+			GameTooltip:ClearLines()
+			GameTooltip:AddLine(L["Left click: mode"])
+			GameTooltip:AddLine(L["Right click: segment"])
+			GameTooltip:Show()
+		end)
+		titleButton:HookScript("OnLeave", function(button)
+			local fs = button:GetFontString()
+			local c = button._skadaTitleColor
+			if fs and c then fs:SetTextColor(c[1], c[2], c[3], c[4]) end
+			button._skadaTitleColor = nil
+			GameTooltip:Hide()
+		end)
+	end
 	window.bargroup.RegisterCallback(mod, "AnchorMoved")
 	window.bargroup.RegisterCallback(mod, "WindowResized")
 	window.bargroup:EnableMouse(true)
-	window.bargroup:SetScript("OnMouseDown", function(win, button) if IsShiftKeyDown() then Skada:OpenMenu(window) elseif button == "RightButton" then window:RightClick() end end)
-	window.bargroup.button:SetScript("OnClick", function(win, button) if IsShiftKeyDown() then Skada:OpenMenu(window) elseif button == "RightButton" then window:RightClick() end end)
+	window.bargroup:SetScript("OnMouseDown", function(win, button)
+		if IsShiftKeyDown() then
+			Skada:OpenMenu(window)
+		end
+		-- Right-click navigation belongs to bar rows, not the group. The title
+		-- owns right-click as the segment menu and must never fall through to
+		-- the legacy back-navigation path.
+	end)
+	window.bargroup.button:SetScript("OnClick", function(win, button)
+		if IsShiftKeyDown() then Skada:OpenMenu(window) end
+	end)
 
 	local function restButtonOpacity()
 		return (window.db.hoverbuttons ~= false) and 0 or 0.25
@@ -1070,6 +1120,10 @@ function mod:ApplySettings(win)
 		end
 	end
 	g:SetFont(p.barfontpath or media:Fetch('font', p.barfont), p.barfontsize, p.barfontflags)
+	if g.button then
+		g.button:EnableMouseWheel(false)
+		g.button:SetScript("OnMouseWheel", nil)
+	end
 	g:SetSpacing(snapPixels(p.barspacing))
 	g:UnsetAllColors()
 	g:SetColorAt(0,p.barcolor.r,p.barcolor.g,p.barcolor.b, p.barcolor.a)

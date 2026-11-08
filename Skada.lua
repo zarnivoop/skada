@@ -824,6 +824,9 @@ function Skada:CreateWindow(name, db, display)
 	if not db.scale then
 		db.scale = 1
 	end
+	if db.smoothing == nil then
+		db.smoothing = true
+	end
 
 	if not db.version then
 		-- On changes that needs updates to window data structure, increment version in defaults and handle it after this bit.
@@ -1046,6 +1049,11 @@ local function slashHandler(param)
 	end
 	if param == "deaths" then
 		Skada:DumpDeathsDiagnostics()
+		return
+	end
+	if param == "summary" then
+		local win = windows and windows[1]
+		Skada:ShowCombatSummary(win and win:get_selected_set())
 		return
 	end
 
@@ -1307,6 +1315,19 @@ function Skada:DeleteSet(set)
 end
 
 function Skada:ReloadSettings()
+	if self.db.profile.updatefrequency == nil then
+		self.db.profile.updatefrequency = 0.10
+	end
+	if type(self.db.profile.roledefaults) ~= "table" then
+		self.db.profile.roledefaults = { TANK = "", HEALER = "", DAMAGER = "" }
+	end
+	if not self.db.profile.combatsummaryDefaultMigrated then
+		self.db.profile.showcombatsummary = false
+		self.db.profile.combatsummaryDefaultMigrated = true
+	end
+	if self.db.profile.combatsummaryscope == nil then
+		self.db.profile.combatsummaryscope = "boss"
+	end
 	-- Delete all existing windows in case of a profile change.
 	for i, win in ipairs(windows) do
 		win:destroy()
@@ -1356,13 +1377,36 @@ end
 
 -- NewSegment removed - with Native API, sessions are managed by WoW
 
+function Skada:PLAYER_REGEN_DISABLED()
+	self:HideCombatSummary()
+end
+
+function Skada:ShouldShowCombatSummary(set)
+	local scope = self.db.profile.combatsummaryscope or "boss"
+	if scope == "group" then
+		return IsInGroup() or IsInInstance()
+	elseif scope == "instance" then
+		return IsInInstance()
+	end
+	if not IsInInstance() then return false end
+	local encounter = type(set) == "table" and not issecretvalue(set) and set.encounterName or nil
+	return not issecretvalue(encounter) and type(encounter) == "string" and encounter ~= ""
+end
+
 -- Contextual auto-mode: pick a sensible meter for the player's role when in a
 -- group. Solo play stays on Damage rather than assuming the role is relevant.
 function Skada:GetAutoModeName()
 	local role = _G.UnitGroupRolesAssigned and UnitGroupRolesAssigned("player") or "NONE"
-	if (IsInGroup() or IsInRaid()) and role == "HEALER" then
+	local key = (role == "HEALER" and "HEALER") or (role == "TANK" and "TANK") or "DAMAGER"
+	local defaults = self.db.profile.roledefaults
+	local configured = defaults and defaults[key]
+	if (IsInGroup() or IsInRaid()) and type(configured) == "string" and configured ~= "" then
+		local mode = find_mode(configured)
+		if mode then return mode:GetName() end
+	end
+	if (IsInGroup() or IsInRaid()) and key == "HEALER" then
 		return L["Healing"]
-	elseif (IsInGroup() or IsInRaid()) and role == "TANK" then
+	elseif (IsInGroup() or IsInRaid()) and key == "TANK" then
 		return L["Damage Taken"]
 	end
 	return L["Damage"]
@@ -1412,6 +1456,7 @@ function Skada:Tick()
 
 	-- Detect combat start
 	if inCombat and not self.current then
+		self:HideCombatSummary()
 		self:Wipe()
 		self.current = { name = "Current", sessionType = 1 }
 
@@ -1447,6 +1492,7 @@ function Skada:Tick()
 
 	-- Detect combat end
 	if not inCombat and self.current then
+		local summarySet = self.NativeAPI:GetSessionView(self.current, 0)
 		self.last = self.current
 		self.current = nil
 
@@ -1459,6 +1505,9 @@ function Skada:Tick()
 			if not win.db.hidden and self.db.profile.hidecombat and (not self.db.profile.hidesolo or IsInGroup()) then
 				win:Show()
 			end
+		end
+		if self.db.profile.showcombatsummary and summarySet and self:ShouldShowCombatSummary(summarySet) then
+			self:ShowCombatSummary(summarySet)
 		end
 		changed = true
 	end
@@ -2862,12 +2911,13 @@ function Skada:OnEnable()
 	self:RegisterEvent("DAMAGE_METER_COMBAT_SESSION_UPDATED")
 	self:RegisterEvent("DAMAGE_METER_CURRENT_SESSION_UPDATED")
 	self:RegisterEvent("DAMAGE_METER_RESET")
+	self:RegisterEvent("PLAYER_REGEN_DISABLED")
 
 	-- Test session types to find correct values
 	self.NativeAPI:TestSessionTypes()
 
 	-- Single repeating timer handles combat transitions, simulation, and display updates
-	self.tickTimer = self:ScheduleRepeatingTimer("Tick", self.db.profile.updatefrequency or 0.25)
+	self.tickTimer = self:ScheduleRepeatingTimer("Tick", self.db.profile.updatefrequency or 0.10)
 
 	-- Group and zone change events for data reset triggers
 	self:RegisterEvent("GROUP_ROSTER_UPDATE")
@@ -2893,7 +2943,7 @@ function Skada:ApplyUpdateFrequency()
 		self:CancelTimer(self.tickTimer)
 		self.tickTimer = nil
 	end
-	self.tickTimer = self:ScheduleRepeatingTimer("Tick", self.db.profile.updatefrequency or 0.25)
+	self.tickTimer = self:ScheduleRepeatingTimer("Tick", self.db.profile.updatefrequency or 0.10)
 end
 
 function Skada:AddLoadableModule(name, description, func)

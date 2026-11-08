@@ -1,6 +1,25 @@
 local _, Skada = ...
 Skada.versions = {
 	{
+		id = "2.5.0",
+		title = "Skada 2.5.0",
+		message = "Quick mode switching and post-combat summary",
+		changes = {
+			"The title bar now exposes the menus directly: left-click opens modes, right-click opens segments, and hover shows a short hint",
+			"Removed wheel mode cycling and legacy back-navigation from title right-click",
+			"Added configurable role defaults for contextual Auto combat mode (tank/healer/damager)",
+			"Added a post-combat summary panel with duration, raid DPS/HPS, deaths, avoidable damage, interrupts, dispels, top damage, and top avoidable ability",
+			"Summary can open from the window menu or `/skada summary`",
+			"Automatic summaries are off by default, scoped to boss fights by default, and omit zero-value rows",
+			"Added inferred lines to the summary: top damage share, first death with death rate, avoidable tax, interrupt and dispel cadence, and absorb share",
+			"Added one always-on humorous verdict line",
+			"Combat summary closes immediately when combat starts",
+			"The summary panel remembers its dragged position per profile",
+			"Combat updates now default to 0.10s instead of 0.25s; smoothing is still enabled but settles faster",
+			"Added `Summary.lua` to the manifest and summary-related settings",
+		}
+	},
+	{
 		id = "2.4.1",
 		title = "Skada 2.4.1",
 		message = "Threat",
@@ -9,6 +28,15 @@ Skada.versions = {
 			"Show raw Threat and `%` columns; removed the always-empty TPS column",
 			"Added the pull-aggro threshold row",
 			"Fixed Threat headers/values by giving the mode an explicit column spec",
+			"Preserve the user-selected segment through combat; only fall back to Current when no segment is selected",
+			"Apply the configured spacing above the first row so the first bar (including the total bar) has the same gap as the rest",
+			"Center column headers vertically with the window title when title buttons are hover-only; retain the lower strip when buttons are always visible",
+			"Added native Absorbs, Avoidable Damage Taken, and Enemy Damage Taken modes",
+			"Added player/spell drilldowns to the new modes, including creature-ID-only enemy sources",
+			"Migrated Damage Taken, Interrupts, and Dispels to the shared native metric factory",
+			"Avoid rank-prefix `string.format` on secret player names so combat rows do not render with empty labels",
+			"Preserve secret player names in bar, informative, and broker tooltips instead of replacing them with rank-only or formatted-empty labels",
+			"Reapply physical row snapping after scroll, settings changes, and width-resize re-sorts",
 		}
 	},
 	{

@@ -530,3 +530,35 @@ L["AvoidableRate"] = "ADPS"
 L["Avoidable damage"] = "Avoidable damage"
 L["EnemyDamage"] = "Enemy damage"
 L["EnemyRate"] = "DPS"
+
+
+-- Quick-mode / post-combat summary labels.
+L["Role defaults"] = "Role defaults"
+L["Automatic"] = "Automatic"
+L["Tank"] = "Tank"
+L["Healer"] = "Healer"
+L["Combat summary"] = "Combat summary"
+L["Show a summary panel after combat ends."] = "Show a summary panel after combat ends."
+L["Duration"] = "Duration"
+L["Raid DPS"] = "Raid DPS"
+L["Raid HPS"] = "Raid HPS"
+L["Top damage"] = "Top damage"
+L["Top avoidable"] = "Top avoidable"
+
+
+-- Combat summary scope labels.
+L["Combat summary scope"] = "Combat summary scope"
+L["Boss fights only"] = "Boss fights only"
+L["All instance fights"] = "All instance fights"
+L["All group fights"] = "All group fights"
+L["Choose when the summary opens automatically. It is still available from the menu and /skada summary."] = "Choose when the summary opens automatically. It is still available from the menu and /skada summary."
+
+
+-- Combat summary personality labels.
+L["First death"] = "First death"
+L["Absorb share"] = "Absorb share"
+
+
+-- Title-bar interaction hints.
+L["Left click: mode"] = "Left click: mode"
+L["Right click: segment"] = "Right click: segment"

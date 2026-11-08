@@ -385,9 +385,9 @@ function barListPrototype:SetSmoothing(smoothing)
 
 						local amt
 						if v.targetamount > v.lastamount then
-							amt = min(((v.targetamount - v.lastamount) / 10) + v.lastamount, v.targetamount)
+							amt = min(((v.targetamount - v.lastamount) / 4) + v.lastamount, v.targetamount)
 						else
-							amt = max(v.lastamount - ((v.lastamount - v.targetamount) / 10), v.targetamount)
+							amt = max(v.lastamount - ((v.lastamount - v.targetamount) / 4), v.targetamount)
 						end
 						v.lastamount = amt
 						if amt == v.targetamount then
