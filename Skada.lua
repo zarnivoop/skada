@@ -1371,6 +1371,10 @@ end
 
 -- NewSegment removed - with Native API, sessions are managed by WoW
 
+function Skada:PLAYER_REGEN_DISABLED()
+	self:HideCombatSummary()
+end
+
 function Skada:ShouldShowCombatSummary(set)
 	local scope = self.db.profile.combatsummaryscope or "boss"
 	if scope == "group" then
@@ -2918,6 +2922,7 @@ function Skada:OnEnable()
 	self:RegisterEvent("DAMAGE_METER_COMBAT_SESSION_UPDATED")
 	self:RegisterEvent("DAMAGE_METER_CURRENT_SESSION_UPDATED")
 	self:RegisterEvent("DAMAGE_METER_RESET")
+	self:RegisterEvent("PLAYER_REGEN_DISABLED")
 
 	-- Test session types to find correct values
 	self.NativeAPI:TestSessionTypes()

@@ -7,6 +7,7 @@ Quick mode switching and post-combat summary
 - Automatic summaries are off by default, scoped to boss fights by default, and omit zero-value rows
 - Added inferred lines to the summary: top damage share, first death with death rate, avoidable tax, interrupt and dispel cadence, and absorb share
 - Added one always-on humorous verdict line
+- Combat summary closes immediately when combat starts
 - The summary panel remembers its dragged position per profile
 - Added `Summary.lua` to the manifest and summary-related settings
 
