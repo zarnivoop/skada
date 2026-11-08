@@ -66,7 +66,7 @@ Modules should be "Hardened" by default:
 - **Performance**: session lookups are cached per tick; header labels and title writes are skipped when their layout key has not changed. Fixed column geometry is reapplied after bars update because the bar library can re-anchor columns on resize; visible rows are snapped to a physical-pixel stride after sorting to avoid uneven gaps at fractional UI scales, with the same top inset applied before the first row (including the total bar). Snapping is reapplied after scroll, settings changes, and width-resize hooks because those paths call `SortBars` directly.
 - **Quick mode**: mouse-wheel over the title bar cycles modes.
 - **Role defaults**: contextual Auto mode can map tank/healer/damager to any mode in General options.
-- **Combat summary**: `Summary.lua` provides a post-combat panel with duration, raid DPS/HPS, deaths, avoidable damage, interrupts, dispels, top damage, and top avoidable ability. It opens from the window menu or `/skada summary`, and auto-displays in group/instance combat when enabled.
+- **Combat summary**: `Summary.lua` provides a post-combat panel with duration, raid DPS/HPS, deaths, avoidable damage, interrupts, dispels, top damage, and top avoidable ability. It opens from the window menu or `/skada summary`. Auto-display is off by default; when enabled it defaults to boss fights only and omits zero-value rows.
 - **Migration**: `Skada:ApplyThemeMigration()` runs once per profile and only replaces the old out-of-box look (`Skada Glass`, 260px bars); custom themes are left untouched.
 
 ## 4. Local Machine Setup (Stefan)

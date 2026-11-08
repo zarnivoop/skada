@@ -3,7 +3,8 @@ Quick mode switching and post-combat summary
 - Mouse-wheel over the window title cycles through modes
 - Added configurable role defaults for contextual Auto combat mode (tank/healer/damager)
 - Added a post-combat summary panel with duration, raid DPS/HPS, deaths, avoidable damage, interrupts, dispels, top damage, and top avoidable ability
-- Summary can open from the window menu or `/skada summary`; automatic display is configurable and enabled by default for group/instance combat
+- Summary can open from the window menu or `/skada summary`
+- Automatic summaries are off by default, scoped to boss fights by default, and omit zero-value rows
 - Added `Summary.lua` to the manifest and summary-related settings
 
 ## 2.4.1

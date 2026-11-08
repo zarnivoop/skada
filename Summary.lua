@@ -86,6 +86,7 @@ local function buildSummary(set)
 	local avoidable = ModuleBase:GetSetTotal(set, 8)
 	local interrupts = ModuleBase:GetSetTotal(set, 5)
 	local dispels = ModuleBase:GetSetTotal(set, 6)
+
 	-- A Deaths source is a person who died; use the row count rather than
 	-- trusting a damage-like totalAmount field from other metric types.
 	local deaths
@@ -105,18 +106,28 @@ local function buildSummary(set)
 		local name = SecretHelper:GetPlayerLabel(source, source.index or 1)
 		topDamage = tostring(name or "—") .. " (" .. Skada:FormatNumber(amount or 0) .. ")"
 	end
+	local avoidableTop = topAvoidable(set)
 
-	local rows = {
-		{ label = label("Duration", "Duration"), value = formatDuration(duration) },
-		{ label = label("Raid DPS", "Raid DPS"), value = formatRate(damage, duration) },
-		{ label = label("Raid HPS", "Raid HPS"), value = formatRate(healing, duration) },
-		{ label = label("Deaths", "Deaths"), value = formatNumber(deaths) },
-		{ label = label("Avoidable damage", "Avoidable damage"), value = formatNumber(avoidable) },
-		{ label = label("Interrupts", "Interrupts"), value = formatNumber(interrupts) },
-		{ label = label("Dispels", "Dispels"), value = formatNumber(dispels) },
-		{ label = label("Top damage", "Top damage"), value = topDamage },
-		{ label = label("Top avoidable", "Top avoidable"), value = topAvoidable(set) },
-	}
+	local rows = {}
+	local function add(rowLabel, value, show)
+		if show ~= false and value ~= nil and value ~= "—" then
+			rows[#rows + 1] = { label = rowLabel, value = value }
+		end
+	end
+	local function positive(value)
+		if issecretvalue(value) then return true end
+		return type(value) == "number" and value > 0
+	end
+
+	add(label("Duration", "Duration"), formatDuration(duration), duration ~= nil)
+	add(label("Raid DPS", "Raid DPS"), formatRate(damage, duration), positive(damage) and positive(duration))
+	add(label("Raid HPS", "Raid HPS"), formatRate(healing, duration), positive(healing) and positive(duration))
+	add(label("Deaths", "Deaths"), formatNumber(deaths), positive(deaths))
+	add(label("Avoidable damage", "Avoidable damage"), formatNumber(avoidable), positive(avoidable))
+	add(label("Interrupts", "Interrupts"), formatNumber(interrupts), positive(interrupts))
+	add(label("Dispels", "Dispels"), formatNumber(dispels), positive(dispels))
+	add(label("Top damage", "Top damage"), topDamage, source ~= nil)
+	add(label("Top avoidable", "Top avoidable"), avoidableTop, avoidableTop ~= "—")
 	return rows, Skada:GetSetLabel(set)
 end
 

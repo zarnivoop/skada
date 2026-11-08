@@ -1315,8 +1315,12 @@ function Skada:ReloadSettings()
 	if type(self.db.profile.roledefaults) ~= "table" then
 		self.db.profile.roledefaults = { TANK = "", HEALER = "", DAMAGER = "" }
 	end
-	if self.db.profile.showcombatsummary == nil then
-		self.db.profile.showcombatsummary = true
+	if not self.db.profile.combatsummaryDefaultMigrated then
+		self.db.profile.showcombatsummary = false
+		self.db.profile.combatsummaryDefaultMigrated = true
+	end
+	if self.db.profile.combatsummaryscope == nil then
+		self.db.profile.combatsummaryscope = "boss"
 	end
 	-- Delete all existing windows in case of a profile change.
 	for i, win in ipairs(windows) do
@@ -1366,6 +1370,18 @@ function Skada:SetFeed(feed)
 end
 
 -- NewSegment removed - with Native API, sessions are managed by WoW
+
+function Skada:ShouldShowCombatSummary(set)
+	local scope = self.db.profile.combatsummaryscope or "boss"
+	if scope == "group" then
+		return IsInGroup() or IsInInstance()
+	elseif scope == "instance" then
+		return IsInInstance()
+	end
+	if not IsInInstance() then return false end
+	local encounter = type(set) == "table" and not issecretvalue(set) and set.encounterName or nil
+	return not issecretvalue(encounter) and type(encounter) == "string" and encounter ~= ""
+end
 
 -- Contextual auto-mode: pick a sensible meter for the player's role when in a
 -- group. Solo play stays on Damage rather than assuming the role is relevant.
@@ -1497,7 +1513,7 @@ function Skada:Tick()
 				win:Show()
 			end
 		end
-		if self.db.profile.showcombatsummary and summarySet and (IsInGroup() or IsInInstance()) then
+		if self.db.profile.showcombatsummary and summarySet and self:ShouldShowCombatSummary(summarySet) then
 			self:ShowCombatSummary(summarySet)
 		end
 		changed = true

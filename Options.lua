@@ -138,7 +138,8 @@ Skada.defaults = {
 		hidecombat = false,
 		feed = "",
 		showtotals = false,
-		showcombatsummary = true,
+		showcombatsummary = false,
+		combatsummaryscope = "boss",
 		roledefaults = { TANK = "", HEALER = "", DAMAGER = "" },
 		sortmodesbyusage = true,
 		updatefrequency = 0.25,
@@ -390,6 +391,20 @@ Skada.options = {
 					order = 14,
 					get = function() return Skada.db.profile.showcombatsummary end,
 					set = function() Skada.db.profile.showcombatsummary = not Skada.db.profile.showcombatsummary end,
+				},
+				combatsummaryscope = {
+					type = "select",
+					name = L["Combat summary scope"],
+					desc = L["Choose when the summary opens automatically. It is still available from the menu and /skada summary."],
+					order = 15,
+					values = {
+						boss = L["Boss fights only"],
+						instance = L["All instance fights"],
+						group = L["All group fights"],
+					},
+					get = function() return Skada.db.profile.combatsummaryscope or "boss" end,
+					set = function(_, value) Skada.db.profile.combatsummaryscope = value end,
+					disabled = function() return not Skada.db.profile.showcombatsummary end,
 				},
 
 				hidesolo = {
