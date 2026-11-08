@@ -557,3 +557,9 @@ L["Choose when the summary opens automatically. It is still available from the m
 -- Combat summary personality labels.
 L["First death"] = "First death"
 L["Absorb share"] = "Absorb share"
+
+
+-- Title-bar interaction hints.
+L["Left click: mode"] = "Left click: mode"
+L["Right click: segment"] = "Right click: segment"
+L["Scroll: cycle modes"] = "Scroll: cycle modes"
