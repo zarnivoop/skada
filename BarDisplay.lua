@@ -115,15 +115,14 @@ function mod:Create(window)
 	window.bargroup:SetScript("OnMouseDown", function(win, button)
 		if IsShiftKeyDown() then
 			Skada:OpenMenu(window)
-		elseif button == "RightButton" then
-			-- The title owns right-click as the segment menu. Do not also
-			-- run the legacy back-navigation handler from the group.
-			if not window.bargroup.button:IsMouseOver() then
-				window:RightClick()
-			end
 		end
+		-- Right-click navigation belongs to bar rows, not the group. The title
+		-- owns right-click as the segment menu and must never fall through to
+		-- the legacy back-navigation path.
 	end)
-	window.bargroup.button:SetScript("OnClick", function(win, button) if IsShiftKeyDown() then Skada:OpenMenu(window) elseif button == "RightButton" then window:RightClick() end end)
+	window.bargroup.button:SetScript("OnClick", function(win, button)
+		if IsShiftKeyDown() then Skada:OpenMenu(window) end
+	end)
 
 	local function restButtonOpacity()
 		return (window.db.hoverbuttons ~= false) and 0 or 0.25
