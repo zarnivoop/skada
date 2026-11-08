@@ -1,17 +1,29 @@
 local _, Skada = ...
 Skada.versions = {
 	{
+		id = "2.4.1",
+		title = "Skada 2.4.1",
+		message = "Threat",
+		changes = {
+			"Switched the Threat mode to native `UnitDetailedThreatSituation` data with raw threat values",
+			"Show raw Threat and `%` columns; removed the always-empty TPS column",
+			"Added the pull-aggro threshold row",
+			"Fixed Threat headers/values by giving the mode an explicit column spec",
+		}
+	},
+	{
 		id = "2.4.0",
 		title = "Skada 2.4.0",
 		message = "Performance and contextual UX",
 		changes = {
 			"Cache native session lookups per tick and avoid duplicate session resolution during window updates",
-			"Skip redundant column geometry, header, and title work when the layout has not changed",
+			"Reapply fixed column geometry when bars update so headers and values share exact right edges; snap visible rows to an integer physical-pixel stride so fractional UI scales do not leave uneven 1px gaps",
+			"Fixed secret-value combat bars rendering nearly full: the fallback now scales ranks against the actual row count",
 			"Consolidated redundant DPS/HPS modes into the Damage/Healing rate columns; saved old mode choices are migrated",
 			"Added contextual Auto combat mode (healer → Healing, tank → Damage Taken, damage/solo → Damage)",
 			"Made columns responsive: full width shows Damage/DPS/%, compact widths drop the rate or percentage column",
 			"Added timestamped fight-history labels and a compact Compare mode for current vs previous session",
-			"Added a native Deaths mode that opens the Blizzard death recap; the old commented-out Deaths module does not overlap",
+			"Added a native Deaths mode that shows death time from `deathTimeSeconds`, orders deaths chronologically, falls back across current/expired/overall death sessions, shows an explicit empty-state row, and opens the Blizzard death recap; `/skada deaths` reports session diagnostics",
 			"Added one-click Compact / Standard / Detailed layout presets to Windows settings",
 		}
 	},

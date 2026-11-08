@@ -4,11 +4,9 @@
 <Script file="modules\Damage.lua"/>
 <Script file="modules\Threat.lua"/>
 <Script file="modules\Healing.lua"/>
-<Script file="modules\DamageTaken.lua"/>
-<Script file="modules\Dispels.lua"/>
-<Script file="modules\Interrupts.lua"/>
 <Script file="modules\Deaths.lua"/>
 <Script file="modules\Comparison.lua"/>
+<Script file="modules\NativeMetrics.lua"/>
 <!-- <Script file="modules\Overhealing.lua"/> -->
 <!-- <Script file="modules\CC.lua"/> -->
 <!-- <Script file="modules\TotalHealing.lua"/> -->

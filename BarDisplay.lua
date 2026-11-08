@@ -9,6 +9,7 @@ local L = LibStub("AceLocale-3.0"):GetLocale("Skada", true)
 
 local mod = Skada:NewModule("BarDisplay", "SpecializedLibBars-1.0")
 local titleHover
+local snapBarRows
 local TITLE_TEXT_Y = 0
 local applyColumnGeometry
 local libwindow = LibStub("LibWindow-1.1")
@@ -60,6 +61,7 @@ function mod:Create(window)
 			end
 			if g.barCount and g.barCount > 0 then
 				g:SortBars()
+				if g.win then snapBarRows(g.win) end
 			end
 			g._skadaSyncingWidth = nil
 		end)
@@ -362,6 +364,12 @@ local function buildColumnSpec(win)
 		spec[#spec + 1] = { label = "DMG", value = "valueText1" }
 	elseif columns.Healing then
 		spec[#spec + 1] = { label = "HEAL", value = "valueText1" }
+	elseif columns.Absorbs then
+		spec[#spec + 1] = { label = "ABS", value = "valueText1" }
+	elseif columns.Avoidable then
+		spec[#spec + 1] = { label = "AVOID", value = "valueText1" }
+	elseif columns.EnemyDamage then
+		spec[#spec + 1] = { label = "ENEMY", value = "valueText1" }
 	end
 	if width >= 300 then
 		if columns.DPS then
@@ -370,6 +378,12 @@ local function buildColumnSpec(win)
 			spec[#spec + 1] = { label = "HPS", value = "valueText2" }
 		elseif columns.DTPS then
 			spec[#spec + 1] = { label = "DTPS", value = "valueText2" }
+		elseif columns.AbsorbRate then
+			spec[#spec + 1] = { label = "APS", value = "valueText2" }
+		elseif columns.AvoidableRate then
+			spec[#spec + 1] = { label = "ADPS", value = "valueText2" }
+		elseif columns.EnemyRate then
+			spec[#spec + 1] = { label = "DPS", value = "valueText2" }
 		end
 	end
 	if width >= 400 and not secret and columns.Percent then
@@ -382,7 +396,7 @@ end
 -- anchors each row relative to the previous one, so at fractional UI scales
 -- rounding can make one gap look wider than its neighbour. Doing this after
 -- SortBars keeps the visual stride exact without touching the mode data.
-local function snapBarRows(win)
+snapBarRows = function(win)
 	local g = win and win.bargroup
 	if not g then return end
 	local es = g:GetEffectiveScale() or 1
@@ -393,6 +407,7 @@ local function snapBarRows(win)
 	local gapPx = math.max(0, math.floor(spacing * es + 0.5))
 	local stride = (heightPx + gapPx) / es
 	local height = heightPx / es
+	local topInset = gapPx / es
 
 	local visible = {}
 	for _, bar in pairs(g:GetBars() or {}) do
@@ -408,11 +423,11 @@ local function snapBarRows(win)
 	for i, bar in ipairs(visible) do
 		bar:ClearAllPoints()
 		if g.growup then
-			bar:SetPoint("BOTTOMLEFT", g, "BOTTOMLEFT", 0, (i - 1) * stride)
-			bar:SetPoint("BOTTOMRIGHT", g, "BOTTOMRIGHT", 0, (i - 1) * stride)
+			bar:SetPoint("BOTTOMLEFT", g, "BOTTOMLEFT", 0, (i - 1) * stride + topInset)
+			bar:SetPoint("BOTTOMRIGHT", g, "BOTTOMRIGHT", 0, (i - 1) * stride + topInset)
 		else
-			bar:SetPoint("TOPLEFT", g, "TOPLEFT", 0, -(i - 1) * stride)
-			bar:SetPoint("TOPRIGHT", g, "TOPRIGHT", 0, -(i - 1) * stride)
+			bar:SetPoint("TOPLEFT", g, "TOPLEFT", 0, -(i - 1) * stride - topInset)
+			bar:SetPoint("TOPRIGHT", g, "TOPRIGHT", 0, -(i - 1) * stride - topInset)
 		end
 		bar:SetHeight(height)
 	end
@@ -659,7 +674,10 @@ function mod:Update(win)
 				bar.order = i
 			end
 
-			if win.metadata.showspots and Skada.db.profile.showranks and not data.ignore then
+			-- Secret names cannot safely be composed with a rank prefix via
+			-- string.format. Pass them straight to the FontString instead.
+			if win.metadata.showspots and Skada.db.profile.showranks and not data.ignore
+				and not issecretvalue(data.label) then
 				if win.db.barorientation == 1 then
 					bar:SetLabel(("%2u. %s"):format(nr, data.label))
 				else
@@ -828,6 +846,7 @@ local function OnMouseWheel(frame, direction)
 	elseif direction == -1 and ((getNumberOfBars(win) - maxbars - win.bargroup:GetBarOffset()) > 0) then
 		win.bargroup:SetBarOffset(win.bargroup:GetBarOffset() + 1)
 	end
+	snapBarRows(win)
 end
 
 function mod:OnMouseWheel(win, frame, direction) -- external scrolling interface (SkadaScroll)
@@ -929,6 +948,7 @@ function applyColumnHeaders(win, p)
 	local columns = mode and mode.metadata and mode.metadata.columns
 	local hasColumns = type(columns) == "table" and (columns.Damage or columns.Healing)
 	local spec = buildColumnSpec(win)
+	hasColumns = hasColumns or #spec > 0
 
 	g.headerSignature = hasColumns and ((mode and mode:GetName() or "") .. ":" .. (columns.Damage and "D" or "H")) or nil
 
@@ -937,11 +957,9 @@ function applyColumnHeaders(win, p)
 		return 0
 	end
 
-	local height = p.columnheadersheight or 16
+	local height = p.columnheadersheight or 8
 	if not header then
 		header = CreateFrame("Frame", nil, g.button)
-		header:SetPoint("BOTTOMLEFT", g.button, "BOTTOMLEFT", 0, p.columnheaderbottom or 2)
-		header:SetPoint("BOTTOMRIGHT", g.button, "BOTTOMRIGHT", 0, p.columnheaderbottom or 2)
 		header.labels = {}
 		for i = 1, 3 do
 			local f = header:CreateFontString(nil, "OVERLAY")
@@ -952,7 +970,18 @@ function applyColumnHeaders(win, p)
 		g.columnheaders = header
 	end
 
-	header:SetHeight(height)
+	-- With hover-only buttons the header has the title bar to itself, so align
+	-- its text with the title's vertical center. When buttons are always
+	-- visible, keep the compact bottom strip so they do not overlap.
+	header:ClearAllPoints()
+	if p.hoverbuttons then
+		header:SetPoint("TOPLEFT", g.button, "TOPLEFT", 0, 0)
+		header:SetPoint("BOTTOMRIGHT", g.button, "BOTTOMRIGHT", 0, 0)
+	else
+		header:SetPoint("BOTTOMLEFT", g.button, "BOTTOMLEFT", 0, p.columnheaderbottom or 2)
+		header:SetPoint("BOTTOMRIGHT", g.button, "BOTTOMRIGHT", 0, p.columnheaderbottom or 2)
+		header:SetHeight(height)
+	end
 	header:Show()
 
 	local font = p.columnheaderfontpath or media:Fetch("font", p.columnheaderfont or p.barfont)
@@ -1049,6 +1078,7 @@ function mod:ApplySettings(win)
 	else
 		g:Unlock()
 	end
+	snapBarRows(win)
 
 	if p.strata then g:SetFrameStrata(p.strata) end
 

@@ -1420,7 +1420,12 @@ function Skada:Tick()
 				win.restore_set = win.selectedset
 				win.restore_mode = win.selectedmode and win.selectedmode:GetName()
 			end
-			win.selectedset = "current"
+			-- Do not force the segment to Current. A user explicitly viewing
+			-- Total or a historical segment should keep that segment through
+			-- combat; only an empty selection falls back to Current.
+			if not win.selectedset then
+				win.selectedset = "current"
+			end
 			local combatMode = win.db.modeincombat
 			if combatMode == "auto" then
 				combatMode = self:GetAutoModeName()
@@ -2427,21 +2432,21 @@ function Skada:AddSubviewToTooltip(tooltip, win, mode, id, label)
 				end
 
 				local label = data.label
-				if issecretvalue(label) then
-					-- Concatenating a secret string with a number is not allowed.
-					label = tostring(nr) .. "."
-				elseif mode.metadata and mode.metadata.showspots then
+				local secretLabel = issecretvalue(label)
+				if not secretLabel and mode.metadata and mode.metadata.showspots then
 					label = nr .. ". " .. label
 				end
 
-				if type(data.valuetext) == "string" then
-					tooltip:AddDoubleLine(label, data.valuetext, color.r, color.g, color.b)
+				local right = data.valuetext
+				if type(right) ~= "string" then
+					right = data.valueText1
+					if type(right) ~= "string" then right = "" end
+				end
+				if not secretLabel then
+					tooltip:AddDoubleLine(label, right, color.r, color.g, color.b)
 				else
-					local columnText = data.valueText1
-					if type(columnText) ~= "string" then
-						columnText = ""
-					end
-					tooltip:AddDoubleLine(label, columnText, color.r, color.g, color.b)
+					local ok = pcall(tooltip.AddDoubleLine, tooltip, label, right, color.r, color.g, color.b)
+					if not ok then pcall(tooltip.AddLine, tooltip, label, color.r, color.g, color.b) end
 				end
 			end
 		end

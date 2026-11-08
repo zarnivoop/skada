@@ -9,7 +9,7 @@ Skada:AddLoadableModule("Threat", nil, function(Skada, L)
 	local UnitExists = UnitExists
 	local UnitName = UnitName
 	local UnitIsFriend = UnitIsFriend
-	local UnitThreatSituation = UnitThreatSituation
+	local UnitDetailedThreatSituation = _G.UnitDetailedThreatSituation
 	local PlaySoundFile = PlaySoundFile
 	local CreateFrame = CreateFrame
 	local UIParent = UIParent
@@ -38,25 +38,23 @@ Skada:AddLoadableModule("Threat", nil, function(Skada, L)
 		return nil
 	end
 
-	-- Format threat values for display
-	local function format_threat(value)
-		return format("%.1f%%", tonumber(value) or 0)
+	local function readable(value)
+		return value ~= nil and not issecretvalue(value)
 	end
 
-	-- Add unit's threat data to the dataset
+	-- Add unit's threat data to the dataset. UnitDetailedThreatSituation returns
+	-- raw threat plus the encoded percentages used by Forever's threat list;
+	-- UnitThreatSituation only gives the percentage and leaves TPS/raw blank.
 	local function add_threat_data(win, unit, target)
-		if not unit or not UnitExists(unit) then return end
+		if not UnitDetailedThreatSituation or not unit or not UnitExists(unit) then return end
 
-		local isTanking, status, threatpct = UnitThreatSituation(unit, target)
-
-		-- On Forever threat values can be secret (or unavailable for units
-		-- other than the current target). Never compare or do math on them.
-		if type(threatpct) ~= "number" or issecretvalue(threatpct) then
+		local isTanking, _status, scaled, rawPct, raw = UnitDetailedThreatSituation(unit, target)
+		if not readable(raw) or type(raw) ~= "number" or raw <= 0 then
 			return nil
 		end
-		if type(isTanking) ~= "boolean" or issecretvalue(isTanking) then
-			isTanking = nil
-		end
+		if not readable(scaled) or type(scaled) ~= "number" then scaled = nil end
+		if not readable(rawPct) or type(rawPct) ~= "number" then rawPct = nil end
+		if not readable(isTanking) or type(isTanking) ~= "boolean" then isTanking = nil end
 
 		local d = win.dataset[dataset_index] or {}
 		win.dataset[dataset_index] = d
@@ -67,9 +65,14 @@ Skada:AddLoadableModule("Threat", nil, function(Skada, L)
 		d.role = UnitGroupRolesAssigned(unit)
 		d.isTanking = isTanking
 		d.isPlayer = UnitIsUnit(unit, "player")
-		d.value = threatpct
-		d.threat = threatpct
-		d.tps = ""
+		d.value = raw
+		d.valuetext = nil
+		d.valueText3 = nil
+		d.threat = raw
+		d.threatPct = rawPct or scaled
+		d.scaled = scaled
+		d.percent = d.threatPct
+		d.tps = nil
 
 		dataset_index = dataset_index + 1
 		return d.value
@@ -81,9 +84,9 @@ Skada:AddLoadableModule("Threat", nil, function(Skada, L)
 
 		if data.isPlayer then
 			local treshold = Skada.db.profile.modules.threattreshold or 100
-			local percent = data.value
+			local percent = data.percent
 
-			if percent >= treshold and
+			if type(percent) == "number" and percent >= treshold and
 				(not data.isTanking or not Skada.db.profile.modules.notankwarnings) then
 				if Skada.db.profile.modules.threatflash then
 					self:Flash()
@@ -114,24 +117,21 @@ Skada:AddLoadableModule("Threat", nil, function(Skada, L)
 		dataset_index = 1
 
 		local max_value = 0
-		local type, count = Skada:GetGroupTypeAndCount()
+		local groupType, count = Skada:GetGroupTypeAndCount()
 
-		-- Add group members and their pets
 		if count > 0 then
 			for i = 1, count do
-				local unit = format("%s%d", type, i)
+				local unit = format("%s%d", groupType, i)
 				local value = add_threat_data(win, unit, target)
 				if value then max_value = math.max(max_value, value) end
 
-				-- Check pet
-				local pet = format("%s%dpet", type, i)
+				local pet = format("%s%dpet", groupType, i)
 				value = add_threat_data(win, pet, target)
 				if value then max_value = math.max(max_value, value) end
 			end
 		end
 
-		-- Add player and pet if not in raid
-		if type ~= "raid" then
+		if groupType ~= "raid" then
 			local value = add_threat_data(win, "player", target)
 			if value then max_value = math.max(max_value, value) end
 
@@ -139,20 +139,51 @@ Skada:AddLoadableModule("Threat", nil, function(Skada, L)
 			if value then max_value = math.max(max_value, value) end
 		end
 
-		win.metadata.maxvalue = 100
+		-- The tank's pull line: raw threat required to take aggro from the
+		-- current tank, derived from the readable scaled percentage. This is
+		-- the same line Forever's threat list displays.
+		local me
+		for i = 1, dataset_index - 1 do
+			local d = win.dataset[i]
+			if d and d.isPlayer then me = d; break end
+		end
+		if me and me.isTanking == false and type(me.scaled) == "number" and me.scaled > 0 then
+			local pullValue = me.value * 100 / me.scaled
+			if pullValue > max_value then max_value = pullValue end
+			local d = win.dataset[dataset_index] or {}
+			win.dataset[dataset_index] = d
+			d.id = "pull"
+			d.label = L["Pull Aggro"]
+			d.class = nil
+			d.role = nil
+			d.isTanking = false
+			d.isPlayer = false
+			d.value = pullValue
+			d.valuetext = nil
+			d.valueText3 = nil
+			d.threat = pullValue
+			d.threatPct = 100
+			d.percent = 100
+			d.pull = true
+			d.tps = nil
+			dataset_index = dataset_index + 1
+		end
 
-		-- Format display values and check warnings
+		win.metadata.maxvalue = max_value > 0 and max_value or 1
+
 		for i, data in ipairs(win.dataset) do
 			if data.id then
 				if data.value and data.value > 0 then
+					local percent = data.percent
+					local percentText = type(percent) == "number" and format("%.1f%%", percent) or ""
 					Skada:FormatValueText(
 						data,
-						format_threat(data.value),
+						Skada:FormatNumber(data.value),
 						self.metadata.columns.Threat,
-						data.tps,
-						self.metadata.columns.TPS,
-						format("%.1f%%", data.value),
-						self.metadata.columns.Percent
+						percentText,
+						self.metadata.columns.Percent,
+						nil,
+						false
 					)
 					check_threat_warning(self, data, win.metadata.maxvalue)
 				else
@@ -168,8 +199,11 @@ Skada:AddLoadableModule("Threat", nil, function(Skada, L)
 			wipestale = true,
 			columns = {
 				Threat = true,
-				TPS = true,
-				Percent = true
+				Percent = true,
+			},
+			columnSpec = {
+				{ label = L["Threat"], value = "valueText1" },
+				{ label = "%", value = "valueText2" },
 			},
 			icon = "Interface\\Icons\\Ability_warrior_challange"
 		}

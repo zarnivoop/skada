@@ -34,6 +34,8 @@ end
 local function formatLabel(win, data)
 	if not data then return "" end
 	local label = data.label
+	-- A secret name cannot be composed with color codes or string.format.
+	if issecretvalue(label) then return label end
 	if type(label) ~= "string" then
 		label = ""
 	end
@@ -58,6 +60,7 @@ local function formatValue(win, data)
 	if type(valuetext) == "nil" then
 		valuetext = ""
 	end
+	if issecretvalue(valuetext) then return valuetext end
 	return string.format("%s", valuetext)
 end
 
@@ -93,13 +96,14 @@ local function tooltipHandler(win, tooltip)
 				local label = formatLabel(win, data)
 				local value = formatValue(win, data)
 
-				if win.metadata.showspots and Skada.db.profile.showranks then
+				if win.metadata.showspots and Skada.db.profile.showranks and not issecretvalue(label) then
 					label = (("%2u. %s"):format(i, label))
 				end
 
-				if type(label) ~= "string" then label = "" end
-				if type(value) ~= "string" then value = "" end
-				tooltip:AddDoubleLine(label, value, color.r, color.g, color.b, color.r, color.g, color.b)
+				if not issecretvalue(label) and type(label) ~= "string" then label = "" end
+				if not issecretvalue(value) and type(value) ~= "string" then value = "" end
+				local ok = pcall(tooltip.AddDoubleLine, tooltip, label, value, color.r, color.g, color.b, color.r, color.g, color.b)
+				if not ok then pcall(tooltip.AddLine, tooltip, label, color.r, color.g, color.b) end
 
 			end
 		end

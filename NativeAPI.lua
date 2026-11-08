@@ -141,7 +141,7 @@ end
 	Get detailed session source data (spells, etc.)
 ]]
 function NativeAPI:GetSessionSource(sourceGUID, set, damageType, sourceCreatureID)
-	if type(sourceGUID) == "nil" then return nil end
+	if type(sourceGUID) == "nil" and type(sourceCreatureID) == "nil" then return nil end
 
 	-- 1. Try simulation
 	if Skada.Simulation and Skada.Simulation.active then

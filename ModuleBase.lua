@@ -151,6 +151,8 @@ function ModuleBase:UpdatePlayerList(win, set, options)
 				local d = self:ReuseDatasetEntry(win.dataset, nr)
 				d._is_nodata = nil
 				d.id = id
+				d.sourceGUID = player.sourceGUID
+				d.sourceCreatureID = player.sourceCreatureID
 				d.label = playerName
 				d.class = SecretHelper:GetPlayerClass(player)
 				d.role = player.role
@@ -266,6 +268,8 @@ function ModuleBase:UpdateSimpleList(win, set, options)
 					local d = self:ReuseDatasetEntry(win.dataset, nr)
 					d._is_nodata = nil
 					d.id = id
+					d.sourceGUID = player.sourceGUID
+					d.sourceCreatureID = player.sourceCreatureID
 					d.label = playerName
 					d.class = SecretHelper:GetPlayerClass(player)
 					d.role = player.role
@@ -301,9 +305,10 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 
 	local sourceGUID = win._drillSourceGUID
 	local sourceCreatureID = win._drillSourceCreatureID
+	local hasDirectSource = type(sourceGUID) ~= "nil" or type(sourceCreatureID) ~= "nil"
 	local view, player
 
-	if type(sourceGUID) == "nil" then
+	if not hasDirectSource then
 		view = Skada.NativeAPI:GetSessionView(set, damageType)
 		player = Skada:find_player_in_session(view, playerid)
 		if type(player) ~= "table" then
@@ -313,7 +318,7 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 	end
 
 	local realID
-	if type(sourceGUID) ~= "nil" then
+	if hasDirectSource then
 		realID = sourceGUID
 	else
 		realID = SecretHelper:GetPlayerID(player, playerid)
@@ -568,11 +573,15 @@ function ModuleBase:CreatePlayerTooltip(options)
 			playerName = rawName
 		end
 		if issecretvalue(playerName) then
-			playerName = "?"
+			-- Pass the secret name directly to the FontString-backed tooltip;
+			-- string.format/tostring would erase it.
+			local ok = pcall(tooltip.AddLine, tooltip, playerName)
+			if not ok then tooltip:AddLine("?") end
+			tooltip:AddLine(tostring(options.labelRate))
+		else
+			playerName = playerName or "?"
+			tooltip:AddLine(string.format("%s - %s", tostring(playerName), tostring(options.labelRate)))
 		end
-		playerName = playerName or "?"
-
-		tooltip:AddLine(string.format("%s - %s", tostring(playerName), tostring(options.labelRate)))
 		tooltip:AddDoubleLine(L["Segment time"], string.format("%s s", Skada:FormatNumberSecret(totaltime)), 1, 1, 1, 1, 1, 1)
 		tooltip:AddDoubleLine(options.labelDamage, Skada:FormatNumberSecret(rawValue), 1, 1, 1, 1, 1, 1)
 		tooltip:AddDoubleLine(options.labelRate, Skada:FormatNumberSecret(rawRate), 1, 1, 1, 1, 1, 1)

@@ -1,3 +1,20 @@
+## 2.4.1
+Threat
+- Switched the Threat mode to native `UnitDetailedThreatSituation` data with raw threat values
+- Show raw Threat and `%` columns; removed the always-empty TPS column
+- Added the pull-aggro threshold row
+- Fixed Threat headers/values by giving the mode an explicit column spec
+- Preserve the user-selected segment through combat; only fall back to Current when no segment is selected
+- Apply the configured spacing above the first row so the first bar (including the total bar) has the same gap as the rest
+- Center column headers vertically with the window title when title buttons are hover-only; retain the lower strip when buttons are always visible
+- Added native Absorbs, Avoidable Damage Taken, and Enemy Damage Taken modes
+- Added player/spell drilldowns to the new modes, including creature-ID-only enemy sources
+- Migrated Damage Taken, Interrupts, and Dispels to the shared native metric factory
+- Avoid rank-prefix `string.format` on secret player names so combat rows do not render with empty labels
+- Preserve secret player names in bar, informative, and broker tooltips instead of replacing them with rank-only or formatted-empty labels
+- Reapply physical row snapping after scroll, settings changes, and width-resize re-sorts
+
+
 ## 2.4.0
 Performance and contextual UX
 - Cache native session lookups per tick and avoid duplicate session resolution during window updates
