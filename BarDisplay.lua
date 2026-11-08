@@ -112,7 +112,17 @@ function mod:Create(window)
 	window.bargroup.RegisterCallback(mod, "AnchorMoved")
 	window.bargroup.RegisterCallback(mod, "WindowResized")
 	window.bargroup:EnableMouse(true)
-	window.bargroup:SetScript("OnMouseDown", function(win, button) if IsShiftKeyDown() then Skada:OpenMenu(window) elseif button == "RightButton" then window:RightClick() end end)
+	window.bargroup:SetScript("OnMouseDown", function(win, button)
+		if IsShiftKeyDown() then
+			Skada:OpenMenu(window)
+		elseif button == "RightButton" then
+			-- The title owns right-click as the segment menu. Do not also
+			-- run the legacy back-navigation handler from the group.
+			if not window.bargroup.button:IsMouseOver() then
+				window:RightClick()
+			end
+		end
+	end)
 	window.bargroup.button:SetScript("OnClick", function(win, button) if IsShiftKeyDown() then Skada:OpenMenu(window) elseif button == "RightButton" then window:RightClick() end end)
 
 	local function restButtonOpacity()
