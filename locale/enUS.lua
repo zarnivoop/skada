@@ -530,3 +530,17 @@ L["AvoidableRate"] = "ADPS"
 L["Avoidable damage"] = "Avoidable damage"
 L["EnemyDamage"] = "Enemy damage"
 L["EnemyRate"] = "DPS"
+
+
+-- Quick-mode / post-combat summary labels.
+L["Role defaults"] = "Role defaults"
+L["Automatic"] = "Automatic"
+L["Tank"] = "Tank"
+L["Healer"] = "Healer"
+L["Combat summary"] = "Combat summary"
+L["Show a summary panel after combat ends."] = "Show a summary panel after combat ends."
+L["Duration"] = "Duration"
+L["Raid DPS"] = "Raid DPS"
+L["Raid HPS"] = "Raid HPS"
+L["Top damage"] = "Top damage"
+L["Top avoidable"] = "Top avoidable"

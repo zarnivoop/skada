@@ -138,6 +138,8 @@ Skada.defaults = {
 		hidecombat = false,
 		feed = "",
 		showtotals = false,
+		showcombatsummary = true,
+		roledefaults = { TANK = "", HEALER = "", DAMAGER = "" },
 		sortmodesbyusage = true,
 		updatefrequency = 0.25,
 
@@ -338,6 +340,57 @@ Skada.options = {
 					set = function() Skada.db.profile.showtotals = not Skada.db.profile.showtotals end,
 				},
 
+
+				roledefaults = {
+					type = "group",
+					name = L["Role defaults"],
+					desc = L["Modes used by contextual Auto combat mode for each group role."],
+					inline = true,
+					order = 4,
+					args = {
+						tank = {
+							type = "select",
+							name = L["Tank"],
+							values = function()
+								local values = { [""] = L["Automatic"] }
+								for _, mode in ipairs(Skada:GetModes()) do values[mode:GetName()] = mode:GetName() end
+								return values
+							end,
+							get = function() return Skada.db.profile.roledefaults.TANK or "" end,
+							set = function(_, value) Skada.db.profile.roledefaults.TANK = value end,
+						},
+						healer = {
+							type = "select",
+							name = L["Healer"],
+							values = function()
+								local values = { [""] = L["Automatic"] }
+								for _, mode in ipairs(Skada:GetModes()) do values[mode:GetName()] = mode:GetName() end
+								return values
+							end,
+							get = function() return Skada.db.profile.roledefaults.HEALER or "" end,
+							set = function(_, value) Skada.db.profile.roledefaults.HEALER = value end,
+						},
+						damager = {
+							type = "select",
+							name = L["Damage"],
+							values = function()
+								local values = { [""] = L["Automatic"] }
+								for _, mode in ipairs(Skada:GetModes()) do values[mode:GetName()] = mode:GetName() end
+								return values
+							end,
+							get = function() return Skada.db.profile.roledefaults.DAMAGER or "" end,
+							set = function(_, value) Skada.db.profile.roledefaults.DAMAGER = value end,
+						},
+					},
+				},
+				showcombatsummary = {
+					type = "toggle",
+					name = L["Combat summary"],
+					desc = L["Show a summary panel after combat ends."],
+					order = 14,
+					get = function() return Skada.db.profile.showcombatsummary end,
+					set = function() Skada.db.profile.showcombatsummary = not Skada.db.profile.showcombatsummary end,
+				},
 
 				hidesolo = {
 					type = "toggle",

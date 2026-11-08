@@ -1,6 +1,18 @@
 local _, Skada = ...
 Skada.versions = {
 	{
+		id = "2.5.0",
+		title = "Skada 2.5.0",
+		message = "Quick mode switching and post-combat summary",
+		changes = {
+			"Mouse-wheel over the window title cycles through modes",
+			"Added configurable role defaults for contextual Auto combat mode (tank/healer/damager)",
+			"Added a post-combat summary panel with duration, raid DPS/HPS, deaths, avoidable damage, interrupts, dispels, top damage, and top avoidable ability",
+			"Summary can open from the window menu or `/skada summary`; automatic display is configurable and enabled by default for group/instance combat",
+			"Added `Summary.lua` to the manifest and summary-related settings",
+		}
+	},
+	{
 		id = "2.4.1",
 		title = "Skada 2.4.1",
 		message = "Threat",
@@ -9,6 +21,15 @@ Skada.versions = {
 			"Show raw Threat and `%` columns; removed the always-empty TPS column",
 			"Added the pull-aggro threshold row",
 			"Fixed Threat headers/values by giving the mode an explicit column spec",
+			"Preserve the user-selected segment through combat; only fall back to Current when no segment is selected",
+			"Apply the configured spacing above the first row so the first bar (including the total bar) has the same gap as the rest",
+			"Center column headers vertically with the window title when title buttons are hover-only; retain the lower strip when buttons are always visible",
+			"Added native Absorbs, Avoidable Damage Taken, and Enemy Damage Taken modes",
+			"Added player/spell drilldowns to the new modes, including creature-ID-only enemy sources",
+			"Migrated Damage Taken, Interrupts, and Dispels to the shared native metric factory",
+			"Avoid rank-prefix `string.format` on secret player names so combat rows do not render with empty labels",
+			"Preserve secret player names in bar, informative, and broker tooltips instead of replacing them with rank-only or formatted-empty labels",
+			"Reapply physical row snapping after scroll, settings changes, and width-resize re-sorts",
 		}
 	},
 	{

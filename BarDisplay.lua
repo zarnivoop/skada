@@ -1070,6 +1070,12 @@ function mod:ApplySettings(win)
 		end
 	end
 	g:SetFont(p.barfontpath or media:Fetch('font', p.barfont), p.barfontsize, p.barfontflags)
+	if g.button then
+		g.button:EnableMouseWheel(true)
+		g.button:SetScript("OnMouseWheel", function(_, delta)
+			if win then Skada:CycleMode(win, delta) end
+		end)
+	end
 	g:SetSpacing(snapPixels(p.barspacing))
 	g:UnsetAllColors()
 	g:SetColorAt(0,p.barcolor.r,p.barcolor.g,p.barcolor.b, p.barcolor.a)

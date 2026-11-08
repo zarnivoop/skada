@@ -1048,6 +1048,11 @@ local function slashHandler(param)
 		Skada:DumpDeathsDiagnostics()
 		return
 	end
+	if param == "summary" then
+		local win = windows and windows[1]
+		Skada:ShowCombatSummary(win and win:get_selected_set())
+		return
+	end
 
 	if param == "cpu" then
 		local funcs = {}
@@ -1307,6 +1312,12 @@ function Skada:DeleteSet(set)
 end
 
 function Skada:ReloadSettings()
+	if type(self.db.profile.roledefaults) ~= "table" then
+		self.db.profile.roledefaults = { TANK = "", HEALER = "", DAMAGER = "" }
+	end
+	if self.db.profile.showcombatsummary == nil then
+		self.db.profile.showcombatsummary = true
+	end
 	-- Delete all existing windows in case of a profile change.
 	for i, win in ipairs(windows) do
 		win:destroy()
@@ -1360,12 +1371,36 @@ end
 -- group. Solo play stays on Damage rather than assuming the role is relevant.
 function Skada:GetAutoModeName()
 	local role = _G.UnitGroupRolesAssigned and UnitGroupRolesAssigned("player") or "NONE"
-	if (IsInGroup() or IsInRaid()) and role == "HEALER" then
+	local key = (role == "HEALER" and "HEALER") or (role == "TANK" and "TANK") or "DAMAGER"
+	local defaults = self.db.profile.roledefaults
+	local configured = defaults and defaults[key]
+	if (IsInGroup() or IsInRaid()) and type(configured) == "string" and configured ~= "" then
+		local mode = find_mode(configured)
+		if mode then return mode:GetName() end
+	end
+	if (IsInGroup() or IsInRaid()) and key == "HEALER" then
 		return L["Healing"]
-	elseif (IsInGroup() or IsInRaid()) and role == "TANK" then
+	elseif (IsInGroup() or IsInRaid()) and key == "TANK" then
 		return L["Damage Taken"]
 	end
 	return L["Damage"]
+end
+
+-- Mouse-wheel cycling over the title bar. Kept next to GetModes so the order
+-- matches the mode list exactly.
+function Skada:CycleMode(win, direction)
+	if not win or not win.selectedmode then return end
+	local current = win.selectedmode
+	local index = 1
+	for i, mode in ipairs(modes) do
+		if mode == current then index = i; break end
+	end
+	if direction and direction > 0 then
+		index = index % #modes + 1
+	else
+		index = ((index - 2) % #modes) + 1
+	end
+	win:DisplayMode(modes[index])
 end
 
 -- DPS/HPS were redundant once Damage/Healing gained rate columns. Redirect
@@ -1412,6 +1447,7 @@ function Skada:Tick()
 
 	-- Detect combat start
 	if inCombat and not self.current then
+		self:HideCombatSummary()
 		self:Wipe()
 		self.current = { name = "Current", sessionType = 1 }
 
@@ -1447,6 +1483,7 @@ function Skada:Tick()
 
 	-- Detect combat end
 	if not inCombat and self.current then
+		local summarySet = self.NativeAPI:GetSessionView(self.current, 0)
 		self.last = self.current
 		self.current = nil
 
@@ -1459,6 +1496,9 @@ function Skada:Tick()
 			if not win.db.hidden and self.db.profile.hidecombat and (not self.db.profile.hidesolo or IsInGroup()) then
 				win:Show()
 			end
+		end
+		if self.db.profile.showcombatsummary and summarySet and (IsInGroup() or IsInInstance()) then
+			self:ShowCombatSummary(summarySet)
 		end
 		changed = true
 	end

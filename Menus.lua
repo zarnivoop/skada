@@ -83,6 +83,10 @@ function Skada:OpenMenu(window)
 				Skada:OpenReportWindow(window)
 			end)
 		end
+		root:CreateButton(L["Combat summary"], function()
+			local win = window or Skada:GetWindows()[1]
+			Skada:ShowCombatSummary(win and win:get_selected_set())
+		end)
 		root:CreateButton(L["Toggle window"], function() Skada:ToggleWindow() end)
 		root:CreateButton(L["Reset"], function() Skada:Reset() end)
 		root:CreateButton(L["Configure"], function() Skada:OpenOptions(window) end)
