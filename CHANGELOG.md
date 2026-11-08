@@ -5,6 +5,7 @@ Quick mode switching and post-combat summary
 - Added a post-combat summary panel with duration, raid DPS/HPS, deaths, avoidable damage, interrupts, dispels, top damage, and top avoidable ability
 - Summary can open from the window menu or `/skada summary`
 - Automatic summaries are off by default, scoped to boss fights by default, and omit zero-value rows
+- The summary panel remembers its dragged position per profile
 - Added `Summary.lua` to the manifest and summary-related settings
 
 ## 2.4.1

@@ -135,13 +135,30 @@ local function ensureFrame()
 	if Skada.CombatSummaryFrame then return Skada.CombatSummaryFrame end
 	local frame = CreateFrame("Frame", "SkadaCombatSummaryFrame", UIParent, "BackdropTemplate")
 	frame:SetSize(380, 360)
-	frame:SetPoint("CENTER", UIParent, "CENTER", 0, 20)
+	frame:SetClampedToScreen(true)
+	local saved = Skada.db.profile.summarypos
+	if type(saved) == "table" then
+		frame:SetPoint(saved.point or "CENTER", UIParent, saved.relativePoint or saved.point or "CENTER", saved.x or 0, saved.y or 0)
+	else
+		frame:SetPoint("CENTER", UIParent, "CENTER", 0, 20)
+	end
 	frame:SetFrameStrata("DIALOG")
 	frame:SetMovable(true)
 	frame:EnableMouse(true)
 	frame:RegisterForDrag("LeftButton")
 	frame:SetScript("OnDragStart", frame.StartMoving)
-	frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+	frame:SetScript("OnDragStop", function(f)
+		f:StopMovingOrSizing()
+		local point, _, relativePoint, x, y = f:GetPoint(1)
+		if point then
+			Skada.db.profile.summarypos = {
+				point = point,
+				relativePoint = relativePoint or point,
+				x = x or 0,
+				y = y or 0,
+			}
+		end
+	end)
 	if frame.SetBackdrop then
 		frame:SetBackdrop({
 			bgFile = "Interface\\Buttons\\WHITE8X8",
