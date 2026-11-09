@@ -46,7 +46,7 @@ function mod:Create(window)
 		window.bargroup:AddButton(L["Reset"], L["Reset description"], "Interface\\Buttons\\UI-StopButton", "Interface\\Buttons\\UI-StopButton", function() Skada:ShowPopup() end)
 		window.bargroup:AddButton(L["Segment"], L["Segment description"], "Interface\\Buttons\\UI-GuildButton-PublicNote-Up", "Interface\\Buttons\\UI-GuildButton-PublicNote-Up", function() Skada:SegmentMenu(bargroup.win) end)
 		window.bargroup:AddButton(L["Mode"], L["Mode description"], "Interface\\GROUPFRAME\\UI-GROUP-MAINASSISTICON", "Interface\\GROUPFRAME\\UI-GROUP-MAINASSISTICON", function() Skada:ModeMenu(bargroup.win) end)
-		window.bargroup:AddButton(L["Report"], L["Report description"], "Interface\\Buttons\\UI-GuildButton-MOTD-Up", "Interface\\Buttons\\UI-GuildButton-MOTD-Up", function() Skada:OpenReportWindow(bargroup.win) end)
+		window.bargroup:AddButton(L["Report"], L["Report description"], "Interface\\Buttons\\UI-GuildButton-MOTD-Up", "Interface\\Buttons\\UI-GuildButton-MOTD-Up", function() Skada:ReportMenu(bargroup.win) end)
 
 		-- The library's resize grabber updates bars in its own OnUpdate, but
 		-- that can lag or be interrupted. Drive the bar length directly from
@@ -1112,7 +1112,8 @@ function mod:ApplySettings(win)
 	g:SetLength(p.barwidth)
 	g:SetTexture(p.bartexturepath or media:Fetch('statusbar', p.bartexture))
 
-	g:SetBarBackgroundColor(p.barbgcolor.r, p.barbgcolor.g, p.barbgcolor.b, p.barbgcolor.a or 0.6)
+	local bgAlpha = p.transparentbackground and 0 or (p.barbgcolor.a or 0.6)
+	g:SetBarBackgroundColor(p.barbgcolor.r, p.barbgcolor.g, p.barbgcolor.b, bgAlpha)
 	if g:GetBars() then
 		for _, bar in pairs(g:GetBars()) do
 			applyRowSeparator(bar, p)
@@ -1420,6 +1421,18 @@ function mod:AddDisplayOptions(win, options)
 				get=function(i) return db.barbgcolor.r, db.barbgcolor.g, db.barbgcolor.b, db.barbgcolor.a end,
 				set=function(i, r,g,b,a) db.barbgcolor = {["r"] = r, ["g"] = g, ["b"] = b, ["a"] = a}; Skada:ApplySettings() end,
 				order=22,
+			},
+
+			transparentbackground = {
+				type="toggle",
+				name=L["Transparent bar background"],
+				desc=L["Hides the unfilled part of the bars by making the bar background fully transparent."],
+				order=23,
+				get=function() return db.transparentbackground end,
+				set=function()
+					db.transparentbackground = not db.transparentbackground
+					Skada:ApplySettings()
+				end,
 			},
 
 			classcolorbars = {

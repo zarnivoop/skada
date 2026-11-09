@@ -562,3 +562,30 @@ L["Absorb share"] = "Absorb share"
 -- Title-bar interaction hints.
 L["Left click: mode"] = "Left click: mode"
 L["Right click: segment"] = "Right click: segment"
+
+
+-- Summary chat and direct report labels.
+L["Summary output"] = "Summary output"
+L["Choose whether the summary opens as a window or is written to chat."] = "Choose whether the summary opens as a window or is written to chat."
+L["Chat"] = "Chat"
+L["Summary channel"] = "Summary channel"
+L["Chat channel used when the summary output is set to chat."] = "Chat channel used when the summary output is set to chat."
+L["Summary whisper target"] = "Summary whisper target"
+L["Name for whisper or Battle.net summary output."] = "Name for whisper or Battle.net summary output."
+L["Whisper target"] = "Whisper target"
+L["Name used by whisper and Battle.net report output."] = "Name used by whisper and Battle.net report output."
+L["Battle.net"] = "Battle.net"
+
+
+-- Media picker and bar background.
+L["Transparent bar background"] = "Transparent bar background"
+L["Hides the unfilled part of the bars by making the bar background fully transparent."] = "Hides the unfilled part of the bars by making the bar background fully transparent."
+
+
+-- Window creation.
+L["New window"] = "New window"
+L["Bar"] = "Bar"
+
+
+-- Window overview.
+L["Create a window with one of the display types below."] = "Create a window with one of the display types below."

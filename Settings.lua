@@ -184,6 +184,13 @@ _G.StaticPopupDialogs["SKADA_NEW_WINDOW"] = {
 	hideOnEscape = true,
 }
 
+function Skada:PromptNewWindow(displayKey)
+	local display = Skada.displays and Skada.displays[displayKey]
+	local name = display and display.name or displayKey or L["Bar"]
+	pendingWindowDisplay = displayKey or "bar"
+	StaticPopup_Show("SKADA_NEW_WINDOW", name)
+end
+
 local function CreateRow(page, height)
 	local row = CreateFrame("Frame", nil, page, "BackdropTemplate")
 	row:SetHeight(height or 48)
@@ -315,10 +322,160 @@ local function CreateSlider(row, option, ctx, path)
 	return slider
 end
 
+local mediaPicker
+local function GetMediaPicker()
+	if mediaPicker then return mediaPicker end
+	local frame = CreateFrame("Frame", "SkadaMediaPicker", UIParent, "BackdropTemplate")
+	frame:SetSize(380, 420)
+	frame:SetClampedToScreen(true)
+	frame:SetFrameStrata("DIALOG")
+	frame:SetMovable(true)
+	frame:EnableMouse(true)
+	frame:RegisterForDrag("LeftButton")
+	frame:SetScript("OnDragStart", frame.StartMoving)
+	frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+	AddBackdrop(frame, 0.98)
+	frame.title = MakeText(frame, "GameFontNormal", 14, "", { 1, 1, 1, 1 })
+	frame.title:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -12)
+	local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
+	close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -4, -4)
+	close:SetScript("OnClick", function() frame:Hide() end)
+
+	local searchLabel = MakeText(frame, "GameFontNormalSmall", 10, L["Search"], MUTED)
+	searchLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -34)
+	local search = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
+	search:SetSize(320, 24)
+	search:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -50)
+	search:SetAutoFocus(false)
+	search:SetMaxLetters(60)
+	frame.search = search
+
+	local scroll = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
+	scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -82)
+	scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -30, 14)
+	local content = CreateFrame("Frame", nil, scroll)
+	content:SetWidth(320)
+	content:SetHeight(1)
+	scroll:SetScrollChild(content)
+	frame.scroll = scroll
+	frame.content = content
+	frame.rows = {}
+
+	local function styleRow(row, selected, hovered)
+		if not row.SetBackdropColor then return end
+		if selected then
+			row:SetBackdropColor(0.20, 0.38, 0.55, 0.55)
+			row:SetBackdropBorderColor(ACCENT[1], ACCENT[2], ACCENT[3], 0.55)
+		elseif hovered then
+			row:SetBackdropColor(0.14, 0.18, 0.23, 0.55)
+			row:SetBackdropBorderColor(1, 1, 1, 0.08)
+		else
+			row:SetBackdropColor(0, 0, 0, 0)
+			row:SetBackdropBorderColor(1, 1, 1, 0.05)
+		end
+	end
+
+	local function ensureRow(index)
+		local row = frame.rows[index]
+		if row then return row end
+		row = CreateFrame("Button", nil, content, "BackdropTemplate")
+		row:SetHeight(25)
+		row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -(index - 1) * 27)
+		row:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, -(index - 1) * 27)
+		if row.SetBackdrop then
+			row:SetBackdrop({
+				bgFile = "Interface\\Buttons\\WHITE8X8",
+				edgeFile = "Interface\\Buttons\\WHITE8X8",
+				edgeSize = 1,
+			})
+		end
+		row.label = MakeText(row, "GameFontHighlight", 12, "")
+		row.label:SetPoint("LEFT", row, "LEFT", 8, 0)
+		row.label:SetPoint("RIGHT", row, "RIGHT", -8, 0)
+		row:SetScript("OnEnter", function(btn) styleRow(btn, btn.selected, true) end)
+		row:SetScript("OnLeave", function(btn) styleRow(btn, btn.selected, false) end)
+		row:SetScript("OnClick", function(btn)
+			local key = btn.key
+			local callback = frame.onSelect
+			frame:Hide()
+			if key ~= nil and callback then callback(key) end
+		end)
+		frame.rows[index] = row
+		return row
+	end
+
+	local function refresh()
+		local text = string.lower(strtrim(search:GetText() or ""))
+		local shown = 0
+		for _, key in ipairs(frame.keys or {}) do
+			local label = ValueLabel(frame.sources, key)
+			local haystack = string.lower(label) .. " " .. string.lower(tostring(key))
+			if text == "" or string.find(haystack, text, 1, true) then
+				shown = shown + 1
+				local row = ensureRow(shown)
+				row.key = key
+				row.selected = key == frame.current
+				row.label:SetText(label)
+				row:Show()
+				styleRow(row, row.selected, false)
+			end
+		end
+		for i = shown + 1, #frame.rows do frame.rows[i]:Hide() end
+		content:SetWidth(math.max(120, (scroll:GetWidth() or 320) - 22))
+		content:SetHeight(math.max(1, shown * 27 + 2))
+		scroll:SetVerticalScroll(0)
+	end
+	frame.refresh = refresh
+	search:SetScript("OnTextChanged", refresh)
+	search:SetScript("OnEscapePressed", function() frame:Hide() end)
+	frame:SetScript("OnShow", function()
+		search:SetFocus()
+		refresh()
+	end)
+	tinsert(_G.UISpecialFrames, "SkadaMediaPicker")
+	mediaPicker = frame
+	return frame
+end
+
+local function OpenMediaPicker(owner, title, keys, sources, current, onSelect)
+	local frame = GetMediaPicker()
+	frame:ClearAllPoints()
+	frame:SetPoint("TOPLEFT", owner, "BOTTOMLEFT", 0, -4)
+	frame:SetPoint("TOPRIGHT", owner, "BOTTOMRIGHT", 0, -4)
+	frame:SetHeight(420)
+	frame.title:SetText(title or "")
+	frame.keys = keys
+	frame.sources = sources
+	frame.current = current
+	frame.onSelect = onSelect
+	frame.search:SetText("")
+	frame:Show()
+	frame.refresh()
+end
+
+local function CreateMediaPickerButton(row, option, sources, keys, current, ctx, path, disabled)
+	local button = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+	button:SetSize(220, 26)
+	button:SetPoint("RIGHT", row, "RIGHT", -8, 0)
+	button:SetText(ValueLabel(sources, current))
+	button:SetScript("OnClick", function(btn)
+		OpenMediaPicker(btn, OptionName(option), keys, sources, current, function(key)
+			CallSet(option, ctx, path, key)
+			Refresh()
+		end)
+	end)
+	if disabled then button:Disable() else button:Enable() end
+	return button
+end
+
 local function CreateDropdown(row, option, ctx, path)
 	local sources = ResolveValues(option, path)
 	local current = CallGet(option, ctx, path)
 	local disabled = IsDisabled(option, ctx, path)
+	local keys = SortedValueKeys(sources)
+	if type(option.dialogControl) == "string" and option.dialogControl:sub(1, 6) == "LSM30_" then
+		return CreateMediaPickerButton(row, option, sources, keys, current, ctx, path, disabled)
+	end
 
 	local dropdown
 	if _G.CreateFrame and UI.dropdownTemplate then
@@ -342,7 +499,7 @@ local function CreateDropdown(row, option, ctx, path)
 	dropdown:SetDefaultText(ValueLabel(sources, current))
 	dropdown:SetupMenu(function(_, root)
 		root:CreateTitle(OptionName(option))
-		for _, key in ipairs(SortedValueKeys(sources)) do
+		for _, key in ipairs(keys) do
 			local label = ValueLabel(sources, key)
 			root:CreateRadio(label, function() return key == current end, function()
 				CallSet(option, ctx, path, key)
@@ -671,6 +828,11 @@ end
 
 function UI:BuildPage()
 	if not self.content then return end
+	if self.section == "windows" then
+		self:BuildNav()
+	else
+		self:UpdateNav()
+	end
 	if self.page then
 		self.page:Hide()
 		self.page:SetParent(nil)
@@ -688,7 +850,9 @@ function UI:BuildPage()
 	local args = Skada.options and Skada.options.args
 	if not args then return end
 
-	if section == "windows" then
+	if section == "windowsoverview" then
+		self:BuildWindowsOverview(page)
+	elseif section == "windows" then
 		self:BuildWindowsPage(page)
 	elseif section == "profiles" then
 		AddProfilePage(page)
@@ -706,126 +870,43 @@ function UI:BuildPage()
 	self.content:SetHeight(math.max(page:GetHeight(), self.scroll:GetHeight()))
 end
 
-function UI:BuildWindowsPage(page)
-	local windowsArgs = Skada.options.args.windows and Skada.options.args.windows.args or {}
-	local windows = Skada:GetWindows()
-	local selected = self.selectedWindow
-	if not selected or not windowsArgs[selected] then
-		selected = windows[1] and windows[1].db.name
-		self.selectedWindow = selected
-	end
-
-	AddSection(page, L["Windows"], L["Windows are independent damage meter displays."])
-	local names = {}
-	for _, win in ipairs(windows) do names[#names + 1] = win.db.name end
-	table.sort(names)
-	local selectorRow = CreateRow(page, 46)
-	local label = MakeText(selectorRow, "GameFontHighlight", 12, L["Window"] or "Window")
-	label:SetPoint("LEFT", selectorRow, "LEFT", 10, 0)
-	if #names > 0 and UI.dropdownTemplate then
-		local dropdown = CreateFrame("DropdownButton", nil, selectorRow, UI.dropdownTemplate)
-		dropdown:SetSize(220, 26)
-		dropdown:SetPoint("RIGHT", selectorRow, "RIGHT", -8, 0)
-		dropdown:SetDefaultText(selected or "")
-		dropdown:SetupMenu(function(_, root)
-			root:CreateTitle(L["Window"])
-			for _, name in ipairs(names) do
-				root:CreateRadio(name, function() return name == selected end, function()
-					self.selectedWindow = name
-					self:BuildPage()
-				end)
-			end
-		end)
-	elseif #names > 0 then
-		local button = CreateFrame("Button", nil, selectorRow, "UIPanelButtonTemplate")
-		button:SetSize(220, 24)
-		button:SetPoint("RIGHT", selectorRow, "RIGHT", -8, 0)
-		button:SetText(selected or "")
-		button:SetScript("OnClick", function(self2)
-			MenuUtil.CreateContextMenu(self2, function(_, root)
-				for _, name in ipairs(names) do
-					root:CreateRadio(name, function() return name == selected end, function()
-						self.selectedWindow = name
-						self:BuildPage()
-					end)
-				end
-			end)
-		end)
-	end
-
-	-- Make deletion discoverable next to the window selector instead of
-	-- leaving it at the bottom of the selected window's option list.
-	if selected then
-		local deleteRow = CreateRow(page, 48)
-		local deleteText = MakeText(deleteRow, "GameFontHighlight", 12, L["Delete window"] or "Delete window")
-		deleteText:SetPoint("LEFT", deleteRow, "LEFT", 10, 0)
-		local deleteDesc = MakeText(deleteRow, "GameFontNormalSmall", 10, #names > 1 and (L["Deletes the chosen window."] or "Deletes the chosen window.") or "Create another window before deleting this one.", MUTED)
-		deleteDesc:SetPoint("TOPLEFT", deleteText, "BOTTOMLEFT", 0, -2)
-		deleteDesc:SetWidth(300)
-		local deleteButton = CreateFrame("Button", nil, deleteRow, "UIPanelButtonTemplate")
-		deleteButton:SetSize(150, 24)
-		deleteButton:SetPoint("RIGHT", deleteRow, "RIGHT", -8, 0)
-		deleteButton:SetText(L["Delete window"] or "Delete window")
-		if #names > 1 then
-			deleteButton:SetScript("OnClick", function()
-				ShowConfirm((L["Delete window"] or "Delete window") .. " " .. tostring(selected) .. "?", function()
-					Skada:DeleteWindow(selected)
-					local remaining = Skada:GetWindows()
-					self.selectedWindow = remaining[1] and remaining[1].db.name or nil
-					self:BuildPage()
-				end)
-			end)
+local function AddWindowPresets(page, winObj)
+	local presetRow = CreateFrame("Frame", nil, page)
+	presetRow:SetHeight(34)
+	presetRow:SetPoint("LEFT", page, "LEFT", 0, 0)
+	presetRow:SetPoint("RIGHT", page, "RIGHT", 0, 0)
+	Place(page, presetRow)
+	local presets = {
+		{ label = L["Compact"] or "Compact", width = 320, height = 18, background = 180, spacing = 1, headers = true, ranks = false },
+		{ label = L["Standard"] or "Standard", width = 470, height = 22, background = 300, spacing = 1, headers = true, ranks = true },
+		{ label = L["Detailed"] or "Detailed", width = 620, height = 26, background = 380, spacing = 2, headers = true, ranks = true },
+	}
+	local last
+	for _, preset in ipairs(presets) do
+		local presetData = preset
+		local button = AddFlatButton(presetRow, presetData.label, function()
+			local db = winObj.db
+			db.barwidth = presetData.width
+			db.barheight = presetData.height
+			db.barspacing = presetData.spacing
+			db.background.height = presetData.background
+			db.showcolumnheaders = presetData.headers
+			db.showranks = presetData.ranks
+			Skada:ApplySettings()
+			UI:BuildPage()
+		end, 120)
+		if last then
+			button:SetPoint("LEFT", last, "RIGHT", 8, 0)
 		else
-			deleteButton:Disable()
+			button:SetPoint("LEFT", presetRow, "LEFT", 10, 0)
 		end
+		last = button
 	end
+end
 
-	if selected then
-		local winObj
-		for _, win in ipairs(windows) do
-			if win.db.name == selected then winObj = win; break end
-		end
-		if winObj then
-			AddSection(page, L["Layout presets"] or "Layout presets")
-			local presetRow = CreateFrame("Frame", nil, page)
-			presetRow:SetHeight(34)
-			presetRow:SetPoint("LEFT", page, "LEFT", 0, 0)
-			presetRow:SetPoint("RIGHT", page, "RIGHT", 0, 0)
-			Place(page, presetRow)
-			local presets = {
-				{ label = L["Compact"] or "Compact", width = 320, height = 18, background = 180, spacing = 1, headers = true, ranks = false },
-				{ label = L["Standard"] or "Standard", width = 470, height = 22, background = 300, spacing = 1, headers = true, ranks = true },
-				{ label = L["Detailed"] or "Detailed", width = 620, height = 26, background = 380, spacing = 2, headers = true, ranks = true },
-			}
-			local last
-			for _, preset in ipairs(presets) do
-				local presetData = preset
-				local button = AddFlatButton(presetRow, presetData.label, function()
-					local db = winObj.db
-					db.barwidth = presetData.width
-					db.barheight = presetData.height
-					db.barspacing = presetData.spacing
-					db.background.height = presetData.background
-					db.showcolumnheaders = presetData.headers
-					db.showranks = presetData.ranks
-					Skada:ApplySettings()
-					self:BuildPage()
-				end, 120)
-				if last then
-					button:SetPoint("LEFT", last, "RIGHT", 8, 0)
-				else
-					button:SetPoint("LEFT", presetRow, "LEFT", 10, 0)
-				end
-				last = button
-			end
-		end
-	end
-
-	if selected and windowsArgs[selected] then
-		AddSection(page, selected)
-		RenderArgs(page, windowsArgs[selected].args or {}, { path = {} })
-	end
-
+function UI:BuildWindowsOverview(page)
+	AddSection(page, L["Windows"], L["Windows are independent damage meter displays."])
+	AddDescription(page, L["Create a window with one of the display types below."])
 	AddSection(page, L["Create window"])
 	for key, display in pairs(Skada.displays or {}) do
 		local row = CreateRow(page, 52)
@@ -840,27 +921,52 @@ function UI:BuildWindowsPage(page)
 		create:SetPoint("RIGHT", row, "RIGHT", -8, 0)
 		create:SetText(_G.CREATE or "Create")
 		create:SetScript("OnClick", function()
-			pendingWindowDisplay = key
-			StaticPopup_Show("SKADA_NEW_WINDOW", name)
+			Skada:PromptNewWindow(key)
 		end)
 	end
 end
 
+function UI:BuildWindowsPage(page)
+	local windowsArgs = Skada.options.args.windows and Skada.options.args.windows.args or {}
+	local windows = Skada:GetWindows()
+	local byName = {}
+	for _, win in ipairs(windows) do byName[win.db.name] = win end
+	local names = {}
+	for name in pairs(byName) do names[#names + 1] = name end
+	table.sort(names)
+
+	local selected = self.selectedWindow
+	if not selected or not byName[selected] then
+		selected = names[1]
+		self.selectedWindow = selected
+	end
+	if not selected then
+		AddSection(page, L["Windows"], L["Windows are independent damage meter displays."])
+		AddDescription(page, L["No windows."] or "No windows.")
+	else
+		AddSection(page, selected, L["Windows are independent damage meter displays."])
+		AddWindowPresets(page, byName[selected])
+		local args = windowsArgs[selected]
+		if args and type(args.args) == "table" then
+			RenderArgs(page, args.args, { path = {} })
+		else
+			AddDescription(page, L["No settings available."])
+		end
+	end
+
+
+end
+
 function UI:SetSection(section)
 	self.section = section
-	if section ~= "windows" then
-		self.selectedWindow = nil
-	end
-	if self.navButtons then
-		for key, button in pairs(self.navButtons) do
-			if key == section then
-				button:SetBackdropColor(ACCENT[1], ACCENT[2], ACCENT[3], 0.22)
-				button.label:SetTextColor(1, 1, 1, 1)
-			else
-				button:SetBackdropColor(0, 0, 0, 0)
-				button.label:SetTextColor(MUTED[1], MUTED[2], MUTED[3], 1)
-			end
+	if section == "windows" then
+		local windows = Skada:GetWindows()
+		local selected = self.selectedWindow
+		local valid = false
+		for _, win in ipairs(windows) do
+			if win.db.name == selected then valid = true; break end
 		end
+		if not valid then self.selectedWindow = windows[1] and windows[1].db.name or nil end
 	end
 	self:BuildPage()
 end
@@ -875,6 +981,121 @@ local navOrder = {
 	{ key = "profiles", label = L["Profiles"] },
 	{ key = "version_history", label = L["Version History"] },
 }
+
+function UI:UpdateNav()
+	for key, button in pairs(self.navButtons or {}) do
+		local active = key == self.section or (key == "windows" and self.section == "windowsoverview")
+		if active then
+			button:SetBackdropColor(ACCENT[1], ACCENT[2], ACCENT[3], 0.22)
+			button.label:SetTextColor(1, 1, 1, 1)
+		else
+			button:SetBackdropColor(0, 0, 0, 0)
+			button.label:SetTextColor(MUTED[1], MUTED[2], MUTED[3], 1)
+		end
+	end
+	for name, button in pairs(self.navWindows or {}) do
+		local active = self.section == "windows" and self.selectedWindow == name
+		if active then
+			button:SetBackdropColor(ACCENT[1], ACCENT[2], ACCENT[3], 0.30)
+			button.label:SetTextColor(1, 1, 1, 1)
+		else
+			button:SetBackdropColor(0, 0, 0, 0)
+			button.label:SetTextColor(MUTED[1], MUTED[2], MUTED[3], 1)
+		end
+	end
+end
+
+function UI:BuildNav()
+	if not self.sidebar then return end
+	for _, button in pairs(self.navButtons or {}) do button:Hide(); button:SetParent(nil) end
+	for _, button in pairs(self.navWindows or {}) do button:Hide(); button:SetParent(nil) end
+	self.navButtons = {}
+	self.navWindows = {}
+
+	local windows = Skada:GetWindows()
+	local names = {}
+	for _, win in ipairs(windows) do names[#names + 1] = win.db.name end
+	table.sort(names)
+	if self.section == "windows" then
+		local valid = false
+		for _, name in ipairs(names) do
+			if name == self.selectedWindow then valid = true; break end
+		end
+		if not valid then self.selectedWindow = names[1] end
+	end
+
+	local last
+	local function place(button, indent)
+		button:SetPoint("LEFT", self.sidebar, "LEFT", indent or 0, 0)
+		button:SetPoint("RIGHT", self.sidebar, "RIGHT", 0, 0)
+		if last then
+			button:SetPoint("TOP", last, "BOTTOM", 0, -2)
+		else
+			button:SetPoint("TOP", self.sidebar, "TOP", 0, 0)
+		end
+		last = button
+	end
+
+	for _, entry in ipairs(navOrder) do
+		local button = CreateFrame("Button", nil, self.sidebar, "BackdropTemplate")
+		button:SetHeight(30)
+		AddBackdrop(button, 0.35)
+		button:SetBackdropColor(0, 0, 0, 0)
+		local label = MakeText(button, "GameFontNormal", 12, entry.label, MUTED)
+		label:SetPoint("LEFT", button, "LEFT", 12, 0)
+		button.label = label
+		button:SetScript("OnClick", function()
+			if entry.key == "windows" then
+				UI:SetSection("windowsoverview")
+			else
+				UI:SetSection(entry.key)
+			end
+		end)
+		local function isParentActive()
+			return UI.section == entry.key or (entry.key == "windows" and UI.section == "windowsoverview")
+		end
+		button:SetScript("OnEnter", function(btn)
+			if not isParentActive() then btn:SetBackdropColor(1, 1, 1, 0.05) end
+		end)
+		button:SetScript("OnLeave", function(btn)
+			if not isParentActive() then btn:SetBackdropColor(0, 0, 0, 0) end
+		end)
+		self.navButtons[entry.key] = button
+		place(button, 0)
+		if entry.key == "windows" then
+			for _, name in ipairs(names) do
+				local child = CreateFrame("Button", nil, self.sidebar, "BackdropTemplate")
+				child:SetHeight(24)
+				AddBackdrop(child, 0.2)
+				child:SetBackdropColor(0, 0, 0, 0)
+				local childLabel = MakeText(child, "GameFontNormal", 11, name, MUTED)
+				childLabel:SetPoint("LEFT", child, "LEFT", 12, 0)
+				childLabel:SetPoint("RIGHT", child, "RIGHT", -6, 0)
+				child.label = childLabel
+				child:SetScript("OnClick", function() UI:SelectWindow(name) end)
+				child:SetScript("OnEnter", function(btn)
+					if not (UI.section == "windows" and UI.selectedWindow == name) then
+						btn:SetBackdropColor(1, 1, 1, 0.05)
+					end
+				end)
+				child:SetScript("OnLeave", function(btn)
+					if not (UI.section == "windows" and UI.selectedWindow == name) then
+						btn:SetBackdropColor(0, 0, 0, 0)
+					end
+				end)
+				self.navWindows[name] = child
+				place(child, 22)
+			end
+		end
+	end
+	self:UpdateNav()
+end
+
+function UI:SelectWindow(name)
+	self.section = "windows"
+	self.selectedWindow = name
+	self:BuildPage()
+end
 
 function UI:Create(frame)
 	self.frame = frame
@@ -910,36 +1131,8 @@ function UI:Create(frame)
 	self.sidebar = sidebar
 	self.navButtons = {}
 
-	local last
-	for _, entry in ipairs(navOrder) do
-		local button = CreateFrame("Button", nil, sidebar, "BackdropTemplate")
-		button:SetHeight(30)
-		button:SetPoint("LEFT", sidebar, "LEFT", 0, 0)
-		button:SetPoint("RIGHT", sidebar, "RIGHT", 0, 0)
-		AddBackdrop(button, 0.35)
-		button:SetBackdropColor(0, 0, 0, 0)
-		local label = MakeText(button, "GameFontNormal", 12, entry.label, MUTED)
-		label:SetPoint("LEFT", button, "LEFT", 12, 0)
-		button.label = label
-		if last then
-			button:SetPoint("TOP", last, "BOTTOM", 0, -2)
-		else
-			button:SetPoint("TOP", sidebar, "TOP", 0, 0)
-		end
-		button:SetScript("OnClick", function() self:SetSection(entry.key) end)
-		button:SetScript("OnEnter", function(self2)
-			if self.section ~= entry.key then
-				self2:SetBackdropColor(1, 1, 1, 0.05)
-			end
-		end)
-		button:SetScript("OnLeave", function(self2)
-			if self.section ~= entry.key then
-				self2:SetBackdropColor(0, 0, 0, 0)
-			end
-		end)
-		self.navButtons[entry.key] = button
-		last = button
-	end
+	self:BuildNav()
+
 
 	local scroll = CreateFrame("ScrollFrame", "SkadaSettingsScroll", frame, "UIPanelScrollFrameTemplate")
 	scroll:SetPoint("TOPLEFT", sidebar, "TOPRIGHT", 18, 0)
@@ -959,7 +1152,7 @@ function UI:Create(frame)
 	frame:SetScript("OnShow", function()
 		self:BuildPage()
 	end)
-	self:SetSection("windows")
+	self:SetSection("windowsoverview")
 end
 
 function Skada:ShowStandaloneSettings()

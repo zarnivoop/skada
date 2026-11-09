@@ -333,10 +333,32 @@ local function ensureFrame()
 	return frame
 end
 
+local function sendSummaryToChat(rows, setLabel, verdict)
+	local key = Skada.db.profile.combatsummarychannel or "say"
+	local channel, chantype = Skada:ResolveChatChannel(key, Skada.db.profile.combatsummarytarget)
+	if not channel then
+		Skada:Print("Error: Whisper target not found")
+		return false
+	end
+	Skada:SendChatLine(string.format(L["Skada: %s for %s:"], L["Combat summary"], setLabel or ""), channel, chantype)
+	for _, row in ipairs(rows) do
+		Skada:SendChatLine(row.label .. ": " .. row.value, channel, chantype)
+	end
+	if verdict then
+		Skada:SendChatLine(verdict, channel, chantype)
+	end
+	return true
+end
+
 function Skada:ShowCombatSummary(set)
 	if type(set) ~= "table" then set = self:GetActiveSet() end
 	if type(set) ~= "table" then return end
 	local rows, setLabel, verdict = buildSummary(set)
+	if (self.db.profile.combatsummaryoutput or "window") == "chat" then
+		if self.CombatSummaryFrame then self.CombatSummaryFrame:Hide() end
+		sendSummaryToChat(rows, setLabel, verdict)
+		return
+	end
 	local frame = ensureFrame()
 	frame.subtitle:SetText(setLabel or "")
 	for i, row in ipairs(frame.rows) do

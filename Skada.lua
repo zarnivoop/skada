@@ -1130,6 +1130,48 @@ local function slashHandler(param)
 	end
 end
 
+function Skada:GetChatChannelChoices()
+	return {
+		{ key = "say", label = L["Say"], chantype = "preset" },
+		{ key = "party", label = L["Party"], chantype = "preset" },
+		{ key = "raid", label = L["Raid"], chantype = "preset" },
+		{ key = "instance_chat", label = L["Instance"], chantype = "preset" },
+		{ key = "guild", label = L["Guild"], chantype = "preset" },
+		{ key = "officer", label = L["Officer"], chantype = "preset" },
+		{ key = "whisper", label = L["Whisper"], chantype = "whisper", needsTarget = true },
+		{ key = "target", label = L["Whisper Target"], chantype = "whisper" },
+		{ key = "bnet", label = BATTLENET_OPTIONS_LABEL or L["Battle.net"], chantype = "bnet", needsTarget = true },
+		{ key = "self", label = L["Self"], chantype = "self" },
+	}
+end
+
+function Skada:ResolveChatChannel(key, target)
+	local choice
+	for _, entry in ipairs(self:GetChatChannelChoices()) do
+		if entry.key == key then choice = entry; break end
+	end
+	if not choice then return nil end
+	local channel = key
+	if key == "target" then
+		if not UnitExists("target") then return nil end
+		local toon, realm = UnitName("target")
+		if not toon then return nil end
+		channel = realm and #realm > 0 and (toon .. "-" .. realm) or toon
+	elseif key == "whisper" then
+		channel = target and strtrim(target) or nil
+		if not channel or #channel == 0 then return nil end
+	elseif key == "bnet" then
+		channel = target and strtrim(target) or nil
+		if not channel or #channel == 0 then return nil end
+		if BNet_GetBNetIDAccount then
+			channel = BNet_GetBNetIDAccount(channel) or channel
+		end
+	elseif key == "self" then
+		channel = "self"
+	end
+	return channel, choice.chantype, choice
+end
+
 local function sendchat(msg, chan, chantype)
 	if chantype == "self" then
 		-- To self.
@@ -1229,6 +1271,29 @@ function Skada:Report(channel, chantype, report_mode_name, report_set_name, max,
 			break
 		end
 	end
+end
+
+function Skada:SendChatLine(msg, channel, chantype)
+	sendchat(msg, channel, chantype)
+end
+
+function Skada:ReportToChat(window, key)
+	local target = Skada.db.profile.report.target
+	local channel, chantype = self:ResolveChatChannel(key, target)
+	if not channel then
+		self:Print("Error: Whisper target not found")
+		return
+	end
+	local mode, set
+	if window and window.selectedmode then
+		mode = window.selectedmode:GetName()
+		set = window.selectedset or "current"
+	else
+		mode = self.db.profile.report.mode or L["Damage"]
+		set = self.db.profile.report.set or "current"
+	end
+	local number = self.db.profile.report.number or 10
+	self:Report(channel, chantype, mode, set, number, window and window.selectedmode and window or nil)
 end
 
 function Skada:RefreshMMButton()

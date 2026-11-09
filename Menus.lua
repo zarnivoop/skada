@@ -65,6 +65,17 @@ local function AddWindowEntries(root, window)
 	end)
 end
 
+function Skada:ReportMenu(window)
+	CreateContext(UIParent, function(_, root)
+		root:CreateTitle(L["Report"])
+		for _, choice in ipairs(Skada:GetChatChannelChoices()) do
+			root:CreateButton(choice.label, function()
+				Skada:ReportToChat(window, choice.key)
+			end)
+		end
+	end)
+end
+
 function Skada:OpenMenu(window)
 	local windows = Skada:GetWindows()
 	CreateContext(UIParent, function(_, root)
@@ -77,10 +88,13 @@ function Skada:OpenMenu(window)
 				end)
 			end)
 		end
+		root:CreateButton(L["New window"], function()
+			Skada:PromptNewWindow("bar")
+		end)
 		root:CreateDivider()
 		if not window or (window and window.selectedmode) then
 			root:CreateButton(L["Report"], function()
-				Skada:OpenReportWindow(window)
+				Skada:ReportMenu(window)
 			end)
 		end
 		root:CreateButton(L["Combat summary"], function()

@@ -42,7 +42,7 @@ Modules should be "Hardened" by default:
 - **Selective Wiping**: Use `win:Wipe()` when the "Secret Mode" state changes to prevent duplicated "Combat_N" vs "PlayerName" bars.
 
 ## 3. UI and Sizing
-- **Configuration**: `Settings.lua` registers a Blizzard `Settings` canvas category and renders the existing `Skada.options` schema with native widgets (dropdowns, sliders, checkboxes, color pickers). The old AceConfigDialog tree and AceGUI widgets are gone from the visual path; AceDB/AceEvent/AceTimer/AceLocale remain backend libraries.
+- **Configuration**: `Settings.lua` registers a Blizzard `Settings` canvas category and renders the existing `Skada.options` schema with native widgets (dropdowns, sliders, checkboxes, color pickers). Windows settings lists each window as a child entry in the sidebar, with create-window controls on the Windows parent page and only the selected window shown in the right pane; SharedMedia-backed font, texture, background, border, and sound selects use a searchable scrollable picker instead of a long context menu. The old AceConfigDialog tree and AceGUI widgets are gone from the visual path; AceDB/AceEvent/AceTimer/AceLocale remain backend libraries.
 - **Menus**: `Menus.lua` uses `MenuUtil.CreateContextMenu` for the window/mode/segment menus; the report dialog is a custom frame. `UIDropDownMenu` is no longer used.
 - **Profiles**: the Profiles tab is custom (switch/create/copy/delete/reset). AceDBOptions and AceConfigRegistry/AceConfigDialog/AceGUI/AceGUI-3.0-SharedMediaWidgets are removed from `embeds.xml`.
 - **Media lists**: `Options.lua` still exposes the historical `AceGUIWidgetLSMlists` table name for module schemas, but it is populated directly from LibSharedMedia and does not load AceGUI.
@@ -50,7 +50,7 @@ Modules should be "Hardened" by default:
 - **Total Bar**: The total bar should use `total + 1` to ensure it stays at the top of the list during active combat.
 - **Default theme**: `Forever: Skyborne` is the default for new profiles (`Options.lua` `windowdefaults` and `modules/Themes.lua`). It uses `Forever Bar` / `Forever Line` / `ForeverCrest` assets, a 12%-opaque panel, and 15px title buttons with 6px spacing.
 - **Typography**: Expressway 13 for the title (Cinzel/ABF fallback when Expressway is not registered), ABF 13 for bars, Marcellus 8 for headers. All font flags are empty (no outline); `textshadow` defaults **off**. Text colors are near-white. Fonts live in `media/fonts/` with OFL licenses. `Skada.ThemeFonts` falls back to ABF / Accidental Presidency on ruRU/koKR/zhCN/zhTW.
-- **Bar backing**: `barbgcolor` is a neutral 10%-opaque dark fill and `alternaterows` is off by default, so the meter sits quietly against the game world. The title text is vertically centered against the title row/buttons.
+- **Bar backing**: `barbgcolor` is a neutral 10%-opaque dark fill and `alternaterows` is off by default, so the meter sits quietly against the game world. A per-window `transparentbackground` toggle forces the unfilled bar background alpha to zero. The title text is vertically centered against the title row/buttons.
 - **Theme toggles**: Bars > `Column headers` default **on**, `Row separators` default **off**. Headers are mode-aware (`DMG / DPS / %`, `HEAL / HPS / %`, `DMG / DTPS / %`) and hide on modes with no columns. During combat the Percent column is mathematically unavailable from secret totals, so the header collapses to `DMG / DPS` and returns to three columns after combat. Headers render inside the existing 30px title bar. With hover-only buttons they share the title's vertical center; with always-visible buttons they use the compact bottom strip so the two do not overlap. Enabling headers never grows the title bar or moves the buttons. `Title bar` also exposes left padding, button spacing, button size, and `Show buttons on hover`.
 - **Hover controls**: With `hoverbuttons` enabled, all five title-bar buttons are alpha 0 at rest and fade in while the mouse is anywhere over the title bar. This keeps the default title bar clean without removing any action.
 - **Responsive columns**: Full-width windows show Damage/DPS/Percent; below 300px the rate column is hidden; below 400px Percent is hidden (and Percent is always unavailable while values are secret). Header slots and value columns share one column spec.
@@ -65,8 +65,10 @@ Modules should be "Hardened" by default:
 - **Secret labels**: never build a rank prefix with `string.format` around a secret player name; pass the secret label directly to the FontString so combat rows remain readable. The same applies to tooltip lines: use the secret label directly and skip class-color/rank composition.
 - **Performance**: session lookups are cached per tick; header labels and title writes are skipped when their layout key has not changed. Fixed column geometry is reapplied after bars update because the bar library can re-anchor columns on resize; visible rows are snapped to a physical-pixel stride after sorting to avoid uneven gaps at fractional UI scales, with the same top inset applied before the first row (including the total bar). Snapping is reapplied after scroll, settings changes, and width-resize hooks because those paths call `SortBars` directly. Combat updates default to 0.10s; bar smoothing is kept but interpolates at 25% per frame instead of 10%.
 - **Quick mode**: left-clicking the title opens the mode menu and right-clicking opens the segment menu. Hover highlights the title and shows the interaction hint. Wheel mode cycling is intentionally not used, and title right-click does not also run the legacy back-navigation handler.
+- **Report menu**: the title Report button and Skada menu open a direct channel menu. Whisper and Battle.net targets are configured in General options; the old report modal is no longer used by these entry points.
+- **New window**: the Skada window menu creates a bar window directly through the existing name prompt. The Windows sidebar lists each window as a child entry and selects the newly created window; the Windows parent page holds the create-window controls.
 - **Role defaults**: contextual Auto mode can map tank/healer/damager to any mode in General options.
-- **Combat summary**: `Summary.lua` provides a post-combat panel with duration, raid DPS/HPS, deaths, avoidable damage, interrupts, dispels, top damage, and top avoidable ability. It opens from the window menu or `/skada summary`. Auto-display is off by default; when enabled it defaults to boss fights only and omits zero-value rows. It derives top damage share, first death and death rate, avoidable tax, interrupt/dispel cadence, and absorb share, and always ends with one short humorous verdict. Its dragged position is stored per profile, and it hides immediately on `PLAYER_REGEN_DISABLED`.
+- **Combat summary**: `Summary.lua` provides a post-combat panel with duration, raid DPS/HPS, deaths, avoidable damage, interrupts, dispels, top damage, and top avoidable ability. It can also be written to the configured chat channel instead of the window; window remains the default. It opens from the window menu or `/skada summary`. Auto-display is off by default; when enabled it defaults to boss fights only and omits zero-value rows. It derives top damage share, first death and death rate, avoidable tax, interrupt/dispel cadence, and absorb share, and always ends with one short humorous verdict. Its dragged position is stored per profile, and it hides immediately on `PLAYER_REGEN_DISABLED`.
 - **Migration**: `Skada:ApplyThemeMigration()` runs once per profile and only replaces the old out-of-box look (`Skada Glass`, 260px bars); custom themes are left untouched.
 
 ## 4. Local Machine Setup (Stefan)
@@ -75,7 +77,7 @@ Modules should be "Hardened" by default:
 - WoW client: `/home/stefan/Faugus/battlenet/drive_c/Program Files (x86)/World of Warcraft/_forever_`
 - AddOns path: `.../_forever_/Interface/AddOns/Skada`
 - Client build observed: `1.60.1.70790` (`wowf` flavor), Interface **16001**.
-- Installed addon version: **2.5.0** (`Skada-2.5.0-forever.zip` in the repo root).
+- Installed addon version: **2.6.0** (`Skada-2.6.0-forever.zip` in the repo root).
 
 ### Build + install
 
@@ -96,13 +98,13 @@ rsync -a --exclude='.git' --exclude='.tools' --exclude='release' --exclude='tool
   --exclude='README.md' --exclude='generate-version.py' \
   ./ release/Skada/
 # replace @project-version@ in all three TOCs with the release version
-rm -f Skada-2.5.0-forever.zip
-(cd release && 7z a -tzip -mx=9 ../Skada-2.5.0-forever.zip Skada >/dev/null)
+rm -f Skada-2.6.0-forever.zip
+(cd release && 7z a -tzip -mx=9 ../Skada-2.6.0-forever.zip Skada >/dev/null)
 
 # install (back up any existing install first)
 ADDONS="/home/stefan/Faugus/battlenet/drive_c/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns"
 [ -e "$ADDONS/Skada" ] && mv "$ADDONS/Skada" "$ADDONS/Skada.backup.$(date +%Y%m%d-%H%M%S)"
-7z x -y Skada-2.5.0-forever.zip -o"$ADDONS" >/dev/null
+7z x -y Skada-2.6.0-forever.zip -o"$ADDONS" >/dev/null
 ```
 
 ### TOC rule
@@ -115,7 +117,7 @@ ADDONS="/home/stefan/Faugus/battlenet/drive_c/Program Files (x86)/World of Warcr
 
 ### Release
 
-Tag `v2.5.0` and push; `.github/workflows/release-midnight.yml` runs `luacheck`, `forever-lint`, regenerates `Version.lua`, and runs the BigWigs packager. The packager recognizes the suffixed TOCs and `16001`.
+Tag `v2.6.0` and push; `.github/workflows/release-midnight.yml` runs `luacheck`, `forever-lint`, regenerates `Version.lua`, and runs the BigWigs packager. The packager recognizes the suffixed TOCs and `16001`.
 
 ---
 > [!IMPORTANT]
