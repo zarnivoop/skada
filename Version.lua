@@ -12,7 +12,7 @@ Skada.versions = {
 			"Font, texture, background, border, and sound selects now use a searchable scrollable picker when they come from SharedMedia",
 			"Added a per-window transparent bar background toggle that hides the unfilled portion of the bars",
 			"Windows settings now uses collapsible window sections instead of a switcher; all names stay visible and one window expands at a time",
-			"Added a New window entry to the Skada window menu",
+			"Added a New window entry to the Skada window menu; it creates a bar window through the name prompt directly",
 		}
 	},
 	{
