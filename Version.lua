@@ -1,6 +1,15 @@
 local _, Skada = ...
 Skada.versions = {
 	{
+		id = "2.6.1",
+		title = "Skada 2.6.1",
+		message = "Bar color reuse fix",
+		changes = {
+			"Reapply class, spell-school, explicit, and default bar colors when positional combat bars are reused after a reorder",
+			"Refresh label/value colors, source metadata, icons, and self-highlight state for reused bars",
+		}
+	},
+	{
 		id = "2.6.0",
 		title = "Skada 2.6.0",
 		message = "Chat summaries and direct reports",

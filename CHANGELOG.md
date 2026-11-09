@@ -1,3 +1,8 @@
+## 2.6.1
+Bar color reuse fix
+- Reapply class, spell-school, explicit, and default bar colors when positional combat bars are reused after a reorder
+- Refresh label/value colors, source metadata, icons, and self-highlight state for reused bars
+
 ## 2.6.0
 Chat summaries and direct reports
 - Combat summary can be written to chat instead of the window; the window remains the default

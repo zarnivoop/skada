@@ -483,6 +483,83 @@ snapBarRows = function(win)
 	end
 end
 
+local SCHOOL_COLORS = {
+	[1] = {r = 1, g = 0.82, b = 0.17},
+	[2] = {r = 0.96, g = 0.91, b = 0.11},
+	[4] = {r = 0.89, g = 0.33, b = 0.10},
+	[8] = {r = 0.31, g = 0.81, b = 0.19},
+	[16] = {r = 0.40, g = 0.86, b = 0.96},
+	[32] = {r = 0.61, g = 0.39, b = 0.76},
+	[64] = {r = 0.92, g = 0.47, b = 0.88},
+}
+
+local function setBarColor(bar, data, win)
+	local r, g, b, a
+	if data.color then
+		r, g, b, a = data.color.r, data.color.g, data.color.b, data.color.a or 1
+	elseif data.spellschool and win.db.spellschoolcolors then
+		local color = SCHOOL_COLORS[data.spellschool]
+		if color then r, g, b, a = color.r, color.g, color.b, color.a or 1 end
+	elseif data.class and win.db.classcolorbars then
+		local color = Skada.classcolors[data.class]
+		if color then
+			r, g, b, a = color.r, color.g, color.b, color.a or 1
+			local mix, amount = win.db.classcolormix, win.db.classcolormixamount
+			if mix and amount and amount > 0 then
+				r = r * (1 - amount) + mix.r * amount
+				g = g * (1 - amount) + mix.g * amount
+				b = b * (1 - amount) + mix.b * amount
+			end
+		end
+	end
+	if not r then
+		local color = win.db.barcolor
+		r, g, b, a = color.r, color.g, color.b, color.a or 1
+	end
+	local cached = bar._skadaColor
+	if cached and cached[1] == r and cached[2] == g and cached[3] == b and cached[4] == a then
+		return
+	end
+	bar._skadaColor = { r, g, b, a }
+	bar:UnsetAllColors()
+	bar:SetColorAt(0, r, g, b, a)
+end
+
+local function setBarTextColor(bar, data, win)
+	if data.class and win.db.classcolortext then
+		local color = Skada.classcolors[data.class]
+		if color then
+			bar.label:SetTextColor(color.r, color.g, color.b, color.a or 1)
+			if bar.columns then
+				for i = 1, 3 do
+					if bar.columns[i] then
+						bar.columns[i]:SetTextColor(color.r, color.g, color.b, color.a or 1)
+					end
+				end
+			end
+			return
+		end
+	end
+	local ltc = win.db.labelcolor
+	if ltc then
+		bar.label:SetTextColor(ltc.r, ltc.g, ltc.b, ltc.a or 1)
+	else
+		bar.label:SetTextColor(1, 1, 1, 1)
+	end
+	local vtc = win.db.valuetextcolor
+	if bar.columns then
+		for i = 1, 3 do
+			if bar.columns[i] then
+				if vtc then
+					bar.columns[i]:SetTextColor(vtc.r, vtc.g, vtc.b, vtc.a or 1)
+				else
+					bar.columns[i]:SetTextColor(1, 1, 1, 1)
+				end
+			end
+		end
+	end
+end
+
 -- Called by Skada windows when the display should be updated to match the dataset.
 function mod:Update(win)
 	local mode = win.selectedmode
@@ -573,7 +650,6 @@ function mod:Update(win)
 				end
 				bar = mod:CreateBar(win, barid, barlabel, newValue, win.metadata.maxvalue or 1, data.icon, false)
 				bar.id = barid
-				bar.text = barlabel
 				bar.fixed = false
 
 				if not data.ignore then
@@ -605,120 +681,62 @@ function mod:Update(win)
 				end
 				bar:SetValue(barValue)
 
-				bar.link = nil
-				bar.spellid = nil
-				bar.sourceGUID = data.sourceGUID
-				bar.sourceCreatureID = data.sourceCreatureID
-				if data.spellid then
-					bar.spellid = data.spellid
-				elseif data.hyperlink then
-					bar.link = data.hyperlink
-				end
+			end
 
-				if not data.class and (win.db.classicons or win.db.classcolorbars or win.db.classcolortext) then
-					bar.missingclass = true
-				else
-					bar.missingclass = nil
-				end
+			bar.text = barlabel
+			bar.link = nil
+			bar.spellid = nil
+			bar.sourceGUID = data.sourceGUID
+			bar.sourceCreatureID = data.sourceCreatureID
+			if data.spellid then
+				bar.spellid = data.spellid
+			elseif data.hyperlink then
+				bar.link = data.hyperlink
+			end
 
-				if data.role and data.role ~= "NONE" and win.db.roleicons then
-					bar:ShowIcon()
-					-- bar:SetIconWithCoord("Interface\\LFGFrame\\UI-LFG-ICON-ROLES", GetTexCoordsForRole(data.role))
-					bar:SetIconWithCoord("Interface\\LFGFrame\\UI-LFG-ICON-PORTRAITROLES", mod.role_icon_tcoords[data.role])
-				elseif data.class and win.db.classicons and mod.class_icon_tcoords[data.class] then
-					bar:ShowIcon()
-					bar:SetIconWithCoord("Interface\\Glues\\CharacterCreate\\UI-CharacterCreate-Classes", mod.class_icon_tcoords[data.class])
-				end
+			bar.missingclass = not data.class and (win.db.classicons or win.db.classcolorbars or win.db.classcolortext) and true or nil
 
-				if data.color then
-					-- Explicit color from dataset.
-					bar:SetColorAt(0, data.color.r, data.color.g, data.color.b, data.color.a or 1)
-				elseif data.spellschool and win.db.spellschoolcolors then
-					local school_colors = {
-						[1] = {r = 1, g = 0.82, b = 0.17},
-						[2] = {r = 0.96, g = 0.91, b = 0.11},
-						[4] = {r = 0.89, g = 0.33, b = 0.10},
-						[8] = {r = 0.31, g = 0.81, b = 0.19},
-						[16] = {r = 0.40, g = 0.86, b = 0.96},
-						[32] = {r = 0.61, g = 0.39, b = 0.76},
-						[64] = {r = 0.92, g = 0.47, b = 0.88},
-					}
-					local color = school_colors[data.spellschool]
-					if color then
-						bar:SetColorAt(0, color.r, color.g, color.b, color.a or 1)
-					end
-				elseif data.class and win.db.classcolorbars then
-					-- Class color, optionally blended toward a theme tint so the
-					-- bars sit inside the palette instead of fighting it.
-					local color = Skada.classcolors[data.class]
-					if color then
-						local r, g, b = color.r, color.g, color.b
-						local mix, amount = win.db.classcolormix, win.db.classcolormixamount
-						if mix and amount and amount > 0 then
-							r = r * (1 - amount) + mix.r * amount
-							g = g * (1 - amount) + mix.g * amount
-							b = b * (1 - amount) + mix.b * amount
-						end
-						bar:SetColorAt(0, r, g, b, color.a or 1)
-					end
-				else
-					-- Default color.
-					local color = win.db.barcolor
-					bar:SetColorAt(0, color.r, color.g, color.b, color.a or 1)
-				end
+			if data.role and data.role ~= "NONE" and win.db.roleicons then
+				bar:ShowIcon()
+				bar:SetIconWithCoord("Interface\\LFGFrame\\UI-LFG-ICON-PORTRAITROLES", mod.role_icon_tcoords[data.role])
+			elseif data.class and win.db.classicons and mod.class_icon_tcoords[data.class] then
+				bar:ShowIcon()
+				bar:SetIconWithCoord("Interface\\Glues\\CharacterCreate\\UI-CharacterCreate-Classes", mod.class_icon_tcoords[data.class])
+			elseif data.icon ~= nil then
+				bar:ShowIcon()
+				bar:SetIcon(data.icon)
+				if bar.icon then bar.icon:SetTexCoord(0.1, 0.9, 0.1, 0.9) end
+			else
+				bar:HideIcon()
+			end
+			if data.role and data.role ~= "NONE" and win.db.roleicons
+				or (data.class and win.db.classicons and mod.class_icon_tcoords[data.class])
+				or data.icon ~= nil then
+				bar.iconFrame.bar = bar
+				bar.iconFrame:EnableMouse(true)
+				bar.iconFrame:SetScript("OnEnter", BarIconEnter)
+				bar.iconFrame:SetScript("OnLeave", HideGameTooltip)
+				bar.iconFrame:SetScript("OnMouseDown", BarIconMouseDown)
+			else
+				bar.iconFrame:EnableMouse(false)
+			end
 
-				if data.class and win.db.classcolortext then
-					-- Class color text.
-					local color = Skada.classcolors[data.class]
-					if color then
-						bar.label:SetTextColor(color.r, color.g, color.b, color.a or 1)
-						-- Apply color to all columns
-						if bar.columns then
-							for i = 1, 3 do
-								if bar.columns[i] then
-									bar.columns[i]:SetTextColor(color.r, color.g, color.b, color.a or 1)
-								end
-							end
-						end
-					end
-				else
-					-- Default color text, optionally themed.
-					local ltc = win.db.labelcolor
-					if ltc then
-						bar.label:SetTextColor(ltc.r, ltc.g, ltc.b, ltc.a or 1)
-					else
-						bar.label:SetTextColor(1,1,1,1)
-					end
-					-- Apply value text color or default
-					local vtc = win.db.valuetextcolor
-					if bar.columns then
-						for i = 1, 3 do
-							if bar.columns[i] then
-								if vtc then
-									bar.columns[i]:SetTextColor(vtc.r, vtc.g, vtc.b, vtc.a or 1)
-								else
-									bar.columns[i]:SetTextColor(1,1,1,1)
-								end
-							end
-						end
-					end
-				end
-
-				local isSelf = data.isSelf == true
-				if not isSelf and type(data.id) == "string" and not issecretvalue(data.id) then
-					local playerGUID = UnitGUID("player")
-					if type(playerGUID) == "string" and not issecretvalue(playerGUID) then
-						isSelf = data.id == playerGUID
-					end
-				end
-				if Skada.db.profile.showself and data.id and isSelf then
-					-- Always show self
-					bar.fixed = true
-					bar.isSelfBar = true
-				else
-					bar.isSelfBar = false
+			local isSelf = data.isSelf == true
+			if not isSelf and type(data.id) == "string" and not issecretvalue(data.id) then
+				local playerGUID = UnitGUID("player")
+				if type(playerGUID) == "string" and not issecretvalue(playerGUID) then
+					isSelf = data.id == playerGUID
 				end
 			end
+			if Skada.db.profile.showself and data.id and isSelf then
+				bar.fixed = true
+				bar.isSelfBar = true
+			else
+				bar.isSelfBar = false
+			end
+
+			setBarColor(bar, data, win)
+			setBarTextColor(bar, data, win)
 
 			if win.metadata.ordersort then
 				bar.order = i
@@ -1116,6 +1134,7 @@ function mod:ApplySettings(win)
 	g:SetBarBackgroundColor(p.barbgcolor.r, p.barbgcolor.g, p.barbgcolor.b, bgAlpha)
 	if g:GetBars() then
 		for _, bar in pairs(g:GetBars()) do
+			bar._skadaColor = nil
 			applyRowSeparator(bar, p)
 			applyBarShadows(bar, p.textshadow)
 		end
