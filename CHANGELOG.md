@@ -1,5 +1,5 @@
 ## 2.6.1
-Bar color reuse fix
+Bar fixes, window duplication, and pull comparison
 - Reapply class, spell-school, explicit, and default bar colors when positional combat bars are reused after a reorder
 - Refresh label/value colors, source metadata, icons, and self-highlight state for reused bars
 - Added Duplicate window to the window settings section and per-window Skada menu
