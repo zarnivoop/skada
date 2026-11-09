@@ -157,7 +157,6 @@ _G.StaticPopupDialogs["SKADA_NEW_WINDOW"] = {
 		if name ~= "" and pendingWindowDisplay then
 			Skada:CreateWindow(name, nil, pendingWindowDisplay)
 			if Skada.settingsUI then
-				Skada.settingsUI.selectedWindow = name
 				Skada.settingsUI:BuildPage()
 			end
 		end
@@ -169,7 +168,6 @@ _G.StaticPopupDialogs["SKADA_NEW_WINDOW"] = {
 		if name ~= "" and pendingWindowDisplay then
 			Skada:CreateWindow(name, nil, pendingWindowDisplay)
 			if Skada.settingsUI then
-				Skada.settingsUI.selectedWindow = name
 				Skada.settingsUI:BuildPage()
 			end
 			pendingWindowDisplay = nil
@@ -856,124 +854,63 @@ function UI:BuildPage()
 	self.content:SetHeight(math.max(page:GetHeight(), self.scroll:GetHeight()))
 end
 
+local function AddWindowPresets(page, winObj)
+	local presetRow = CreateFrame("Frame", nil, page)
+	presetRow:SetHeight(34)
+	presetRow:SetPoint("LEFT", page, "LEFT", 0, 0)
+	presetRow:SetPoint("RIGHT", page, "RIGHT", 0, 0)
+	Place(page, presetRow)
+	local presets = {
+		{ label = L["Compact"] or "Compact", width = 320, height = 18, background = 180, spacing = 1, headers = true, ranks = false },
+		{ label = L["Standard"] or "Standard", width = 470, height = 22, background = 300, spacing = 1, headers = true, ranks = true },
+		{ label = L["Detailed"] or "Detailed", width = 620, height = 26, background = 380, spacing = 2, headers = true, ranks = true },
+	}
+	local last
+	for _, preset in ipairs(presets) do
+		local presetData = preset
+		local button = AddFlatButton(presetRow, presetData.label, function()
+			local db = winObj.db
+			db.barwidth = presetData.width
+			db.barheight = presetData.height
+			db.barspacing = presetData.spacing
+			db.background.height = presetData.background
+			db.showcolumnheaders = presetData.headers
+			db.showranks = presetData.ranks
+			Skada:ApplySettings()
+			UI:BuildPage()
+		end, 120)
+		if last then
+			button:SetPoint("LEFT", last, "RIGHT", 8, 0)
+		else
+			button:SetPoint("LEFT", presetRow, "LEFT", 10, 0)
+		end
+		last = button
+	end
+end
+
 function UI:BuildWindowsPage(page)
 	local windowsArgs = Skada.options.args.windows and Skada.options.args.windows.args or {}
 	local windows = Skada:GetWindows()
-	local selected = self.selectedWindow
-	if not selected or not windowsArgs[selected] then
-		selected = windows[1] and windows[1].db.name
-		self.selectedWindow = selected
-	end
+	local byName = {}
+	for _, win in ipairs(windows) do byName[win.db.name] = win end
+	local names = {}
+	for name in pairs(byName) do names[#names + 1] = name end
+	table.sort(names)
 
 	AddSection(page, L["Windows"], L["Windows are independent damage meter displays."])
-	local names = {}
-	for _, win in ipairs(windows) do names[#names + 1] = win.db.name end
-	table.sort(names)
-	local selectorRow = CreateRow(page, 46)
-	local label = MakeText(selectorRow, "GameFontHighlight", 12, L["Window"] or "Window")
-	label:SetPoint("LEFT", selectorRow, "LEFT", 10, 0)
-	if #names > 0 and UI.dropdownTemplate then
-		local dropdown = CreateFrame("DropdownButton", nil, selectorRow, UI.dropdownTemplate)
-		dropdown:SetSize(220, 26)
-		dropdown:SetPoint("RIGHT", selectorRow, "RIGHT", -8, 0)
-		dropdown:SetDefaultText(selected or "")
-		dropdown:SetupMenu(function(_, root)
-			root:CreateTitle(L["Window"])
-			for _, name in ipairs(names) do
-				root:CreateRadio(name, function() return name == selected end, function()
-					self.selectedWindow = name
-					self:BuildPage()
-				end)
-			end
-		end)
-	elseif #names > 0 then
-		local button = CreateFrame("Button", nil, selectorRow, "UIPanelButtonTemplate")
-		button:SetSize(220, 24)
-		button:SetPoint("RIGHT", selectorRow, "RIGHT", -8, 0)
-		button:SetText(selected or "")
-		button:SetScript("OnClick", function(self2)
-			MenuUtil.CreateContextMenu(self2, function(_, root)
-				for _, name in ipairs(names) do
-					root:CreateRadio(name, function() return name == selected end, function()
-						self.selectedWindow = name
-						self:BuildPage()
-					end)
-				end
-			end)
-		end)
+	if #names == 0 then
+		AddDescription(page, L["No windows."] or "No windows.")
 	end
-
-	-- Make deletion discoverable next to the window selector instead of
-	-- leaving it at the bottom of the selected window's option list.
-	if selected then
-		local deleteRow = CreateRow(page, 48)
-		local deleteText = MakeText(deleteRow, "GameFontHighlight", 12, L["Delete window"] or "Delete window")
-		deleteText:SetPoint("LEFT", deleteRow, "LEFT", 10, 0)
-		local deleteDesc = MakeText(deleteRow, "GameFontNormalSmall", 10, #names > 1 and (L["Deletes the chosen window."] or "Deletes the chosen window.") or "Create another window before deleting this one.", MUTED)
-		deleteDesc:SetPoint("TOPLEFT", deleteText, "BOTTOMLEFT", 0, -2)
-		deleteDesc:SetWidth(300)
-		local deleteButton = CreateFrame("Button", nil, deleteRow, "UIPanelButtonTemplate")
-		deleteButton:SetSize(150, 24)
-		deleteButton:SetPoint("RIGHT", deleteRow, "RIGHT", -8, 0)
-		deleteButton:SetText(L["Delete window"] or "Delete window")
-		if #names > 1 then
-			deleteButton:SetScript("OnClick", function()
-				ShowConfirm((L["Delete window"] or "Delete window") .. " " .. tostring(selected) .. "?", function()
-					Skada:DeleteWindow(selected)
-					local remaining = Skada:GetWindows()
-					self.selectedWindow = remaining[1] and remaining[1].db.name or nil
-					self:BuildPage()
-				end)
-			end)
+	for _, name in ipairs(names) do
+		local winObj = byName[name]
+		local args = windowsArgs[name]
+		AddSection(page, name)
+		AddWindowPresets(page, winObj)
+		if args and type(args.args) == "table" then
+			RenderArgs(page, args.args, { path = {} })
 		else
-			deleteButton:Disable()
+			AddDescription(page, L["No settings available."])
 		end
-	end
-
-	if selected then
-		local winObj
-		for _, win in ipairs(windows) do
-			if win.db.name == selected then winObj = win; break end
-		end
-		if winObj then
-			AddSection(page, L["Layout presets"] or "Layout presets")
-			local presetRow = CreateFrame("Frame", nil, page)
-			presetRow:SetHeight(34)
-			presetRow:SetPoint("LEFT", page, "LEFT", 0, 0)
-			presetRow:SetPoint("RIGHT", page, "RIGHT", 0, 0)
-			Place(page, presetRow)
-			local presets = {
-				{ label = L["Compact"] or "Compact", width = 320, height = 18, background = 180, spacing = 1, headers = true, ranks = false },
-				{ label = L["Standard"] or "Standard", width = 470, height = 22, background = 300, spacing = 1, headers = true, ranks = true },
-				{ label = L["Detailed"] or "Detailed", width = 620, height = 26, background = 380, spacing = 2, headers = true, ranks = true },
-			}
-			local last
-			for _, preset in ipairs(presets) do
-				local presetData = preset
-				local button = AddFlatButton(presetRow, presetData.label, function()
-					local db = winObj.db
-					db.barwidth = presetData.width
-					db.barheight = presetData.height
-					db.barspacing = presetData.spacing
-					db.background.height = presetData.background
-					db.showcolumnheaders = presetData.headers
-					db.showranks = presetData.ranks
-					Skada:ApplySettings()
-					self:BuildPage()
-				end, 120)
-				if last then
-					button:SetPoint("LEFT", last, "RIGHT", 8, 0)
-				else
-					button:SetPoint("LEFT", presetRow, "LEFT", 10, 0)
-				end
-				last = button
-			end
-		end
-	end
-
-	if selected and windowsArgs[selected] then
-		AddSection(page, selected)
-		RenderArgs(page, windowsArgs[selected].args or {}, { path = {} })
 	end
 
 	AddSection(page, L["Create window"])
@@ -998,9 +935,6 @@ end
 
 function UI:SetSection(section)
 	self.section = section
-	if section ~= "windows" then
-		self.selectedWindow = nil
-	end
 	if self.navButtons then
 		for key, button in pairs(self.navButtons) do
 			if key == section then
@@ -1148,7 +1082,6 @@ end
 function Skada:OpenOptions(window)
 	self:SetupSettingsCategory()
 	if window and UI then
-		UI.selectedWindow = window.db.name
 		UI:SetSection("windows")
 	end
 	if self.settingsCategory and SettingsAPI and SettingsAPI.OpenToCategory then

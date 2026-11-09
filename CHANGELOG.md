@@ -6,6 +6,7 @@ Chat summaries and direct reports
 - Added whisper target fields for report and chat summary output in General options
 - Font, texture, background, border, and sound selects now use a searchable scrollable picker when they come from SharedMedia
 - Added a per-window transparent bar background toggle that hides the unfilled portion of the bars
+- Windows settings now lists each window as its own section instead of using a window switcher
 
 ## 2.5.0
 Quick mode switching and post-combat summary

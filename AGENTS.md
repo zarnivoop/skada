@@ -42,7 +42,7 @@ Modules should be "Hardened" by default:
 - **Selective Wiping**: Use `win:Wipe()` when the "Secret Mode" state changes to prevent duplicated "Combat_N" vs "PlayerName" bars.
 
 ## 3. UI and Sizing
-- **Configuration**: `Settings.lua` registers a Blizzard `Settings` canvas category and renders the existing `Skada.options` schema with native widgets (dropdowns, sliders, checkboxes, color pickers). SharedMedia-backed font, texture, background, border, and sound selects use a searchable scrollable picker instead of a long context menu. The old AceConfigDialog tree and AceGUI widgets are gone from the visual path; AceDB/AceEvent/AceTimer/AceLocale remain backend libraries.
+- **Configuration**: `Settings.lua` registers a Blizzard `Settings` canvas category and renders the existing `Skada.options` schema with native widgets (dropdowns, sliders, checkboxes, color pickers). Windows settings lists every window as its own section; SharedMedia-backed font, texture, background, border, and sound selects use a searchable scrollable picker instead of a long context menu. The old AceConfigDialog tree and AceGUI widgets are gone from the visual path; AceDB/AceEvent/AceTimer/AceLocale remain backend libraries.
 - **Menus**: `Menus.lua` uses `MenuUtil.CreateContextMenu` for the window/mode/segment menus; the report dialog is a custom frame. `UIDropDownMenu` is no longer used.
 - **Profiles**: the Profiles tab is custom (switch/create/copy/delete/reset). AceDBOptions and AceConfigRegistry/AceConfigDialog/AceGUI/AceGUI-3.0-SharedMediaWidgets are removed from `embeds.xml`.
 - **Media lists**: `Options.lua` still exposes the historical `AceGUIWidgetLSMlists` table name for module schemas, but it is populated directly from LibSharedMedia and does not load AceGUI.
