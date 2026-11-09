@@ -594,3 +594,15 @@ L["Create a window with one of the display types below."] = "Create a window wit
 -- Window duplication.
 L["Duplicate window"] = "Duplicate window"
 L["Create a copy of this window and its settings."] = "Create a copy of this window and its settings."
+
+
+-- Pull comparison.
+L["DPS %s"] = "DPS %s"
+L["deaths %+d"] = "deaths %+d"
+L["avoidable/min %s"] = "avoidable/min %s"
+L["vs last attempt: %s"] = "vs last attempt: %s"
+
+
+-- Pull comparison option.
+L["Compare with previous attempts"] = "Compare with previous attempts"
+L["Show one line comparing this fight with the last matching attempt."] = "Show one line comparing this fight with the last matching attempt."

@@ -205,7 +205,36 @@ local function verdictFor(stats)
 	return "The data does not lie. The boss might."
 end
 
-local function buildSummary(set)
+local function signedPercent(current, previous)
+	if issecretvalue(current) or issecretvalue(previous) then return nil end
+	if type(current) ~= "number" or type(previous) ~= "number" or previous <= 0 then return nil end
+	local pct = ((current - previous) / previous) * 100
+	if math.abs(pct) < 0.5 then return nil end
+	return string.format("%+.0f%%", pct)
+end
+
+local function buildComparison(stats, previous)
+	if type(previous) ~= "table" then return nil end
+	local parts = {}
+	if plainNumber(stats.damage) and plainNumber(stats.duration) and stats.duration > 0
+		and plainNumber(previous.damage) and plainNumber(previous.duration) and previous.duration > 0 then
+		local pct = signedPercent(stats.damage / stats.duration, previous.damage / previous.duration)
+		if pct then parts[#parts + 1] = string.format(L["DPS %s"] or "DPS %s", pct) end
+	end
+	if plainNumber(stats.deaths) and plainNumber(previous.deaths) then
+		local diff = stats.deaths - previous.deaths
+		if diff ~= 0 then parts[#parts + 1] = string.format(L["deaths %+d"] or "deaths %+d", diff) end
+	end
+	if plainNumber(stats.avoidable) and plainNumber(stats.duration) and stats.duration > 0
+		and plainNumber(previous.avoidable) and plainNumber(previous.duration) and previous.duration > 0 then
+		local pct = signedPercent((stats.avoidable / stats.duration) * 60, (previous.avoidable / previous.duration) * 60)
+		if pct then parts[#parts + 1] = string.format(L["avoidable/min %s"] or "avoidable/min %s", pct) end
+	end
+	if #parts == 0 then return nil end
+	return string.format(L["vs last attempt: %s"] or "vs last attempt: %s", table.concat(parts, ", "))
+end
+
+local function buildSummary(set, previousPull)
 	local stats = summarisedStats(set)
 	local rows = {}
 	local function add(rowLabel, value, show)
@@ -252,7 +281,7 @@ local function buildSummary(set)
 	if stats.absorbShare then
 		add(label("Absorb share", "Absorb share"), formatPercent(stats.absorbShare), true)
 	end
-	return rows, Skada:GetSetLabel(set), verdictFor(stats)
+	return rows, Skada:GetSetLabel(set), verdictFor(stats), buildComparison(stats, previousPull)
 end
 
 local function ensureFrame()
@@ -306,6 +335,12 @@ local function ensureFrame()
 	close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -4, -4)
 	close:SetScript("OnClick", function() frame:Hide() end)
 
+	frame.comparison = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	frame.comparison:SetJustifyH("LEFT")
+	frame.comparison:SetWordWrap(false)
+	frame.comparison:SetTextColor(0.72, 0.78, 0.86, 1)
+	frame.comparison:Hide()
+
 	frame.verdict = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	frame.verdict:SetJustifyH("LEFT")
 	frame.verdict:SetTextColor(ACCENT[1], ACCENT[2], ACCENT[3], 1)
@@ -333,7 +368,7 @@ local function ensureFrame()
 	return frame
 end
 
-local function sendSummaryToChat(rows, setLabel, verdict)
+local function sendSummaryToChat(rows, setLabel, verdict, comparison)
 	local key = Skada.db.profile.combatsummarychannel or "say"
 	local channel, chantype = Skada:ResolveChatChannel(key, Skada.db.profile.combatsummarytarget)
 	if not channel then
@@ -344,6 +379,9 @@ local function sendSummaryToChat(rows, setLabel, verdict)
 	for _, row in ipairs(rows) do
 		Skada:SendChatLine(row.label .. ": " .. row.value, channel, chantype)
 	end
+	if comparison then
+		Skada:SendChatLine(comparison, channel, chantype)
+	end
 	if verdict then
 		Skada:SendChatLine(verdict, channel, chantype)
 	end
@@ -353,10 +391,11 @@ end
 function Skada:ShowCombatSummary(set)
 	if type(set) ~= "table" then set = self:GetActiveSet() end
 	if type(set) ~= "table" then return end
-	local rows, setLabel, verdict = buildSummary(set)
+	local previousPull = (self.db.profile.combatsummarycomparison ~= false) and self:GetPullComparisonForSet(set) or nil
+	local rows, setLabel, verdict, comparison = buildSummary(set, previousPull)
 	if (self.db.profile.combatsummaryoutput or "window") == "chat" then
 		if self.CombatSummaryFrame then self.CombatSummaryFrame:Hide() end
-		sendSummaryToChat(rows, setLabel, verdict)
+		sendSummaryToChat(rows, setLabel, verdict, comparison)
 		return
 	end
 	local frame = ensureFrame()
@@ -371,17 +410,30 @@ function Skada:ShowCombatSummary(set)
 			row:Hide()
 		end
 	end
+	local footerY = -48 - #rows * 24 - 2
+	local height = 56 + #rows * 24 + 10
+	if comparison then
+		frame.comparison:ClearAllPoints()
+		frame.comparison:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, footerY)
+		frame.comparison:SetPoint("RIGHT", frame, "RIGHT", -14, 0)
+		frame.comparison:SetText(comparison)
+		frame.comparison:Show()
+		footerY = footerY - 20
+		height = height + 20
+	else
+		frame.comparison:Hide()
+	end
 	if verdict then
 		frame.verdict:ClearAllPoints()
-		frame.verdict:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -48 - #rows * 24 - 2)
+		frame.verdict:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, footerY)
 		frame.verdict:SetPoint("RIGHT", frame, "RIGHT", -14, 0)
 		frame.verdict:SetText(verdict)
 		frame.verdict:Show()
-		frame:SetHeight(56 + #rows * 24 + 28)
+		height = height + 20
 	else
 		frame.verdict:Hide()
-		frame:SetHeight(56 + #rows * 24 + 10)
 	end
+	frame:SetHeight(height)
 	frame:Show()
 end
 

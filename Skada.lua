@@ -1433,6 +1433,10 @@ function Skada:ReloadSettings()
 	if self.db.profile.combatsummaryscope == nil then
 		self.db.profile.combatsummaryscope = "boss"
 	end
+	if type(self.db.profile.pullhistory) ~= "table" then
+		self.db.profile.pullhistory = {}
+	end
+	self.lastPullComparison = nil
 	-- Delete all existing windows in case of a profile change.
 	for i, win in ipairs(windows) do
 		win:destroy()
@@ -1496,6 +1500,98 @@ function Skada:ShouldShowCombatSummary(set)
 	if not IsInInstance() then return false end
 	local encounter = type(set) == "table" and not issecretvalue(set) and set.encounterName or nil
 	return not issecretvalue(encounter) and type(encounter) == "string" and encounter ~= ""
+end
+
+function Skada:GetPullKey(set)
+	if type(set) ~= "table" or issecretvalue(set) then return nil end
+	local encounter = set.encounterName
+	if issecretvalue(encounter) or type(encounter) ~= "string" or encounter == "" then return nil end
+	local _, _, difficultyID = GetInstanceInfo()
+	difficultyID = tonumber(difficultyID) or 0
+	local groupSize = GetNumGroupMembers() or 1
+	if groupSize < 1 then groupSize = 1 end
+	return encounter .. "|" .. tostring(difficultyID) .. "|" .. tostring(groupSize)
+end
+
+function Skada:GetPullSnapshot(set)
+	local key = self:GetPullKey(set)
+	if not key then return nil end
+	local duration = self:GetSetTime(set)
+	if issecretvalue(duration) or type(duration) ~= "number" or duration <= 0 then return nil end
+	local MB = self.ModuleBase
+	local values = {
+		damage = MB:GetSetTotal(set, 0),
+		healing = MB:GetSetTotal(set, 2),
+		avoidable = MB:GetSetTotal(set, 8),
+		damageTaken = MB:GetSetTotal(set, 7),
+		interrupts = MB:GetSetTotal(set, 5),
+		dispels = MB:GetSetTotal(set, 6),
+	}
+	for _, value in pairs(values) do
+		if issecretvalue(value) or type(value) ~= "number" then return nil end
+	end
+	local deaths = 0
+	local deathView = self.NativeAPI:GetSessionView(set, 9)
+	if type(deathView) == "table" and not issecretvalue(deathView)
+		and type(deathView.combatSources) == "table" and not issecretvalue(deathView.combatSources) then
+		deaths = #deathView.combatSources
+	end
+	return key, {
+		duration = duration,
+		damage = values.damage,
+		healing = values.healing,
+		avoidable = values.avoidable,
+		damageTaken = values.damageTaken,
+		interrupts = values.interrupts,
+		dispels = values.dispels,
+		deaths = deaths,
+		at = time(),
+	}
+end
+
+function Skada:GetLastPull(set)
+	local key = self:GetPullKey(set)
+	if not key then return nil end
+	local history = self.db.profile.pullhistory
+	local list = type(history) == "table" and history[key] or nil
+	return type(list) == "table" and list[#list] or nil
+end
+
+function Skada:RecordPull(set)
+	local key, snapshot = self:GetPullSnapshot(set)
+	if not key or not snapshot then return end
+	local history = self.db.profile.pullhistory
+	if type(history) ~= "table" then
+		history = {}
+		self.db.profile.pullhistory = history
+	end
+	local list = history[key]
+	if type(list) ~= "table" then
+		list = {}
+		history[key] = list
+	end
+	list[#list + 1] = snapshot
+	while #list > 20 do table.remove(list, 1) end
+end
+
+function Skada:CapturePullComparison(set)
+	local previous = self:GetLastPull(set)
+	self:RecordPull(set)
+	local key = self:GetPullKey(set)
+	if previous and key then
+		self.lastPullComparison = { set = set, key = key, previous = previous }
+	else
+		self.lastPullComparison = nil
+	end
+end
+
+function Skada:GetPullComparisonForSet(set)
+	local pending = self.lastPullComparison
+	if not pending then return nil end
+	if pending.set == set then return pending.previous end
+	if type(set) == "table" and set.sessionType and set.sessionType ~= 1 then return nil end
+	if pending.key and self:GetPullKey(set) == pending.key then return pending.previous end
+	return nil
 end
 
 -- Contextual auto-mode: pick a sensible meter for the player's role when in a
@@ -1598,6 +1694,9 @@ function Skada:Tick()
 	-- Detect combat end
 	if not inCombat and self.current then
 		local summarySet = self.NativeAPI:GetSessionView(self.current, 0)
+		if summarySet then
+			self:CapturePullComparison(summarySet)
+		end
 		self.last = self.current
 		self.current = nil
 

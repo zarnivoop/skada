@@ -144,6 +144,8 @@ Skada.defaults = {
 		combatsummaryoutput = "window",
 		combatsummarychannel = "say",
 		combatsummarytarget = "",
+		combatsummarycomparison = true,
+		pullhistory = {},
 		roledefaults = { TANK = "", HEALER = "", DAMAGER = "" },
 		sortmodesbyusage = true,
 		updatefrequency = 0.10,
@@ -452,6 +454,17 @@ Skada.options = {
 						return key ~= "whisper" and key ~= "bnet"
 					end,
 				},
+				combatsummarycomparison = {
+					type = "toggle",
+					name = L["Compare with previous attempts"],
+					desc = L["Show one line comparing this fight with the last matching attempt."],
+					order = 19,
+					get = function() return Skada.db.profile.combatsummarycomparison ~= false end,
+					set = function()
+						Skada.db.profile.combatsummarycomparison = not Skada.db.profile.combatsummarycomparison
+					end,
+				},
+
 				reporttarget = {
 					type = "input",
 					name = L["Whisper target"],

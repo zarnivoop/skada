@@ -8,6 +8,7 @@ Skada.versions = {
 			"Reapply class, spell-school, explicit, and default bar colors when positional combat bars are reused after a reorder",
 			"Refresh label/value colors, source metadata, icons, and self-highlight state for reused bars",
 			"Added Duplicate window to the window settings section and per-window Skada menu",
+			"Added a persistent per-encounter pull history and one-line vs last attempt comparison in the combat summary; comparisons require the same encounter, difficulty, and group size and can be turned off in General options",
 		}
 	},
 	{
