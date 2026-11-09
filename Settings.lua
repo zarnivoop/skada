@@ -157,7 +157,7 @@ _G.StaticPopupDialogs["SKADA_NEW_WINDOW"] = {
 		if name ~= "" and pendingWindowDisplay then
 			Skada:CreateWindow(name, nil, pendingWindowDisplay)
 			if Skada.settingsUI then
-				Skada.settingsUI.expandedWindow = name
+				Skada.settingsUI.selectedWindow = name
 				Skada.settingsUI:BuildPage()
 			end
 		end
@@ -169,7 +169,7 @@ _G.StaticPopupDialogs["SKADA_NEW_WINDOW"] = {
 		if name ~= "" and pendingWindowDisplay then
 			Skada:CreateWindow(name, nil, pendingWindowDisplay)
 			if Skada.settingsUI then
-				Skada.settingsUI.expandedWindow = name
+				Skada.settingsUI.selectedWindow = name
 				Skada.settingsUI:BuildPage()
 			end
 			pendingWindowDisplay = nil
@@ -828,6 +828,11 @@ end
 
 function UI:BuildPage()
 	if not self.content then return end
+	if self.section == "windows" then
+		self:BuildNav()
+	else
+		self:UpdateNav()
+	end
 	if self.page then
 		self.page:Hide()
 		self.page:SetParent(nil)
@@ -906,50 +911,22 @@ function UI:BuildWindowsPage(page)
 	for name in pairs(byName) do names[#names + 1] = name end
 	table.sort(names)
 
-	AddSection(page, L["Windows"], L["Windows are independent damage meter displays."])
-	if #names == 0 then
+	local selected = self.selectedWindow
+	if not selected or not byName[selected] then
+		selected = names[1]
+		self.selectedWindow = selected
+	end
+	if not selected then
+		AddSection(page, L["Windows"], L["Windows are independent damage meter displays."])
 		AddDescription(page, L["No windows."] or "No windows.")
-	end
-	local expanded = self.expandedWindow
-	if not expanded or not byName[expanded] then
-		expanded = names[1]
-		self.expandedWindow = expanded
-	end
-	for _, name in ipairs(names) do
-		local winObj = byName[name]
-		local args = windowsArgs[name]
-		local isExpanded = expanded == name
-		local header = CreateFrame("Button", nil, page, "BackdropTemplate")
-		header:SetHeight(34)
-		header:SetPoint("LEFT", page, "LEFT", 0, 0)
-		header:SetPoint("RIGHT", page, "RIGHT", 0, 0)
-		Place(page, header)
-		AddBackdrop(header, 0.28)
-		header:SetBackdropColor(0.10, 0.12, 0.16, isExpanded and 0.45 or 0.18)
-		if header.SetBackdropBorderColor then
-			header:SetBackdropBorderColor(ACCENT[1], ACCENT[2], ACCENT[3], isExpanded and 0.38 or 0.05)
-		end
-		local nameText = MakeText(header, "GameFontHighlight", 12, name, isExpanded and { 1, 1, 1, 1 } or MUTED)
-		nameText:SetPoint("LEFT", header, "LEFT", 10, 0)
-		local chevron = MakeText(header, "GameFontNormal", 12, isExpanded and "-" or "+", ACCENT)
-		chevron:SetPoint("RIGHT", header, "RIGHT", -12, 0)
-		header:SetScript("OnClick", function()
-			UI.expandedWindow = isExpanded and nil or name
-			UI:BuildPage()
-		end)
-		header:SetScript("OnEnter", function(btn)
-			if not isExpanded then btn:SetBackdropColor(0.14, 0.18, 0.23, 0.38) end
-		end)
-		header:SetScript("OnLeave", function(btn)
-			if not isExpanded then btn:SetBackdropColor(0.10, 0.12, 0.16, 0.18) end
-		end)
-		if isExpanded then
-			AddWindowPresets(page, winObj)
-			if args and type(args.args) == "table" then
-				RenderArgs(page, args.args, { path = {} })
-			else
-				AddDescription(page, L["No settings available."])
-			end
+	else
+		AddSection(page, selected, L["Windows are independent damage meter displays."])
+		AddWindowPresets(page, byName[selected])
+		local args = windowsArgs[selected]
+		if args and type(args.args) == "table" then
+			RenderArgs(page, args.args, { path = {} })
+		else
+			AddDescription(page, L["No settings available."])
 		end
 	end
 
@@ -974,16 +951,14 @@ end
 
 function UI:SetSection(section)
 	self.section = section
-	if self.navButtons then
-		for key, button in pairs(self.navButtons) do
-			if key == section then
-				button:SetBackdropColor(ACCENT[1], ACCENT[2], ACCENT[3], 0.22)
-				button.label:SetTextColor(1, 1, 1, 1)
-			else
-				button:SetBackdropColor(0, 0, 0, 0)
-				button.label:SetTextColor(MUTED[1], MUTED[2], MUTED[3], 1)
-			end
+	if section == "windows" then
+		local windows = Skada:GetWindows()
+		local selected = self.selectedWindow
+		local valid = false
+		for _, win in ipairs(windows) do
+			if win.db.name == selected then valid = true; break end
 		end
+		if not valid then self.selectedWindow = windows[1] and windows[1].db.name or nil end
 	end
 	self:BuildPage()
 end
@@ -998,6 +973,112 @@ local navOrder = {
 	{ key = "profiles", label = L["Profiles"] },
 	{ key = "version_history", label = L["Version History"] },
 }
+
+function UI:UpdateNav()
+	for key, button in pairs(self.navButtons or {}) do
+		local active = key == self.section
+		if active then
+			button:SetBackdropColor(ACCENT[1], ACCENT[2], ACCENT[3], 0.22)
+			button.label:SetTextColor(1, 1, 1, 1)
+		else
+			button:SetBackdropColor(0, 0, 0, 0)
+			button.label:SetTextColor(MUTED[1], MUTED[2], MUTED[3], 1)
+		end
+	end
+	for name, button in pairs(self.navWindows or {}) do
+		local active = self.section == "windows" and self.selectedWindow == name
+		if active then
+			button:SetBackdropColor(ACCENT[1], ACCENT[2], ACCENT[3], 0.30)
+			button.label:SetTextColor(1, 1, 1, 1)
+		else
+			button:SetBackdropColor(0, 0, 0, 0)
+			button.label:SetTextColor(MUTED[1], MUTED[2], MUTED[3], 1)
+		end
+	end
+end
+
+function UI:BuildNav()
+	if not self.sidebar then return end
+	for _, button in pairs(self.navButtons or {}) do button:Hide(); button:SetParent(nil) end
+	for _, button in pairs(self.navWindows or {}) do button:Hide(); button:SetParent(nil) end
+	self.navButtons = {}
+	self.navWindows = {}
+
+	local windows = Skada:GetWindows()
+	local names = {}
+	for _, win in ipairs(windows) do names[#names + 1] = win.db.name end
+	table.sort(names)
+	if self.section == "windows" then
+		local valid = false
+		for _, name in ipairs(names) do
+			if name == self.selectedWindow then valid = true; break end
+		end
+		if not valid then self.selectedWindow = names[1] end
+	end
+
+	local last
+	local function place(button, indent)
+		button:SetPoint("LEFT", self.sidebar, "LEFT", indent or 0, 0)
+		button:SetPoint("RIGHT", self.sidebar, "RIGHT", 0, 0)
+		if last then
+			button:SetPoint("TOP", last, "BOTTOM", 0, -2)
+		else
+			button:SetPoint("TOP", self.sidebar, "TOP", 0, 0)
+		end
+		last = button
+	end
+
+	for _, entry in ipairs(navOrder) do
+		local button = CreateFrame("Button", nil, self.sidebar, "BackdropTemplate")
+		button:SetHeight(30)
+		AddBackdrop(button, 0.35)
+		button:SetBackdropColor(0, 0, 0, 0)
+		local label = MakeText(button, "GameFontNormal", 12, entry.label, MUTED)
+		label:SetPoint("LEFT", button, "LEFT", 12, 0)
+		button.label = label
+		button:SetScript("OnClick", function() UI:SetSection(entry.key) end)
+		button:SetScript("OnEnter", function(btn)
+			if UI.section ~= entry.key then btn:SetBackdropColor(1, 1, 1, 0.05) end
+		end)
+		button:SetScript("OnLeave", function(btn)
+			if UI.section ~= entry.key then btn:SetBackdropColor(0, 0, 0, 0) end
+		end)
+		self.navButtons[entry.key] = button
+		place(button, 0)
+		if entry.key == "windows" then
+			for _, name in ipairs(names) do
+				local child = CreateFrame("Button", nil, self.sidebar, "BackdropTemplate")
+				child:SetHeight(24)
+				AddBackdrop(child, 0.2)
+				child:SetBackdropColor(0, 0, 0, 0)
+				local childLabel = MakeText(child, "GameFontNormal", 11, name, MUTED)
+				childLabel:SetPoint("LEFT", child, "LEFT", 12, 0)
+				childLabel:SetPoint("RIGHT", child, "RIGHT", -6, 0)
+				child.label = childLabel
+				child:SetScript("OnClick", function() UI:SelectWindow(name) end)
+				child:SetScript("OnEnter", function(btn)
+					if not (UI.section == "windows" and UI.selectedWindow == name) then
+						btn:SetBackdropColor(1, 1, 1, 0.05)
+					end
+				end)
+				child:SetScript("OnLeave", function(btn)
+					if not (UI.section == "windows" and UI.selectedWindow == name) then
+						btn:SetBackdropColor(0, 0, 0, 0)
+					end
+				end)
+				self.navWindows[name] = child
+				place(child, 22)
+			end
+		end
+	end
+	self:UpdateNav()
+end
+
+function UI:SelectWindow(name)
+	self.section = "windows"
+	self.selectedWindow = name
+	self:BuildPage()
+end
 
 function UI:Create(frame)
 	self.frame = frame
@@ -1033,36 +1114,8 @@ function UI:Create(frame)
 	self.sidebar = sidebar
 	self.navButtons = {}
 
-	local last
-	for _, entry in ipairs(navOrder) do
-		local button = CreateFrame("Button", nil, sidebar, "BackdropTemplate")
-		button:SetHeight(30)
-		button:SetPoint("LEFT", sidebar, "LEFT", 0, 0)
-		button:SetPoint("RIGHT", sidebar, "RIGHT", 0, 0)
-		AddBackdrop(button, 0.35)
-		button:SetBackdropColor(0, 0, 0, 0)
-		local label = MakeText(button, "GameFontNormal", 12, entry.label, MUTED)
-		label:SetPoint("LEFT", button, "LEFT", 12, 0)
-		button.label = label
-		if last then
-			button:SetPoint("TOP", last, "BOTTOM", 0, -2)
-		else
-			button:SetPoint("TOP", sidebar, "TOP", 0, 0)
-		end
-		button:SetScript("OnClick", function() self:SetSection(entry.key) end)
-		button:SetScript("OnEnter", function(self2)
-			if self.section ~= entry.key then
-				self2:SetBackdropColor(1, 1, 1, 0.05)
-			end
-		end)
-		button:SetScript("OnLeave", function(self2)
-			if self.section ~= entry.key then
-				self2:SetBackdropColor(0, 0, 0, 0)
-			end
-		end)
-		self.navButtons[entry.key] = button
-		last = button
-	end
+	self:BuildNav()
+
 
 	local scroll = CreateFrame("ScrollFrame", "SkadaSettingsScroll", frame, "UIPanelScrollFrameTemplate")
 	scroll:SetPoint("TOPLEFT", sidebar, "TOPRIGHT", 18, 0)
@@ -1121,7 +1174,7 @@ end
 function Skada:OpenOptions(window)
 	self:SetupSettingsCategory()
 	if window and UI then
-		UI.expandedWindow = window.db.name
+		UI.selectedWindow = window.db.name
 		UI:SetSection("windows")
 	end
 	if self.settingsCategory and SettingsAPI and SettingsAPI.OpenToCategory then
