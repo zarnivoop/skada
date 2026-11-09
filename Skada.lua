@@ -299,6 +299,15 @@ function Window:AddOptions()
 				end,
 			},
 
+			duplicate = {
+				type = "execute",
+				name = L["Duplicate window"],
+				desc = L["Create a copy of this window and its settings."],
+				order = 19,
+				width = "full",
+				func = function() Skada:DuplicateWindow(db.name) end,
+			},
+
 			delete = {
 				type = "execute",
 				name = L["Delete window"],
@@ -863,6 +872,37 @@ function Skada:CreateWindow(name, db, display)
 
 	self:ApplySettings()
 	return window
+end
+
+function Skada:DuplicateWindow(name)
+	local source
+	for _, win in ipairs(windows) do
+		if win.db.name == name then source = win; break end
+	end
+	if not source then return end
+
+	local used = {}
+	for _, win in ipairs(windows) do used[win.db.name] = true end
+	local base = name .. " copy"
+	local newName = base
+	local n = 2
+	while used[newName] do
+		newName = base .. " " .. n
+		n = n + 1
+	end
+
+	local db = {}
+	self:tcopy(db, source.db)
+	db.name = newName
+	db.hidden = false
+	db.x = (db.x or 0) + 24
+	db.y = (db.y or 0) - 24
+	tinsert(self.db.profile.windows, db)
+	self:CreateWindow(newName, db)
+	if self.settingsUI and self.settingsUI.section == "windows" then
+		self.settingsUI:SelectWindow(newName)
+	end
+	return newName
 end
 
 -- Deleted named window from our windows table, and also from db.

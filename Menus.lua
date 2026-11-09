@@ -54,6 +54,9 @@ local function AddWindowEntries(root, window)
 		window.db.barslocked = not window.db.barslocked
 		Skada:ApplySettings()
 	end)
+	root:CreateButton(L["Duplicate window"], function()
+		Skada:DuplicateWindow(window.db.name)
+	end)
 	root:CreateButton(L["Hide window"], function()
 		if window:IsShown() then
 			window.db.hidden = true
