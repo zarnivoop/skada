@@ -585,3 +585,7 @@ L["Hides the unfilled part of the bars by making the bar background fully transp
 -- Window creation.
 L["New window"] = "New window"
 L["Bar"] = "Bar"
+
+
+-- Window overview.
+L["Create a window with one of the display types below."] = "Create a window with one of the display types below."

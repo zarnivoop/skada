@@ -11,7 +11,7 @@ Skada.versions = {
 			"Added whisper target fields for report and chat summary output in General options",
 			"Font, texture, background, border, and sound selects now use a searchable scrollable picker when they come from SharedMedia",
 			"Added a per-window transparent bar background toggle that hides the unfilled portion of the bars",
-			"Windows settings now lists each window as a child entry in the left navigation; the right pane shows only the selected window",
+			"Windows settings lists each window as a child entry in the left navigation; the Windows parent holds the create-window controls and the right pane shows only the selected window",
 			"Added a New window entry to the Skada window menu; it creates a bar window through the name prompt directly",
 		}
 	},

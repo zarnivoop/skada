@@ -850,7 +850,9 @@ function UI:BuildPage()
 	local args = Skada.options and Skada.options.args
 	if not args then return end
 
-	if section == "windows" then
+	if section == "windowsoverview" then
+		self:BuildWindowsOverview(page)
+	elseif section == "windows" then
 		self:BuildWindowsPage(page)
 	elseif section == "profiles" then
 		AddProfilePage(page)
@@ -902,6 +904,28 @@ local function AddWindowPresets(page, winObj)
 	end
 end
 
+function UI:BuildWindowsOverview(page)
+	AddSection(page, L["Windows"], L["Windows are independent damage meter displays."])
+	AddDescription(page, L["Create a window with one of the display types below."])
+	AddSection(page, L["Create window"])
+	for key, display in pairs(Skada.displays or {}) do
+		local row = CreateRow(page, 52)
+		local name = display.name or key
+		local fs = MakeText(row, "GameFontHighlight", 12, name)
+		fs:SetPoint("TOPLEFT", row, "TOPLEFT", 10, -9)
+		local desc = MakeText(row, "GameFontNormalSmall", 10, display.description or "", MUTED)
+		desc:SetPoint("TOPLEFT", fs, "BOTTOMLEFT", 0, -2)
+		desc:SetWidth(300)
+		local create = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+		create:SetSize(110, 24)
+		create:SetPoint("RIGHT", row, "RIGHT", -8, 0)
+		create:SetText(_G.CREATE or "Create")
+		create:SetScript("OnClick", function()
+			Skada:PromptNewWindow(key)
+		end)
+	end
+end
+
 function UI:BuildWindowsPage(page)
 	local windowsArgs = Skada.options.args.windows and Skada.options.args.windows.args or {}
 	local windows = Skada:GetWindows()
@@ -930,23 +954,7 @@ function UI:BuildWindowsPage(page)
 		end
 	end
 
-	AddSection(page, L["Create window"])
-	for key, display in pairs(Skada.displays or {}) do
-		local row = CreateRow(page, 52)
-		local name = display.name or key
-		local fs = MakeText(row, "GameFontHighlight", 12, name)
-		fs:SetPoint("TOPLEFT", row, "TOPLEFT", 10, -9)
-		local desc = MakeText(row, "GameFontNormalSmall", 10, display.description or "", MUTED)
-		desc:SetPoint("TOPLEFT", fs, "BOTTOMLEFT", 0, -2)
-		desc:SetWidth(300)
-		local create = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-		create:SetSize(110, 24)
-		create:SetPoint("RIGHT", row, "RIGHT", -8, 0)
-		create:SetText(_G.CREATE or "Create")
-		create:SetScript("OnClick", function()
-			Skada:PromptNewWindow(key)
-		end)
-	end
+
 end
 
 function UI:SetSection(section)
@@ -976,7 +984,7 @@ local navOrder = {
 
 function UI:UpdateNav()
 	for key, button in pairs(self.navButtons or {}) do
-		local active = key == self.section
+		local active = key == self.section or (key == "windows" and self.section == "windowsoverview")
 		if active then
 			button:SetBackdropColor(ACCENT[1], ACCENT[2], ACCENT[3], 0.22)
 			button.label:SetTextColor(1, 1, 1, 1)
@@ -1036,12 +1044,21 @@ function UI:BuildNav()
 		local label = MakeText(button, "GameFontNormal", 12, entry.label, MUTED)
 		label:SetPoint("LEFT", button, "LEFT", 12, 0)
 		button.label = label
-		button:SetScript("OnClick", function() UI:SetSection(entry.key) end)
+		button:SetScript("OnClick", function()
+			if entry.key == "windows" then
+				UI:SetSection("windowsoverview")
+			else
+				UI:SetSection(entry.key)
+			end
+		end)
+		local function isParentActive()
+			return UI.section == entry.key or (entry.key == "windows" and UI.section == "windowsoverview")
+		end
 		button:SetScript("OnEnter", function(btn)
-			if UI.section ~= entry.key then btn:SetBackdropColor(1, 1, 1, 0.05) end
+			if not isParentActive() then btn:SetBackdropColor(1, 1, 1, 0.05) end
 		end)
 		button:SetScript("OnLeave", function(btn)
-			if UI.section ~= entry.key then btn:SetBackdropColor(0, 0, 0, 0) end
+			if not isParentActive() then btn:SetBackdropColor(0, 0, 0, 0) end
 		end)
 		self.navButtons[entry.key] = button
 		place(button, 0)
@@ -1135,7 +1152,7 @@ function UI:Create(frame)
 	frame:SetScript("OnShow", function()
 		self:BuildPage()
 	end)
-	self:SetSection("windows")
+	self:SetSection("windowsoverview")
 end
 
 function Skada:ShowStandaloneSettings()
