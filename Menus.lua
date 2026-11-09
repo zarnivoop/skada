@@ -88,6 +88,16 @@ function Skada:OpenMenu(window)
 				end)
 			end)
 		end
+		root:CreateButton(L["New window"], function()
+			CreateContext(UIParent, function(_, sub)
+				sub:CreateTitle(L["New window"])
+				for key, display in pairs(Skada.displays or {}) do
+					sub:CreateButton(display.name or key, function()
+						Skada:PromptNewWindow(key)
+					end)
+				end
+			end)
+		end)
 		root:CreateDivider()
 		if not window or (window and window.selectedmode) then
 			root:CreateButton(L["Report"], function()

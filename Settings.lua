@@ -182,6 +182,13 @@ _G.StaticPopupDialogs["SKADA_NEW_WINDOW"] = {
 	hideOnEscape = true,
 }
 
+function Skada:PromptNewWindow(displayKey)
+	local display = Skada.displays and Skada.displays[displayKey]
+	local name = display and display.name or displayKey or L["Bar"]
+	pendingWindowDisplay = displayKey or "bar"
+	StaticPopup_Show("SKADA_NEW_WINDOW", name)
+end
+
 local function CreateRow(page, height)
 	local row = CreateFrame("Frame", nil, page, "BackdropTemplate")
 	row:SetHeight(height or 48)
@@ -927,8 +934,7 @@ function UI:BuildWindowsPage(page)
 		create:SetPoint("RIGHT", row, "RIGHT", -8, 0)
 		create:SetText(_G.CREATE or "Create")
 		create:SetScript("OnClick", function()
-			pendingWindowDisplay = key
-			StaticPopup_Show("SKADA_NEW_WINDOW", name)
+			Skada:PromptNewWindow(key)
 		end)
 	end
 end

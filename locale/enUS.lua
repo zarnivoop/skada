@@ -580,3 +580,8 @@ L["Battle.net"] = "Battle.net"
 -- Media picker and bar background.
 L["Transparent bar background"] = "Transparent bar background"
 L["Hides the unfilled part of the bars by making the bar background fully transparent."] = "Hides the unfilled part of the bars by making the bar background fully transparent."
+
+
+-- Window creation.
+L["New window"] = "New window"
+L["Bar"] = "Bar"
