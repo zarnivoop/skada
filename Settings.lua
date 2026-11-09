@@ -157,6 +157,7 @@ _G.StaticPopupDialogs["SKADA_NEW_WINDOW"] = {
 		if name ~= "" and pendingWindowDisplay then
 			Skada:CreateWindow(name, nil, pendingWindowDisplay)
 			if Skada.settingsUI then
+				Skada.settingsUI.expandedWindow = name
 				Skada.settingsUI:BuildPage()
 			end
 		end
@@ -168,6 +169,7 @@ _G.StaticPopupDialogs["SKADA_NEW_WINDOW"] = {
 		if name ~= "" and pendingWindowDisplay then
 			Skada:CreateWindow(name, nil, pendingWindowDisplay)
 			if Skada.settingsUI then
+				Skada.settingsUI.expandedWindow = name
 				Skada.settingsUI:BuildPage()
 			end
 			pendingWindowDisplay = nil
@@ -908,15 +910,46 @@ function UI:BuildWindowsPage(page)
 	if #names == 0 then
 		AddDescription(page, L["No windows."] or "No windows.")
 	end
+	local expanded = self.expandedWindow
+	if not expanded or not byName[expanded] then
+		expanded = names[1]
+		self.expandedWindow = expanded
+	end
 	for _, name in ipairs(names) do
 		local winObj = byName[name]
 		local args = windowsArgs[name]
-		AddSection(page, name)
-		AddWindowPresets(page, winObj)
-		if args and type(args.args) == "table" then
-			RenderArgs(page, args.args, { path = {} })
-		else
-			AddDescription(page, L["No settings available."])
+		local isExpanded = expanded == name
+		local header = CreateFrame("Button", nil, page, "BackdropTemplate")
+		header:SetHeight(34)
+		header:SetPoint("LEFT", page, "LEFT", 0, 0)
+		header:SetPoint("RIGHT", page, "RIGHT", 0, 0)
+		Place(page, header)
+		AddBackdrop(header, 0.28)
+		header:SetBackdropColor(0.10, 0.12, 0.16, isExpanded and 0.45 or 0.18)
+		if header.SetBackdropBorderColor then
+			header:SetBackdropBorderColor(ACCENT[1], ACCENT[2], ACCENT[3], isExpanded and 0.38 or 0.05)
+		end
+		local nameText = MakeText(header, "GameFontHighlight", 12, name, isExpanded and { 1, 1, 1, 1 } or MUTED)
+		nameText:SetPoint("LEFT", header, "LEFT", 10, 0)
+		local chevron = MakeText(header, "GameFontNormal", 12, isExpanded and "-" or "+", ACCENT)
+		chevron:SetPoint("RIGHT", header, "RIGHT", -12, 0)
+		header:SetScript("OnClick", function()
+			UI.expandedWindow = isExpanded and nil or name
+			UI:BuildPage()
+		end)
+		header:SetScript("OnEnter", function(btn)
+			if not isExpanded then btn:SetBackdropColor(0.14, 0.18, 0.23, 0.38) end
+		end)
+		header:SetScript("OnLeave", function(btn)
+			if not isExpanded then btn:SetBackdropColor(0.10, 0.12, 0.16, 0.18) end
+		end)
+		if isExpanded then
+			AddWindowPresets(page, winObj)
+			if args and type(args.args) == "table" then
+				RenderArgs(page, args.args, { path = {} })
+			else
+				AddDescription(page, L["No settings available."])
+			end
 		end
 	end
 
@@ -1088,6 +1121,7 @@ end
 function Skada:OpenOptions(window)
 	self:SetupSettingsCategory()
 	if window and UI then
+		UI.expandedWindow = window.db.name
 		UI:SetSection("windows")
 	end
 	if self.settingsCategory and SettingsAPI and SettingsAPI.OpenToCategory then
