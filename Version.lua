@@ -1,6 +1,17 @@
 local _, Skada = ...
 Skada.versions = {
 	{
+		id = "2.6.0",
+		title = "Skada 2.6.0",
+		message = "Chat summaries and direct reports",
+		changes = {
+			"Combat summary can be written to chat instead of the window; the window remains the default",
+			"Chat summaries use the configured channel, including party, raid, instance, guild, officer, whisper, Battle.net, target, and self",
+			"Added a direct Report channel menu on the title bar and Skada menu, removing the report modal from those entry points",
+			"Added whisper target fields for report and chat summary output in General options",
+		}
+	},
+	{
 		id = "2.5.0",
 		title = "Skada 2.5.0",
 		message = "Quick mode switching and post-combat summary",

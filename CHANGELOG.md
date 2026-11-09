@@ -1,3 +1,10 @@
+## 2.6.0
+Chat summaries and direct reports
+- Combat summary can be written to chat instead of the window; the window remains the default
+- Chat summaries use the configured channel, including party, raid, instance, guild, officer, whisper, Battle.net, target, and self
+- Added a direct Report channel menu on the title bar and Skada menu, removing the report modal from those entry points
+- Added whisper target fields for report and chat summary output in General options
+
 ## 2.5.0
 Quick mode switching and post-combat summary
 - The title bar now exposes the menus directly: left-click opens modes, right-click opens segments, and hover shows a short hint

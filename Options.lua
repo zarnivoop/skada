@@ -140,13 +140,16 @@ Skada.defaults = {
 		showtotals = false,
 		showcombatsummary = false,
 		combatsummaryscope = "boss",
+		combatsummaryoutput = "window",
+		combatsummarychannel = "say",
+		combatsummarytarget = "",
 		roledefaults = { TANK = "", HEALER = "", DAMAGER = "" },
 		sortmodesbyusage = true,
 		updatefrequency = 0.10,
 
 		modules = {},
 		columns = {},
-		report = { mode = "Damage", set = "current", channel = "Say", chantype = "preset", number = 10 },
+		report = { mode = "Damage", set = "current", channel = "Say", chantype = "preset", number = 10, target = "" },
 		modulesBlocked = {},
 
 		versions = {},
@@ -405,6 +408,57 @@ Skada.options = {
 					get = function() return Skada.db.profile.combatsummaryscope or "boss" end,
 					set = function(_, value) Skada.db.profile.combatsummaryscope = value end,
 					disabled = function() return not Skada.db.profile.showcombatsummary end,
+				},
+				combatsummaryoutput = {
+					type = "select",
+					name = L["Summary output"],
+					desc = L["Choose whether the summary opens as a window or is written to chat."],
+					order = 16,
+					values = {
+						window = L["Window"],
+						chat = L["Chat"],
+					},
+					get = function() return Skada.db.profile.combatsummaryoutput or "window" end,
+					set = function(_, value) Skada.db.profile.combatsummaryoutput = value end,
+				},
+				combatsummarychannel = {
+					type = "select",
+					name = L["Summary channel"],
+					desc = L["Chat channel used when the summary output is set to chat."],
+					order = 17,
+					values = function()
+						local values = {}
+						for _, choice in ipairs(Skada:GetChatChannelChoices()) do
+							values[choice.key] = choice.label
+						end
+						return values
+					end,
+					get = function() return Skada.db.profile.combatsummarychannel or "say" end,
+					set = function(_, value) Skada.db.profile.combatsummarychannel = value end,
+					disabled = function() return (Skada.db.profile.combatsummaryoutput or "window") ~= "chat" end,
+				},
+				combatsummarytarget = {
+					type = "input",
+					name = L["Summary whisper target"],
+					desc = L["Name for whisper or Battle.net summary output."],
+					order = 18,
+					width = "double",
+					get = function() return Skada.db.profile.combatsummarytarget or "" end,
+					set = function(_, value) Skada.db.profile.combatsummarytarget = value end,
+					disabled = function()
+						if (Skada.db.profile.combatsummaryoutput or "window") ~= "chat" then return true end
+						local key = Skada.db.profile.combatsummarychannel
+						return key ~= "whisper" and key ~= "bnet"
+					end,
+				},
+				reporttarget = {
+					type = "input",
+					name = L["Whisper target"],
+					desc = L["Name used by whisper and Battle.net report output."],
+					order = 19,
+					width = "double",
+					get = function() return Skada.db.profile.report.target or "" end,
+					set = function(_, value) Skada.db.profile.report.target = value end,
 				},
 
 				hidesolo = {

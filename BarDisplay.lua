@@ -46,7 +46,7 @@ function mod:Create(window)
 		window.bargroup:AddButton(L["Reset"], L["Reset description"], "Interface\\Buttons\\UI-StopButton", "Interface\\Buttons\\UI-StopButton", function() Skada:ShowPopup() end)
 		window.bargroup:AddButton(L["Segment"], L["Segment description"], "Interface\\Buttons\\UI-GuildButton-PublicNote-Up", "Interface\\Buttons\\UI-GuildButton-PublicNote-Up", function() Skada:SegmentMenu(bargroup.win) end)
 		window.bargroup:AddButton(L["Mode"], L["Mode description"], "Interface\\GROUPFRAME\\UI-GROUP-MAINASSISTICON", "Interface\\GROUPFRAME\\UI-GROUP-MAINASSISTICON", function() Skada:ModeMenu(bargroup.win) end)
-		window.bargroup:AddButton(L["Report"], L["Report description"], "Interface\\Buttons\\UI-GuildButton-MOTD-Up", "Interface\\Buttons\\UI-GuildButton-MOTD-Up", function() Skada:OpenReportWindow(bargroup.win) end)
+		window.bargroup:AddButton(L["Report"], L["Report description"], "Interface\\Buttons\\UI-GuildButton-MOTD-Up", "Interface\\Buttons\\UI-GuildButton-MOTD-Up", function() Skada:ReportMenu(bargroup.win) end)
 
 		-- The library's resize grabber updates bars in its own OnUpdate, but
 		-- that can lag or be interrupted. Drive the bar length directly from
