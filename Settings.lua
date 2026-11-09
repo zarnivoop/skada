@@ -315,10 +315,160 @@ local function CreateSlider(row, option, ctx, path)
 	return slider
 end
 
+local mediaPicker
+local function GetMediaPicker()
+	if mediaPicker then return mediaPicker end
+	local frame = CreateFrame("Frame", "SkadaMediaPicker", UIParent, "BackdropTemplate")
+	frame:SetSize(380, 420)
+	frame:SetClampedToScreen(true)
+	frame:SetFrameStrata("DIALOG")
+	frame:SetMovable(true)
+	frame:EnableMouse(true)
+	frame:RegisterForDrag("LeftButton")
+	frame:SetScript("OnDragStart", frame.StartMoving)
+	frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+	AddBackdrop(frame, 0.98)
+	frame.title = MakeText(frame, "GameFontNormal", 14, "", { 1, 1, 1, 1 })
+	frame.title:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -12)
+	local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
+	close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -4, -4)
+	close:SetScript("OnClick", function() frame:Hide() end)
+
+	local searchLabel = MakeText(frame, "GameFontNormalSmall", 10, L["Search"], MUTED)
+	searchLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -34)
+	local search = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
+	search:SetSize(320, 24)
+	search:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -50)
+	search:SetAutoFocus(false)
+	search:SetMaxLetters(60)
+	frame.search = search
+
+	local scroll = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
+	scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -82)
+	scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -30, 14)
+	local content = CreateFrame("Frame", nil, scroll)
+	content:SetWidth(320)
+	content:SetHeight(1)
+	scroll:SetScrollChild(content)
+	frame.scroll = scroll
+	frame.content = content
+	frame.rows = {}
+
+	local function styleRow(row, selected, hovered)
+		if not row.SetBackdropColor then return end
+		if selected then
+			row:SetBackdropColor(0.20, 0.38, 0.55, 0.55)
+			row:SetBackdropBorderColor(ACCENT[1], ACCENT[2], ACCENT[3], 0.55)
+		elseif hovered then
+			row:SetBackdropColor(0.14, 0.18, 0.23, 0.55)
+			row:SetBackdropBorderColor(1, 1, 1, 0.08)
+		else
+			row:SetBackdropColor(0, 0, 0, 0)
+			row:SetBackdropBorderColor(1, 1, 1, 0.05)
+		end
+	end
+
+	local function ensureRow(index)
+		local row = frame.rows[index]
+		if row then return row end
+		row = CreateFrame("Button", nil, content, "BackdropTemplate")
+		row:SetHeight(25)
+		row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -(index - 1) * 27)
+		row:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, -(index - 1) * 27)
+		if row.SetBackdrop then
+			row:SetBackdrop({
+				bgFile = "Interface\\Buttons\\WHITE8X8",
+				edgeFile = "Interface\\Buttons\\WHITE8X8",
+				edgeSize = 1,
+			})
+		end
+		row.label = MakeText(row, "GameFontHighlight", 12, "")
+		row.label:SetPoint("LEFT", row, "LEFT", 8, 0)
+		row.label:SetPoint("RIGHT", row, "RIGHT", -8, 0)
+		row:SetScript("OnEnter", function(btn) styleRow(btn, btn.selected, true) end)
+		row:SetScript("OnLeave", function(btn) styleRow(btn, btn.selected, false) end)
+		row:SetScript("OnClick", function(btn)
+			local key = btn.key
+			local callback = frame.onSelect
+			frame:Hide()
+			if key ~= nil and callback then callback(key) end
+		end)
+		frame.rows[index] = row
+		return row
+	end
+
+	local function refresh()
+		local text = string.lower(strtrim(search:GetText() or ""))
+		local shown = 0
+		for _, key in ipairs(frame.keys or {}) do
+			local label = ValueLabel(frame.sources, key)
+			local haystack = string.lower(label) .. " " .. string.lower(tostring(key))
+			if text == "" or string.find(haystack, text, 1, true) then
+				shown = shown + 1
+				local row = ensureRow(shown)
+				row.key = key
+				row.selected = key == frame.current
+				row.label:SetText(label)
+				row:Show()
+				styleRow(row, row.selected, false)
+			end
+		end
+		for i = shown + 1, #frame.rows do frame.rows[i]:Hide() end
+		content:SetWidth(math.max(120, (scroll:GetWidth() or 320) - 22))
+		content:SetHeight(math.max(1, shown * 27 + 2))
+		scroll:SetVerticalScroll(0)
+	end
+	frame.refresh = refresh
+	search:SetScript("OnTextChanged", refresh)
+	search:SetScript("OnEscapePressed", function() frame:Hide() end)
+	frame:SetScript("OnShow", function()
+		search:SetFocus()
+		refresh()
+	end)
+	tinsert(_G.UISpecialFrames, "SkadaMediaPicker")
+	mediaPicker = frame
+	return frame
+end
+
+local function OpenMediaPicker(owner, title, keys, sources, current, onSelect)
+	local frame = GetMediaPicker()
+	frame:ClearAllPoints()
+	frame:SetPoint("TOPLEFT", owner, "BOTTOMLEFT", 0, -4)
+	frame:SetPoint("TOPRIGHT", owner, "BOTTOMRIGHT", 0, -4)
+	frame:SetHeight(420)
+	frame.title:SetText(title or "")
+	frame.keys = keys
+	frame.sources = sources
+	frame.current = current
+	frame.onSelect = onSelect
+	frame.search:SetText("")
+	frame:Show()
+	frame.refresh()
+end
+
+local function CreateMediaPickerButton(row, option, sources, keys, current, ctx, path, disabled)
+	local button = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+	button:SetSize(220, 26)
+	button:SetPoint("RIGHT", row, "RIGHT", -8, 0)
+	button:SetText(ValueLabel(sources, current))
+	button:SetScript("OnClick", function(btn)
+		OpenMediaPicker(btn, OptionName(option), keys, sources, current, function(key)
+			CallSet(option, ctx, path, key)
+			Refresh()
+		end)
+	end)
+	if disabled then button:Disable() else button:Enable() end
+	return button
+end
+
 local function CreateDropdown(row, option, ctx, path)
 	local sources = ResolveValues(option, path)
 	local current = CallGet(option, ctx, path)
 	local disabled = IsDisabled(option, ctx, path)
+	local keys = SortedValueKeys(sources)
+	if type(option.dialogControl) == "string" and option.dialogControl:sub(1, 6) == "LSM30_" then
+		return CreateMediaPickerButton(row, option, sources, keys, current, ctx, path, disabled)
+	end
 
 	local dropdown
 	if _G.CreateFrame and UI.dropdownTemplate then
@@ -342,7 +492,7 @@ local function CreateDropdown(row, option, ctx, path)
 	dropdown:SetDefaultText(ValueLabel(sources, current))
 	dropdown:SetupMenu(function(_, root)
 		root:CreateTitle(OptionName(option))
-		for _, key in ipairs(SortedValueKeys(sources)) do
+		for _, key in ipairs(keys) do
 			local label = ValueLabel(sources, key)
 			root:CreateRadio(label, function() return key == current end, function()
 				CallSet(option, ctx, path, key)

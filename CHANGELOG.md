@@ -4,6 +4,8 @@ Chat summaries and direct reports
 - Chat summaries use the configured channel, including party, raid, instance, guild, officer, whisper, Battle.net, target, and self
 - Added a direct Report channel menu on the title bar and Skada menu, removing the report modal from those entry points
 - Added whisper target fields for report and chat summary output in General options
+- Font, texture, background, border, and sound selects now use a searchable scrollable picker when they come from SharedMedia
+- Added a per-window transparent bar background toggle that hides the unfilled portion of the bars
 
 ## 2.5.0
 Quick mode switching and post-combat summary

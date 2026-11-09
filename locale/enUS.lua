@@ -575,3 +575,8 @@ L["Name for whisper or Battle.net summary output."] = "Name for whisper or Battl
 L["Whisper target"] = "Whisper target"
 L["Name used by whisper and Battle.net report output."] = "Name used by whisper and Battle.net report output."
 L["Battle.net"] = "Battle.net"
+
+
+-- Media picker and bar background.
+L["Transparent bar background"] = "Transparent bar background"
+L["Hides the unfilled part of the bars by making the bar background fully transparent."] = "Hides the unfilled part of the bars by making the bar background fully transparent."

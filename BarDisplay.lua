@@ -1112,7 +1112,8 @@ function mod:ApplySettings(win)
 	g:SetLength(p.barwidth)
 	g:SetTexture(p.bartexturepath or media:Fetch('statusbar', p.bartexture))
 
-	g:SetBarBackgroundColor(p.barbgcolor.r, p.barbgcolor.g, p.barbgcolor.b, p.barbgcolor.a or 0.6)
+	local bgAlpha = p.transparentbackground and 0 or (p.barbgcolor.a or 0.6)
+	g:SetBarBackgroundColor(p.barbgcolor.r, p.barbgcolor.g, p.barbgcolor.b, bgAlpha)
 	if g:GetBars() then
 		for _, bar in pairs(g:GetBars()) do
 			applyRowSeparator(bar, p)
@@ -1420,6 +1421,18 @@ function mod:AddDisplayOptions(win, options)
 				get=function(i) return db.barbgcolor.r, db.barbgcolor.g, db.barbgcolor.b, db.barbgcolor.a end,
 				set=function(i, r,g,b,a) db.barbgcolor = {["r"] = r, ["g"] = g, ["b"] = b, ["a"] = a}; Skada:ApplySettings() end,
 				order=22,
+			},
+
+			transparentbackground = {
+				type="toggle",
+				name=L["Transparent bar background"],
+				desc=L["Hides the unfilled part of the bars by making the bar background fully transparent."],
+				order=23,
+				get=function() return db.transparentbackground end,
+				set=function()
+					db.transparentbackground = not db.transparentbackground
+					Skada:ApplySettings()
+				end,
 			},
 
 			classcolorbars = {
