@@ -1,6 +1,16 @@
 local _, Skada = ...
 Skada.versions = {
 	{
+		id = "2.6.3",
+		title = "Skada 2.6.3",
+		message = "Optional row animation",
+		changes = {
+			"Added a per-window Animate row changes option, default off",
+			"Bars slide to their new rows only when their rank changes, with a short ease-out tween",
+			"Animation state is cleared on hide/recycle, and layout animation pauses while resizing",
+		}
+	},
+	{
 		id = "2.6.2",
 		title = "Skada 2.6.2",
 		message = "Group join, native reset, and bar color stability",

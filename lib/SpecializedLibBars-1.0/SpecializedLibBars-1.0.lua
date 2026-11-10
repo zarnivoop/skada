@@ -1153,13 +1153,16 @@ do
 
 			if shown <= maxbars then
 				visibleThisFrame[v] = true
-				v:ClearAllPoints()
+				visibleIndex = visibleIndex + 1
+				v._sortIndex = visibleIndex
+				if not v._rowAnimating then
+					v:ClearAllPoints()
 
-				v:SetPoint(from.."LEFT", lastBar, to.."LEFT", x1, y1)
-				v:SetPoint(from.."RIGHT", lastBar, to.."RIGHT", x2, y2)
+					v:SetPoint(from.."LEFT", lastBar, to.."LEFT", x1, y1)
+					v:SetPoint(from.."RIGHT", lastBar, to.."RIGHT", x2, y2)
+				end
 
 				v:Show()
-				visibleIndex = visibleIndex + 1
 
 				-- Alternating row colors
 				if self.alternateRows and self.barbackgroundcolor then
@@ -1199,6 +1202,11 @@ do
 		for i = 1, ct do
 			local v = values[i]
 			if not visibleThisFrame[v] and v:IsShown() then
+				if v._rowAnimating then
+					v._rowAnimating = nil
+					v._rowAnim = nil
+					v:SetScript("OnUpdate", nil)
+				end
 				v:Hide()
 			end
 		end

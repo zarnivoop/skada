@@ -606,3 +606,8 @@ L["vs last attempt: %s"] = "vs last attempt: %s"
 -- Pull comparison option.
 L["Compare with previous attempts"] = "Compare with previous attempts"
 L["Show one line comparing this fight with the last matching attempt."] = "Show one line comparing this fight with the last matching attempt."
+
+
+-- Row animation.
+L["Animate row changes"] = "Animate row changes"
+L["Slide bars to their new positions when their rank changes."] = "Slide bars to their new positions when their rank changes."

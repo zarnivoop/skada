@@ -1,3 +1,9 @@
+## 2.6.3
+Optional row animation
+- Added a per-window Animate row changes option, default off
+- Bars slide to their new rows only when their rank changes, with a short ease-out tween
+- Animation state is cleared on hide/recycle, and layout animation pauses while resizing
+
 ## 2.6.2
 Group join, native reset, and bar color stability
 - External `DAMAGE_METER_RESET` no longer calls `ResetAllCombatSessions` a second time, which could leave the native meter empty until `/reload` (issue #9)

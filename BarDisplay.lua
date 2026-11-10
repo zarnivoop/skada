@@ -446,6 +446,56 @@ end
 -- anchors each row relative to the previous one, so at fractional UI scales
 -- rounding can make one gap look wider than its neighbour. Doing this after
 -- SortBars keeps the visual stride exact without touching the mode data.
+local function setRowPosition(bar, g, y, growup)
+	bar:ClearAllPoints()
+	if growup then
+		bar:SetPoint("BOTTOMLEFT", g, "BOTTOMLEFT", 0, y)
+		bar:SetPoint("BOTTOMRIGHT", g, "BOTTOMRIGHT", 0, y)
+	else
+		bar:SetPoint("TOPLEFT", g, "TOPLEFT", 0, y)
+		bar:SetPoint("TOPRIGHT", g, "TOPRIGHT", 0, y)
+	end
+end
+
+local function stopRowAnimation(bar)
+	if bar._rowAnimating then
+		bar._rowAnimating = nil
+		bar._rowAnim = nil
+		bar._rowCurrentY = nil
+		bar:SetScript("OnUpdate", nil)
+	end
+end
+
+local function startRowAnimation(bar, g, fromY, toY)
+	if bar._rowAnimating and bar._rowAnim then
+		bar._rowAnim.fromY = bar._rowCurrentY or fromY
+		bar._rowAnim.toY = toY
+		bar._rowAnim.elapsed = 0
+		return
+	end
+	bar._rowAnimating = true
+	bar._rowAnim = { fromY = fromY, toY = toY, elapsed = 0, duration = 0.16 }
+	setRowPosition(bar, g, fromY, g.growup)
+	bar:SetScript("OnUpdate", function(_, elapsed)
+		local anim = bar._rowAnim
+		if not anim then return end
+		anim.elapsed = anim.elapsed + elapsed
+		local t = math.min(1, anim.elapsed / anim.duration)
+		local eased = 1 - (1 - t) * (1 - t)
+		local y = anim.fromY + (anim.toY - anim.fromY) * eased
+		bar._rowCurrentY = y
+		setRowPosition(bar, g, y, g.growup)
+		if t >= 1 then
+			bar._rowY = anim.toY
+			bar._rowAnimating = nil
+			bar._rowAnim = nil
+			bar._rowCurrentY = nil
+			bar:SetScript("OnUpdate", nil)
+			setRowPosition(bar, g, anim.toY, g.growup)
+		end
+	end)
+end
+
 snapBarRows = function(win)
 	local g = win and win.bargroup
 	if not g then return end
@@ -466,19 +516,32 @@ snapBarRows = function(win)
 	if #visible == 0 then return end
 
 	table.sort(visible, function(a, b)
+		local ai, bi = a._sortIndex or 0, b._sortIndex or 0
+		if ai ~= bi then return ai < bi end
 		if g.growup then return (a:GetBottom() or 0) < (b:GetBottom() or 0) end
 		return (a:GetTop() or 0) > (b:GetTop() or 0)
 	end)
 
+	local animate = win.db.animaterows and not g.isResizing and not win._suppressRowAnimation
+	if not animate then
+		for _, bar in pairs(visible) do stopRowAnimation(bar) end
+	end
+
 	for i, bar in ipairs(visible) do
-		bar:ClearAllPoints()
-		if g.growup then
-			bar:SetPoint("BOTTOMLEFT", g, "BOTTOMLEFT", 0, (i - 1) * stride + topInset)
-			bar:SetPoint("BOTTOMRIGHT", g, "BOTTOMRIGHT", 0, (i - 1) * stride + topInset)
+		local target = g.growup and ((i - 1) * stride + topInset) or (-(i - 1) * stride - topInset)
+		local previous = bar._rowY
+		if animate and previous and math.abs(previous - target) > 0.5 then
+			startRowAnimation(bar, g, previous, target)
+		elseif bar._rowAnimating then
+			if bar._rowAnim and math.abs(bar._rowAnim.toY - target) > 0.5 then
+				bar._rowAnim.toY = target
+				bar._rowAnim.elapsed = 0
+			end
 		else
-			bar:SetPoint("TOPLEFT", g, "TOPLEFT", 0, -(i - 1) * stride - topInset)
-			bar:SetPoint("TOPRIGHT", g, "TOPRIGHT", 0, -(i - 1) * stride - topInset)
+			stopRowAnimation(bar)
+			setRowPosition(bar, g, target, g.growup)
 		end
+		bar._rowY = target
 		bar:SetHeight(height)
 	end
 end
@@ -1088,6 +1151,11 @@ function mod:CreateBar(win, name, label, value, maxvalue, icon, o)
 	local bar = win.bargroup:NewCounterBar(name, label, value, maxvalue, icon)
 	bar.win = win
 	bar._skadaColor = nil
+	bar._rowY = nil
+	bar._rowAnimating = nil
+	bar._rowAnim = nil
+	bar._rowCurrentY = nil
+	bar:SetScript("OnUpdate", nil)
 	bar:EnableMouseWheel(true)
 	bar:SetScript("OnMouseWheel", OnMouseWheel)
 	bar.iconFrame:SetScript("OnEnter", nil)
@@ -1128,6 +1196,8 @@ function mod:ApplySettings(win)
 	if g:GetBars() then
 		for _, bar in pairs(g:GetBars()) do
 			bar._skadaColor = nil
+			stopRowAnimation(bar)
+			bar._rowY = nil
 			applyRowSeparator(bar, p)
 			applyBarShadows(bar, p.textshadow)
 		end
@@ -1433,6 +1503,18 @@ function mod:AddDisplayOptions(win, options)
 				get=function(i) return db.barbgcolor.r, db.barbgcolor.g, db.barbgcolor.b, db.barbgcolor.a end,
 				set=function(i, r,g,b,a) db.barbgcolor = {["r"] = r, ["g"] = g, ["b"] = b, ["a"] = a}; Skada:ApplySettings() end,
 				order=22,
+			},
+
+			animaterows = {
+				type="toggle",
+				name=L["Animate row changes"],
+				desc=L["Slide bars to their new positions when their rank changes."],
+				order=24,
+				get=function() return db.animaterows end,
+				set=function()
+					db.animaterows = not db.animaterows
+					Skada:ApplySettings()
+				end,
 			},
 
 			transparentbackground = {
