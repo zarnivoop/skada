@@ -517,7 +517,8 @@ local function setBarColor(bar, data, win)
 		r, g, b, a = color.r, color.g, color.b, color.a or 1
 	end
 	local cached = bar._skadaColor
-	if cached and cached[1] == r and cached[2] == g and cached[3] == b and cached[4] == a then
+	if cached and bar.colors and #bar.colors > 0
+		and cached[1] == r and cached[2] == g and cached[3] == b and cached[4] == a then
 		return
 	end
 	bar._skadaColor = { r, g, b, a }
@@ -1086,6 +1087,7 @@ end
 function mod:CreateBar(win, name, label, value, maxvalue, icon, o)
 	local bar = win.bargroup:NewCounterBar(name, label, value, maxvalue, icon)
 	bar.win = win
+	bar._skadaColor = nil
 	bar:EnableMouseWheel(true)
 	bar:SetScript("OnMouseWheel", OnMouseWheel)
 	bar.iconFrame:SetScript("OnEnter", nil)
