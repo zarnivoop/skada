@@ -836,6 +836,9 @@ function Skada:CreateWindow(name, db, display)
 	if db.smoothing == nil then
 		db.smoothing = true
 	end
+	if db.animaterows == nil then
+		db.animaterows = true
+	end
 
 	if not db.version then
 		-- On changes that needs updates to window data structure, increment version in defaults and handle it after this bit.

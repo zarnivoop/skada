@@ -33,7 +33,7 @@ Skada.windowdefaults = {
 	barcolor = { r = 0.35, g = 0.55, b = 0.70, a = 1 },
 	barbgcolor = { r = 0.012, g = 0.014, b = 0.018, a = 0.10 },
 	transparentbackground = false,
-	animaterows = false,
+	animaterows = true,
 	labelcolor = { r = 0.97, g = 0.98, b = 1.00, a = 1 },
 	valuetextcolor = { r = 0.96, g = 0.97, b = 1.00, a = 1 },
 	classcolormix = { r = 0.03, g = 0.07, b = 0.13, a = 1 },

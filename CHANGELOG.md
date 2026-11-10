@@ -1,6 +1,6 @@
 ## 2.6.3
 Optional row animation
-- Added a per-window Animate row changes option, default off
+- Added a per-window Animate row changes option, default on
 - Bars slide to their new rows only when their rank changes, with a short ease-out tween
 - Animation state is cleared on hide/recycle, and layout animation pauses while resizing
 

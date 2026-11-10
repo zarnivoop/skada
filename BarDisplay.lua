@@ -1510,9 +1510,9 @@ function mod:AddDisplayOptions(win, options)
 				name=L["Animate row changes"],
 				desc=L["Slide bars to their new positions when their rank changes."],
 				order=24,
-				get=function() return db.animaterows end,
+				get=function() return db.animaterows ~= false end,
 				set=function()
-					db.animaterows = not db.animaterows
+					db.animaterows = (db.animaterows == false)
 					Skada:ApplySettings()
 				end,
 			},
