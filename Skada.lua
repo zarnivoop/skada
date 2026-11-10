@@ -1904,9 +1904,15 @@ function Skada:DAMAGE_METER_CURRENT_SESSION_UPDATED()
 end
 
 function Skada:DAMAGE_METER_RESET()
-	-- Guard against re-entry: if we initiated the reset ourselves, skip
+	-- This event can come from another addon or Blizzard's own meter. Clear
+	-- Skada's state, but do not call ResetAllCombatSessions a second time:
+	-- a duplicate native reset can leave the native meter unable to attribute
+	-- damage until the UI is reloaded.
 	if self._resetting then return end
+	if self.NativeAPI then self.NativeAPI:ClearSessionCache() end
+	self._resetting = true
 	self:Reset()
+	self._resetting = nil
 end
 
 -- Helper for conditional reset (No=1, Yes=2, Ask=3)
@@ -1926,6 +1932,7 @@ function Skada:GROUP_ROSTER_UPDATE()
 	-- Skip the initial call (state not yet established)
 	if wasInGroup == nil then return end
 
+	local transitioned = wasInGroup ~= inGroup
 	if not wasInGroup and inGroup then
 		-- Joined a group
 		check_reset(self.db.profile.reset.join)
@@ -1934,8 +1941,30 @@ function Skada:GROUP_ROSTER_UPDATE()
 		check_reset(self.db.profile.reset.leave)
 	end
 
+	if transitioned and self.NativeAPI then
+		self.NativeAPI.lastCurrentSession = nil
+		self.NativeAPI:InvalidateCache()
+		changed = true
+	end
+
 	-- Re-apply visibility (handles hidesolo)
 	self:ApplySettings()
+
+	-- GROUP_ROSTER_UPDATE can arrive before the group state and native
+	-- sessions have fully settled. Re-run once after the transition so a
+	-- hidesolo window or a stale current session does not require /reload.
+	if transitioned and _G.C_Timer and _G.C_Timer.After then
+		_G.C_Timer.After(0.25, function()
+			if not Skada or not Skada.db then return end
+			if Skada.NativeAPI then
+				Skada.NativeAPI.lastCurrentSession = nil
+				Skada.NativeAPI:InvalidateCache()
+			end
+			changed = true
+			Skada:ApplySettings()
+			Skada:UpdateDisplay(true)
+		end)
+	end
 end
 
 function Skada:ZONE_CHANGED_NEW_AREA()

@@ -1,6 +1,15 @@
 local _, Skada = ...
 Skada.versions = {
 	{
+		id = "2.6.2",
+		title = "Skada 2.6.2",
+		message = "Group join and native reset fix",
+		changes = {
+			"External `DAMAGE_METER_RESET` no longer calls `ResetAllCombatSessions` a second time, which could leave the native meter empty until `/reload` (issue #9)",
+			"Group join/leave now invalidates the current native session cache and reapplies visibility after the transition settles",
+		}
+	},
+	{
 		id = "2.6.1",
 		title = "Skada 2.6.1",
 		message = "Bar fixes, window duplication, and pull comparison",
