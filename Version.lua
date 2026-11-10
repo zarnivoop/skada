@@ -9,6 +9,7 @@ Skada.versions = {
 			"Group join/leave now invalidates the current native session cache and reapplies visibility after the transition settles",
 			"Secret class tokens are no longer used as class-color table keys; combat rows use the fallback color consistently until class data is readable",
 			"Class names are normalized from both `classFilename` and `class`, and bars are no longer destroyed and recreated when class data appears mid-combat",
+			"Clear the cached bar color whenever a recycled bar is created, and only trust the cache when the bar still has color stops",
 		}
 	},
 	{
