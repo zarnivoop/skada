@@ -611,3 +611,7 @@ L["Show one line comparing this fight with the last matching attempt."] = "Show 
 -- Row animation.
 L["Animate row changes"] = "Animate row changes"
 L["Slide bars to their new positions when their rank changes."] = "Slide bars to their new positions when their rank changes."
+
+
+-- Spell detail empty state.
+L["No spell data recorded"] = "No spell data recorded"

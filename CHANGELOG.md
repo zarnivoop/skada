@@ -1,3 +1,9 @@
+## 2.6.4
+Spell detail navigation and empty state
+- Spell detail views now show an explicit message instead of a blank window when combat spell data is unavailable
+- Right-click on the empty bar-group background returns to the previous mode again
+- Title right-click remains the segment menu
+
 ## 2.6.3
 Optional row animation
 - Added a per-window Animate row changes option, default on

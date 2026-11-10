@@ -1,6 +1,16 @@
 local _, Skada = ...
 Skada.versions = {
 	{
+		id = "2.6.4",
+		title = "Skada 2.6.4",
+		message = "Spell detail navigation and empty state",
+		changes = {
+			"Spell detail views now show an explicit message instead of a blank window when combat spell data is unavailable",
+			"Right-click on the empty bar-group background returns to the previous mode again",
+			"Title right-click remains the segment menu",
+		}
+	},
+	{
 		id = "2.6.3",
 		title = "Skada 2.6.3",
 		message = "Optional row animation",

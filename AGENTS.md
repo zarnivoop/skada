@@ -68,6 +68,8 @@ Modules should be "Hardened" by default:
 - **Secret class colors**: `SecretHelper:GetPlayerClass` normalizes uppercase class tokens from `classFilename` or `class`, ignores secret values, and validates against `RAID_CLASS_COLORS`; class color lookups never use a secret value as a table key. Bars are not destroyed and recreated when class data appears mid-combat.
 - **Recycled bar colors**: `BarDisplay` clears `bar._skadaColor` in `CreateBar`. The color cache is only accepted when `bar.colors` still contains stops, since the library clears `bar.colors` when recycling a bar.
 - **Row animation**: per-window `animaterows` is on by default. When enabled, `snapBarRows` tweens a bar from its previous row to its new row over 0.16 seconds; `SortBars` skips anchoring a bar while `_rowAnimating` is set. Animation state is cleared on hide/recycle and layout updates, and row animation is suppressed while resizing.
+- **Spell detail fallback**: if native spell data is nil or empty, `ModuleBase:UpdateSpellList` inserts a placeholder row instead of leaving an empty window. The spell-detail placeholder is ignored by ranking and says spell details are available after combat while in combat.
+- **Right-click back**: the bar group background handles right-click navigation again, while the title button keeps right-click for the segment menu.
 - **Performance**: session lookups are cached per tick; header labels and title writes are skipped when their layout key has not changed. Fixed column geometry is reapplied after bars update because the bar library can re-anchor columns on resize; visible rows are snapped to a physical-pixel stride after sorting to avoid uneven gaps at fractional UI scales, with the same top inset applied before the first row (including the total bar). Snapping is reapplied after scroll, settings changes, and width-resize hooks because those paths call `SortBars` directly. Combat updates default to 0.10s; bar smoothing is kept but interpolates at 25% per frame instead of 10%.
 - **Quick mode**: left-clicking the title opens the mode menu and right-clicking opens the segment menu. Hover highlights the title and shows the interaction hint. Wheel mode cycling is intentionally not used, and title right-click does not also run the legacy back-navigation handler.
 - **Report menu**: the title Report button and Skada menu open a direct channel menu. Whisper and Battle.net targets are configured in General options; the old report modal is no longer used by these entry points.
@@ -83,7 +85,7 @@ Modules should be "Hardened" by default:
 - WoW client: `/home/stefan/Faugus/battlenet/drive_c/Program Files (x86)/World of Warcraft/_forever_`
 - AddOns path: `.../_forever_/Interface/AddOns/Skada`
 - Client build observed: `1.60.1.70790` (`wowf` flavor), Interface **16001**.
-- Installed addon version: **2.6.3** (`Skada-2.6.3-forever.zip` in the repo root).
+- Installed addon version: **2.6.4** (`Skada-2.6.4-forever.zip` in the repo root).
 
 ### Build + install
 
@@ -104,13 +106,13 @@ rsync -a --exclude='.git' --exclude='.tools' --exclude='release' --exclude='tool
   --exclude='README.md' --exclude='generate-version.py' \
   ./ release/Skada/
 # replace @project-version@ in all three TOCs with the release version
-rm -f Skada-2.6.3-forever.zip
-(cd release && 7z a -tzip -mx=9 ../Skada-2.6.3-forever.zip Skada >/dev/null)
+rm -f Skada-2.6.4-forever.zip
+(cd release && 7z a -tzip -mx=9 ../Skada-2.6.4-forever.zip Skada >/dev/null)
 
 # install (back up any existing install first)
 ADDONS="/home/stefan/Faugus/battlenet/drive_c/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns"
 [ -e "$ADDONS/Skada" ] && mv "$ADDONS/Skada" "$ADDONS/Skada.backup.$(date +%Y%m%d-%H%M%S)"
-7z x -y Skada-2.6.3-forever.zip -o"$ADDONS" >/dev/null
+7z x -y Skada-2.6.4-forever.zip -o"$ADDONS" >/dev/null
 ```
 
 ### TOC rule
@@ -123,7 +125,7 @@ ADDONS="/home/stefan/Faugus/battlenet/drive_c/Program Files (x86)/World of Warcr
 
 ### Release
 
-Tag `v2.6.3` and push; `.github/workflows/release-midnight.yml` runs `luacheck`, `forever-lint`, regenerates `Version.lua`, and runs the BigWigs packager. The packager recognizes the suffixed TOCs and `16001`.
+Tag `v2.6.4` and push; `.github/workflows/release-midnight.yml` runs `luacheck`, `forever-lint`, regenerates `Version.lua`, and runs the BigWigs packager. The packager recognizes the suffixed TOCs and `16001`.
 
 ---
 > [!IMPORTANT]

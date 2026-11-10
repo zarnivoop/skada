@@ -175,6 +175,7 @@ function ModuleBase:UpdatePlayerList(win, set, options)
 		end
 		win.metadata.maxvalue = (max > 0 and max or 1)
 	end
+
 end
 
 --[[
@@ -299,6 +300,22 @@ end
 	@param options - Optional table with configuration:
 		- valueKey: Key for spell value (default "totalAmount")
 ]]
+local function showSpellPlaceholder(win, message)
+	local d = ModuleBase:ReuseDatasetEntry(win.dataset, 1)
+	d._is_nodata = nil
+	d.id = "spell_placeholder"
+	d.label = message
+	d.value = 0
+	d.valuetext = ""
+	d.ignore = true
+	d.icon = nil
+	d.spellid = nil
+	d.class = nil
+	d.role = nil
+	d.color = nil
+	win.metadata.maxvalue = 1
+end
+
 function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 	options = options or {}
 	local valueKey = options.valueKey or "totalAmount"
@@ -314,7 +331,10 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 		if type(player) ~= "table" then
 			player = Skada:find_player(set, playerid)
 		end
-		if type(player) ~= "table" then return end
+		if type(player) ~= "table" then
+			showSpellPlaceholder(win, InCombatLockdown() and L["Spell details available after combat"] or L["No spell data recorded"])
+			return
+		end
 	end
 
 	local realID
@@ -329,6 +349,7 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 
 
 	if type(spells) == "nil" then
+		showSpellPlaceholder(win, InCombatLockdown() and L["Spell details available after combat"] or L["No spell data recorded"])
 		return
 	end
 
@@ -458,6 +479,10 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 			end
 		end
 		win.metadata.maxvalue = (max > 0 and max or 1)
+	end
+
+	if nr == 1 then
+		showSpellPlaceholder(win, InCombatLockdown() and L["Spell details available after combat"] or L["No spell data recorded"])
 	end
 end
 
