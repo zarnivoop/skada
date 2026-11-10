@@ -497,10 +497,10 @@ local function setBarColor(bar, data, win)
 	local r, g, b, a
 	if data.color then
 		r, g, b, a = data.color.r, data.color.g, data.color.b, data.color.a or 1
-	elseif data.spellschool and win.db.spellschoolcolors then
+	elseif data.spellschool and not issecretvalue(data.spellschool) and win.db.spellschoolcolors then
 		local color = SCHOOL_COLORS[data.spellschool]
 		if color then r, g, b, a = color.r, color.g, color.b, color.a or 1 end
-	elseif data.class and win.db.classcolorbars then
+	elseif data.class and not issecretvalue(data.class) and win.db.classcolorbars then
 		local color = Skada.classcolors[data.class]
 		if color then
 			r, g, b, a = color.r, color.g, color.b, color.a or 1
@@ -526,7 +526,7 @@ local function setBarColor(bar, data, win)
 end
 
 local function setBarTextColor(bar, data, win)
-	if data.class and win.db.classcolortext then
+	if data.class and not issecretvalue(data.class) and win.db.classcolortext then
 		local color = Skada.classcolors[data.class]
 		if color then
 			bar.label:SetTextColor(color.r, color.g, color.b, color.a or 1)

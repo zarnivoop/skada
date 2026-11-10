@@ -225,12 +225,12 @@ function SecretHelper:GetPlayerClass(player)
 	if type(player) ~= "table" or issecretvalue(player) then return nil end
 
 	local rawClass = player.class
-	if type(rawClass) == "string" then
+	if type(rawClass) == "string" and not issecretvalue(rawClass) then
 		return rawClass
 	end
 
 	rawClass = player.classFilename
-	if type(rawClass) == "string" then
+	if type(rawClass) == "string" and not issecretvalue(rawClass) then
 		return rawClass
 	end
 
