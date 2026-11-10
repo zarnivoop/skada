@@ -1,8 +1,9 @@
 ## 2.6.2
-Group join and native reset fix
+Group join, native reset, and bar color stability
 - External `DAMAGE_METER_RESET` no longer calls `ResetAllCombatSessions` a second time, which could leave the native meter empty until `/reload` (issue #9)
 - Group join/leave now invalidates the current native session cache and reapplies visibility after the transition settles
 - Secret class tokens are no longer used as class-color table keys; combat rows use the fallback color consistently until class data is readable
+- Class names are normalized from both `classFilename` and `class`, and bars are no longer destroyed and recreated when class data appears mid-combat
 
 ## 2.6.1
 Bar fixes, window duplication, and pull comparison

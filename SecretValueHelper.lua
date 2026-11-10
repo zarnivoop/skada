@@ -221,20 +221,21 @@ end
 	@param player - Player table from NativeAPI
 	@return string - Player class or nil
 ]]
+local function normaliseClass(value)
+	if type(value) ~= "string" or issecretvalue(value) then return nil end
+	value = string.upper(value)
+	if RAID_CLASS_COLORS and RAID_CLASS_COLORS[value] then
+		return value
+	end
+	return nil
+end
+
 function SecretHelper:GetPlayerClass(player)
 	if type(player) ~= "table" or issecretvalue(player) then return nil end
 
-	local rawClass = player.class
-	if type(rawClass) == "string" and not issecretvalue(rawClass) then
-		return rawClass
-	end
-
-	rawClass = player.classFilename
-	if type(rawClass) == "string" and not issecretvalue(rawClass) then
-		return rawClass
-	end
-
-	return nil
+	local rawClass = normaliseClass(player.classFilename)
+	if rawClass then return rawClass end
+	return normaliseClass(player.class)
 end
 
 --[[

@@ -627,14 +627,6 @@ function mod:Update(win)
 
 			local bar = win.bargroup:GetBar(barid)
 
-			if bar and bar.missingclass and data.class and not data.ignore then
-				-- fixup bar that was generated before class info was available
-				bar:Hide()
-				win.bargroup:RemoveBar(bar)
-				bar.missingclass = nil
-				bar = nil
-			end
-
 			if bar then
 				local barValue = data.value
 				if type(barValue) ~= "number" then
@@ -694,7 +686,6 @@ function mod:Update(win)
 				bar.link = data.hyperlink
 			end
 
-			bar.missingclass = not data.class and (win.db.classicons or win.db.classcolorbars or win.db.classcolortext) and true or nil
 
 			if data.role and data.role ~= "NONE" and win.db.roleicons then
 				bar:ShowIcon()
