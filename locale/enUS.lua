@@ -625,3 +625,6 @@ L["No target data recorded"] = "No target data recorded"
 L["Target"] = "Target"
 L["Overkill"] = "Overkill"
 L["Deadly"] = "Deadly"
+
+-- Target tooltip.
+L["Amount"] = "Amount"

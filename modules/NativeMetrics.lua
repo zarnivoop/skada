@@ -16,7 +16,7 @@ local function RegisterMetric(spec)
 		local mod = Skada:NewModule(displayLabel)
 		local playermod = Skada:NewModule(displayLabel .. " details")
 		local targetsmod
-		if style == "players" then
+		if style == "players" and damageType ~= 10 then
 			targetsmod = Skada:NewModule(displayLabel .. " targets")
 		end
 
@@ -53,6 +53,13 @@ local function RegisterMetric(spec)
 		end
 
 		if style == "players" then
+			local sourceTooltip = ModuleBase:CreateSourceTooltip({
+				valueKey = spec.valueKey or "totalAmount",
+				rateKey = spec.rateKey or "amountPerSecond",
+				labelDamage = displayLabel,
+				labelRate = spec.rateLabel or "DPS",
+			})
+			local targetTooltip = ModuleBase:CreateTargetTooltip()
 			local tooltip = ModuleBase:CreatePlayerTooltip({
 				damageType = damageType,
 				valueKey = spec.valueKey or "totalAmount",
@@ -78,14 +85,15 @@ local function RegisterMetric(spec)
 
 			function mod:OnEnable()
 				if damageType == 10 then
-					playermod.metadata = {}
+					playermod.metadata = { tooltip = targetTooltip }
 				else
 					playermod.metadata = { tooltip = tooltip, post_tooltip = spellTooltip }
 				end
-				if targetsmod then targetsmod.metadata = {} end
+				if targetsmod then targetsmod.metadata = { tooltip = targetTooltip } end
 				mod.metadata = {
 					click1 = playermod,
 					click2 = targetsmod,
+					tooltip = sourceTooltip,
 					showspots = true,
 					columns = spec.columns,
 					icon = spec.icon,

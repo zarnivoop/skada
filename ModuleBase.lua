@@ -388,6 +388,43 @@ local function spellTargetName(spell, details)
 	return target
 end
 
+function ModuleBase:CreateSourceTooltip(options)
+	return function(win, id, label, tooltip)
+		local source = win._hoverSource
+		if label ~= nil then
+			local ok = pcall(tooltip.AddLine, tooltip, label)
+			if not ok then tooltip:AddLine("?") end
+		end
+		if type(source) == "table" and not issecretvalue(source) then
+			local value = source[options.valueKey or "totalAmount"]
+			local rate = source[options.rateKey or "amountPerSecond"]
+			if value ~= nil then
+				tooltip:AddDoubleLine(options.labelDamage or "Total", Skada:FormatNumberSecret(value), 1,1,1,1,1,1)
+			end
+			if rate ~= nil and options.labelRate then
+				tooltip:AddDoubleLine(options.labelRate, Skada:FormatNumberSecret(rate), 1,1,1,1,1,1)
+			end
+		end
+	end
+end
+
+function ModuleBase:CreateTargetTooltip()
+	return function(win, id, label, tooltip)
+		local data = win._hoverSpell
+		if data == nil then return end
+		local text = data.label
+		if text ~= nil then
+			local ok = pcall(tooltip.AddLine, tooltip, text)
+			if not ok then tooltip:AddLine("?") end
+		end
+		local value = data.valuetext
+		if value ~= nil then
+			local ok = pcall(tooltip.AddDoubleLine, tooltip, L["Amount"], value, 1,1,1,1,1,1)
+			if not ok then tooltip:AddLine(L["Amount"]) end
+		end
+	end
+end
+
 function ModuleBase:CreateSpellTooltip()
 	return function(win, id, label, tooltip)
 		local data = win._hoverSpell
@@ -771,6 +808,7 @@ function ModuleBase:CreatePlayerTooltip(options)
 			player = Skada:find_player(set, id)
 		end
 
+		if type(player) ~= "table" then player = win._hoverSource end
 		if type(player) ~= "table" then return end
 
 		local totaltime = Skada:GetSetTime(view)
