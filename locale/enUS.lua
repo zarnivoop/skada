@@ -522,6 +522,7 @@ L["Check this to use ElvUI skin instead. \nDefault: checked"] = "Check this to u
 L["Use solid background."] = "Use solid background."
 L["Un-check this for an opaque background."] = "Un-check this for an opaque background."
 L["Spell details available after combat"] = "Spell details available after combat"
+L["Targets available after combat"] = "Targets available after combat"
 
 -- Native metric labels added with the Absorbs / Avoidable / Enemy views.
 L["Absorbs"] = "Absorbs"

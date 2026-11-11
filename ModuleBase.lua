@@ -616,7 +616,7 @@ function ModuleBase:UpdateTargetList(win, playerid, set, damageType, options)
 	if type(spells) ~= "table" or issecretvalue(spells) then
 		rows = getReverseRows() or rows
 		if #rows == 0 then
-			showSpellPlaceholder(win, InCombatLockdown() and L["Spell details available after combat"] or L["No target data recorded"])
+			showSpellPlaceholder(win, InCombatLockdown() and L["Targets available after combat"] or L["No target data recorded"])
 			return
 		end
 		for _, row in ipairs(rows) do
@@ -687,7 +687,7 @@ function ModuleBase:UpdateTargetList(win, playerid, set, damageType, options)
 	end
 
 	if #rows == 0 then
-		showSpellPlaceholder(win, InCombatLockdown() and L["Spell details available after combat"] or L["No target data recorded"])
+		showSpellPlaceholder(win, InCombatLockdown() and L["Targets available after combat"] or L["No target data recorded"])
 		return
 	end
 
