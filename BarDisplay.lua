@@ -246,6 +246,7 @@ end
 
 local function BarClick(bar, button)
 	local win, id, label = bar.win, bar.id, bar.text
+	Skada._lastActiveWindow = win
 	local click1 = win.metadata.click1
 	local click2 = win.metadata.click2
 	local click3 = win.metadata.click3

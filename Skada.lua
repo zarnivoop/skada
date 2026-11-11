@@ -1035,11 +1035,33 @@ function Skada:DumpSpellDiagnostics()
 	if self.db and self.db.profile and self.db.profile.lastError then
 		self:Print("Last display error: " .. tostring(self.db.profile.lastError))
 	end
-	local win = self:GetWindows()[1]
+	local windows = self:GetWindows()
+	local win = self._lastActiveWindow
+	local function hasDetail(candidate)
+		return candidate and candidate.selectedmode and candidate.selectedmode.playerid ~= nil
+	end
+	if not hasDetail(win) then
+		for _, candidate in ipairs(windows) do
+			if candidate.bargroup and candidate.bargroup:IsMouseOver() then
+				win = candidate
+				break
+			end
+		end
+	end
+	if not hasDetail(win) then
+		for _, candidate in ipairs(windows) do
+			if hasDetail(candidate) then
+				win = candidate
+				break
+			end
+		end
+	end
+	if not win then win = windows[1] end
 	if not win then
 		self:Print("Spell diagnostics: no window")
 		return
 	end
+	self:Print("  window: " .. tostring(win.db and win.db.name or "?"))
 	local set = win:get_selected_set()
 	local mode = win.selectedmode
 	local playerID = mode and mode.playerid

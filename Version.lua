@@ -17,6 +17,7 @@ Skada.versions = {
 			"Damage-meter type lookups now use `Enum.DamageMeterType` when available, including session views for Enemy damage taken",
 			"Session-view queries no longer return the incoming Damage session when the requested type query fails, which could show the player in Enemy damage taken",
 			"`/skada api` now prints each current damage type view for debugging",
+			"`/skada spells` now inspects the last-clicked or hovered window instead of always the first window",
 			"Targeted views sanitize secret target class/icon values and scale unknown target amounts against the row count",
 			"Empty `combatSpellDetails.unitName` values fall back to the spell creature name instead of rendering a trailing separator",
 			"Player hover tooltips now use the hovered bar's source object and local-player GUID fallback, so top spells appear in combat",
