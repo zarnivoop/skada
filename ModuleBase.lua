@@ -450,6 +450,45 @@ function ModuleBase:CreateSpellTooltip()
 	end
 end
 
+function ModuleBase:GetReversePlayerTargets(player, set)
+	if type(player) ~= "table" or issecretvalue(player) then return nil end
+	local playerName = player.name
+	if type(playerName) ~= "string" or issecretvalue(playerName) then return nil end
+	local view = Skada.NativeAPI:GetSessionView(set, 10)
+	if type(view) ~= "table" or issecretvalue(view) then return nil end
+	local sources = view.combatSources
+	if type(sources) ~= "table" or issecretvalue(sources) then return nil end
+
+	local rows = {}
+	for _, enemy in ipairs(sources) do
+		if type(enemy) == "table" and not issecretvalue(enemy) then
+			local spells = Skada.NativeAPI:GetPlayerSpells(nil, view, 10, enemy.sourceCreatureID)
+			if type(spells) == "table" and not issecretvalue(spells) then
+				local total = 0
+				for _, spell in ipairs(spells) do
+					local details = spellTargetDetails(spell)
+					if details and details.unitName == playerName then
+						local amount = details.amount
+						if amount == nil or (type(amount) == "number" and amount == 0) then
+							amount = spell.totalAmount
+						end
+						if type(amount) == "number" then total = total + amount end
+					end
+				end
+				if total > 0 then
+					rows[#rows + 1] = {
+						label = enemy.name,
+						value = total,
+						class = enemy.classFilename,
+						icon = nil,
+					}
+				end
+			end
+		end
+	end
+	return rows
+end
+
 function ModuleBase:UpdateTargetList(win, playerid, set, damageType, options)
 	options = options or {}
 	local spells = self:GetDrillSpells(win, playerid, set, damageType)
@@ -513,6 +552,16 @@ function ModuleBase:UpdateTargetList(win, playerid, set, damageType, options)
 					}
 				end
 				nr = nr + 1
+			end
+		end
+	end
+
+	if #rows == 0 then
+		local reverseRows = self:GetReversePlayerTargets(win._drillSource, set)
+		if reverseRows then
+			rows = reverseRows
+			for _, row in ipairs(rows) do
+				if row.value and row.value > max then max = row.value end
 			end
 		end
 	end
@@ -927,6 +976,14 @@ function ModuleBase:CreatePlayerTooltip(options)
 						end
 					else
 						names[#names + 1] = target
+					end
+				end
+			end
+			if #names == 0 then
+				local reverseRows = ModuleBase:GetReversePlayerTargets(player, set)
+				if reverseRows then
+					for _, row in ipairs(reverseRows) do
+						names[#names + 1] = row.label
 					end
 				end
 			end
