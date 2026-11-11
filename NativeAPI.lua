@@ -339,19 +339,30 @@ function NativeAPI:GetSessionView(set, damageType)
 		return set
 	end
 
-	-- 3. Query the requested session. Historical sessions must be fetched by ID;
-	-- the session structure itself does not contain sessionID. Resolve the
-	-- DamageMeterType enum, matching Details; raw numbers can select the wrong
-	-- session for modes such as EnemyDamageTaken.
+	-- 3. Current and total sessions should use the type query, matching
+	-- Details. Session-ID queries can resolve to the wrong mode for sessions
+	-- such as EnemyDamageTaken. Historical sessions still prefer their ID.
 	local resolvedDamageType = self:ResolveDamageMeterType(damageType)
-	local success, result
-	if sessionID then
-		success, result = pcall(C_DamageMeter.GetCombatSessionFromID, sessionID, resolvedDamageType)
+	local preferType = not sessionID or not sessionType or (not issecretvalue(sessionType) and sessionType <= 1)
+	local result = nil
+	local tryType = function()
+		local ok, value = pcall(C_DamageMeter.GetCombatSessionFromType, sessionType, resolvedDamageType)
+		if ok and type(value) == "table" then result = value end
+	end
+	local tryID = function()
+		if not sessionID then return end
+		local ok, value = pcall(C_DamageMeter.GetCombatSessionFromID, sessionID, resolvedDamageType)
+		if ok and type(value) == "table" then result = value end
+	end
+	if preferType then
+		tryType()
+		if not result then tryID() end
 	else
-		success, result = pcall(C_DamageMeter.GetCombatSessionFromType, sessionType, resolvedDamageType)
+		tryID()
+		if not result then tryType() end
 	end
 
-	if success and type(result) == "table" then
+	if type(result) == "table" then
 		pcall(function()
 			if sessionID then
 				result.sessionID = sessionID

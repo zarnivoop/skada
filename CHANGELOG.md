@@ -5,7 +5,7 @@ Spell detail navigation and empty state
 - Title right-click remains the segment menu
 - Spell detail now carries the native source object from the clicked bar, so combat details work even when the source GUID is secret
 - Local-player spell details fall back to `UnitGUID("player")`, matching Details and avoiding the secret source GUID
-- Current-session spell lookup prefers `GetCombatSessionSourceFromType` and falls back to the ID query, matching Details' native path
+- Current-session spell and session views prefer `GetCombatSessionSourceFromType`/`GetCombatSessionFromType` and fall back to the ID query, matching Details' native path
 - Spell rows and tooltips show the target, overkill, avoidable, and deadly metadata exposed by `combatSpellDetails`
 - `/skada spells` now dumps the first spell detail keys and the last recorded display error
 - Shift-clicking a player opens a Targets view built from `combatSpellDetails.unitName`; clicking an enemy in Enemy damage taken lists its player contributors
