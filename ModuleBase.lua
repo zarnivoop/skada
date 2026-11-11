@@ -92,6 +92,7 @@ function ModuleBase:UpdatePlayerList(win, set, options)
 					d._is_nodata = nil
 					d.id = "combat_" .. nr
 					d.source = player
+					d.isLocalPlayer = player.isLocalPlayer
 					d.sourceGUID = player.sourceGUID
 					d.sourceCreatureID = player.sourceCreatureID
 					d.label = SecretHelper:GetPlayerLabel(player, nr)
@@ -153,6 +154,7 @@ function ModuleBase:UpdatePlayerList(win, set, options)
 				d._is_nodata = nil
 				d.id = id
 				d.source = player
+				d.isLocalPlayer = player.isLocalPlayer
 				d.sourceGUID = player.sourceGUID
 				d.sourceCreatureID = player.sourceCreatureID
 				d.label = playerName
@@ -230,6 +232,7 @@ function ModuleBase:UpdateSimpleList(win, set, options)
 					d._is_nodata = nil
 					d.id = "combat_" .. nr
 					d.source = player
+					d.isLocalPlayer = player.isLocalPlayer
 					d.sourceGUID = player.sourceGUID
 					d.sourceCreatureID = player.sourceCreatureID
 					d.label = SecretHelper:GetPlayerLabel(player, nr)
@@ -273,6 +276,7 @@ function ModuleBase:UpdateSimpleList(win, set, options)
 					d._is_nodata = nil
 					d.id = id
 					d.source = player
+					d.isLocalPlayer = player.isLocalPlayer
 					d.sourceGUID = player.sourceGUID
 					d.sourceCreatureID = player.sourceCreatureID
 					d.label = playerName
@@ -327,6 +331,13 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 	local sourceGUID = win._drillSourceGUID
 	local sourceCreatureID = win._drillSourceCreatureID
 	local source = win._drillSource
+	if win._drillIsLocalPlayer then
+		local playerGUID = UnitGUID("player")
+		if type(playerGUID) == "string" and not issecretvalue(playerGUID) then
+			sourceGUID = playerGUID
+			sourceCreatureID = nil
+		end
+	end
 	local view, player
 	local spells
 

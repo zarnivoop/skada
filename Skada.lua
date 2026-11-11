@@ -697,6 +697,7 @@ function Window:DisplayModes(settime)
 	self.history = wipe(self.history or {})
 	self:Wipe()
 	self._drillSource = nil
+	self._drillIsLocalPlayer = nil
 	self._drillSourceGUID = nil
 	self._drillSourceCreatureID = nil
 
@@ -752,6 +753,7 @@ function Window:DisplaySets()
 	self.history = wipe(self.history or {})
 	self:Wipe()
 	self._drillSource = nil
+	self._drillIsLocalPlayer = nil
 	self._drillSourceGUID = nil
 	self._drillSourceCreatureID = nil
 
@@ -784,6 +786,7 @@ end
 -- 3) Go to set list.
 function Window:RightClick(group, button)
 	self._drillSource = nil
+	self._drillIsLocalPlayer = nil
 	self._drillSourceGUID = nil
 	self._drillSourceCreatureID = nil
 	if self.selectedmode then
@@ -1032,6 +1035,7 @@ function Skada:DumpSpellDiagnostics()
 		self:Print("  detail player: " .. tostring(playerID))
 	end
 	self:Print("  drill source: " .. spellValueKind(win._drillSource))
+	self:Print("  drill local player: " .. tostring(win._drillIsLocalPlayer))
 	self:Print("  drill GUID: " .. spellValueKind(win._drillSourceGUID))
 	self:Print("  drill creature ID: " .. spellValueKind(win._drillSourceCreatureID))
 	if type(win._drillSource) == "table" and not issecretvalue(win._drillSource) then
