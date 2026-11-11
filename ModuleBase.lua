@@ -366,22 +366,25 @@ function ModuleBase:GetDrillSpells(win, playerid, set, damageType)
 end
 
 -- Resolve a spell name without comparing or indexing a secret spell ID.
+-- The returned name may itself be a secret string during combat; callers must
+-- pass it straight to a FontString and must not compare or concatenate it.
 local function spellNameFromID(spellID)
 	if type(spellID) ~= "number" then return nil end
-	local info
 	if issecretvalue(spellID) then
-		local ok, result = pcall(function() return C_Spell.GetSpellInfo(spellID) end)
-		if ok and type(result) == "table" and not issecretvalue(result) then
-			info = result
+		local ok, name = pcall(C_Spell.GetSpellName, spellID)
+		if ok and type(name) == "string" then return name end
+		local okInfo, info = pcall(C_Spell.GetSpellInfo, spellID)
+		if okInfo and type(info) == "table" and not issecretvalue(info) then
+			local infoName = info.name
+			if type(infoName) == "string" then return infoName end
 		end
-	elseif spellID > 0 then
-		info = C_Spell.GetSpellInfo(spellID)
+		return nil
 	end
+	if spellID <= 0 then return nil end
+	local info = C_Spell.GetSpellInfo(spellID)
 	if type(info) == "table" and not issecretvalue(info) then
 		local name = info.name
-		if type(name) == "string" and not issecretvalue(name) then
-			return name
-		end
+		if type(name) == "string" then return name end
 	end
 	return nil
 end
@@ -799,7 +802,8 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 					d.avoidable = spell.isAvoidable
 					d.deadly = spell.isDeadly
 					if type(spellName) == "string" then
-						if type(target) == "string" and not issecretvalue(target) and target ~= "" then
+						if not issecretvalue(spellName)
+							and type(target) == "string" and not issecretvalue(target) and target ~= "" then
 							d.label = spellName .. " - " .. target
 						else
 							d.label = spellName
@@ -838,7 +842,9 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 					d.id = spellID
 
 					local baseName = spellNameFromID(spellID)
-						or (spellIDIsSecret and L["Spell"] or ("Spell " .. tostring(spellID)))
+					if type(baseName) ~= "string" then
+						baseName = spellIDIsSecret and L["Spell"] or ("Spell " .. tostring(spellID))
+					end
 					local details = spellTargetDetails(spell)
 					local target = spellTargetName(spell, details)
 					d.spellDetails = details
@@ -1045,26 +1051,33 @@ function ModuleBase:CreatePlayerTooltip(options)
 						end
 					end
 					local name = spellNameFromID(spellID)
-						or (spellIDIsSecret and L["Spell"] or ("Spell " .. tostring(spellID)))
-					local details = s.combatSpellDetails
-					local target
-					if type(details) == "table" and not issecretvalue(details) then
-						target = spellTargetName(s, details)
-					else
-						target = s.creatureName
+					if type(name) ~= "string" then
+						name = spellIDIsSecret and L["Spell"] or ("Spell " .. tostring(spellID))
 					end
-					if type(target) == "string" and not issecretvalue(target) and target ~= "" then
+					local details = s.combatSpellDetails
+					local target = spellTargetName(s, details)
+					if not issecretvalue(name)
+						and type(target) == "string" and not issecretvalue(target) and target ~= "" then
 						name = name .. " - " .. target
 					end
 
 					local rawVal = s[spellValueKey]
+					local right
 					if issecretvalue(rawVal) then
-						tooltip:AddDoubleLine(name, Skada:FormatNumberSecret(rawVal), 1, 1, 1, 1, 1, 1)
+						right = Skada:FormatNumberSecret(rawVal)
 					elseif type(rawVal) ~= "nil" then
 						local val = tonumber(rawVal) or 0
 						local playerVal = SecretHelper:SafeNumber(rawValue)
 						local percent = playerVal > 0 and (val / playerVal) * 100 or 0
-						tooltip:AddDoubleLine(name, Skada:FormatNumber(val) .. " (" .. string.format("%02.1f%%", percent) .. ")", 1, 1, 1, 1, 1, 1)
+						right = Skada:FormatNumber(val) .. " (" .. string.format("%02.1f%%", percent) .. ")"
+					end
+					if type(right) == "string" then
+						if issecretvalue(name) or issecretvalue(right) then
+							local ok = pcall(tooltip.AddDoubleLine, tooltip, name, right, 1, 1, 1, 1, 1, 1)
+							if not ok then pcall(tooltip.AddLine, tooltip, name) end
+						else
+							tooltip:AddDoubleLine(name, right, 1, 1, 1, 1, 1, 1)
+						end
 					end
 				end
 			end

@@ -5,7 +5,7 @@ Skada.versions = {
 		title = "Skada 2.6.4",
 		message = "Spell detail navigation and empty state",
 		changes = {
-			"Fixed a secret-value crash in the top-spells tooltip: a restricted spell ID is no longer compared to zero, and falls back to a generic spell label during combat",
+			"Fixed a secret-value crash in the top-spells tooltip: restricted spell IDs are resolved through `C_Spell.GetSpellName` via `pcall` and the resulting secret name is passed straight to the tooltip, so combat rows keep their real spell names",
 			"Player target views and tooltips now read the enemy source's own `combatSpells` collection, so a player's damaged mobs appear even when a fresh creature-ID source query returns nothing",
 			"Added `/skada reverse` diagnostics for the player-to-enemy target fallback",
 			"Player target lookup now falls back to the current and expired Enemy damage taken sessions when the selected segment has none",
