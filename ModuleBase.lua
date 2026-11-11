@@ -91,6 +91,7 @@ function ModuleBase:UpdatePlayerList(win, set, options)
 					local d = self:ReuseDatasetEntry(win.dataset, nr)
 					d._is_nodata = nil
 					d.id = "combat_" .. nr
+					d.source = player
 					d.sourceGUID = player.sourceGUID
 					d.sourceCreatureID = player.sourceCreatureID
 					d.label = SecretHelper:GetPlayerLabel(player, nr)
@@ -151,6 +152,7 @@ function ModuleBase:UpdatePlayerList(win, set, options)
 				local d = self:ReuseDatasetEntry(win.dataset, nr)
 				d._is_nodata = nil
 				d.id = id
+				d.source = player
 				d.sourceGUID = player.sourceGUID
 				d.sourceCreatureID = player.sourceCreatureID
 				d.label = playerName
@@ -227,6 +229,7 @@ function ModuleBase:UpdateSimpleList(win, set, options)
 					local d = self:ReuseDatasetEntry(win.dataset, nr)
 					d._is_nodata = nil
 					d.id = "combat_" .. nr
+					d.source = player
 					d.sourceGUID = player.sourceGUID
 					d.sourceCreatureID = player.sourceCreatureID
 					d.label = SecretHelper:GetPlayerLabel(player, nr)
@@ -269,6 +272,7 @@ function ModuleBase:UpdateSimpleList(win, set, options)
 					local d = self:ReuseDatasetEntry(win.dataset, nr)
 					d._is_nodata = nil
 					d.id = id
+					d.source = player
 					d.sourceGUID = player.sourceGUID
 					d.sourceCreatureID = player.sourceCreatureID
 					d.label = playerName
@@ -322,30 +326,38 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 
 	local sourceGUID = win._drillSourceGUID
 	local sourceCreatureID = win._drillSourceCreatureID
-	local hasDirectSource = type(sourceGUID) ~= "nil" or type(sourceCreatureID) ~= "nil"
+	local source = win._drillSource
 	local view, player
+	local spells
 
-	if not hasDirectSource then
-		view = Skada.NativeAPI:GetSessionView(set, damageType)
-		player = Skada:find_player_in_session(view, playerid)
-		if type(player) ~= "table" then
-			player = Skada:find_player(set, playerid)
-		end
-		if type(player) ~= "table" then
-			showSpellPlaceholder(win, InCombatLockdown() and L["Spell details available after combat"] or L["No spell data recorded"])
-			return
-		end
+	if type(source) == "table" and not issecretvalue(source) then
+		spells = Skada.NativeAPI:GetSpellsFromSource(source)
 	end
 
-	local realID
-	if hasDirectSource then
-		realID = sourceGUID
-	else
-		realID = SecretHelper:GetPlayerID(player, playerid)
+	if spells == nil then
+		local hasDirectSource = type(sourceGUID) ~= "nil" or type(sourceCreatureID) ~= "nil"
+		if not hasDirectSource then
+			view = Skada.NativeAPI:GetSessionView(set, damageType)
+			player = Skada:find_player_in_session(view, playerid)
+			if type(player) ~= "table" then
+				player = Skada:find_player(set, playerid)
+			end
+			if type(player) ~= "table" then
+				showSpellPlaceholder(win, InCombatLockdown() and L["Spell details available after combat"] or L["No spell data recorded"])
+				return
+			end
+		end
+
+		local realID
+		if hasDirectSource then
+			realID = sourceGUID
+		else
+			realID = SecretHelper:GetPlayerID(player, playerid)
+		end
+		local viewSet
+		if type(view) ~= "nil" then viewSet = view else viewSet = set end
+		spells = Skada.NativeAPI:GetPlayerSpells(realID, viewSet, damageType, sourceCreatureID)
 	end
-	local viewSet
-	if type(view) ~= "nil" then viewSet = view else viewSet = set end
-	local spells = Skada.NativeAPI:GetPlayerSpells(realID, viewSet, damageType, sourceCreatureID)
 
 
 	if type(spells) == "nil" then

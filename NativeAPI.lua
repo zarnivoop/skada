@@ -465,6 +465,11 @@ local function ExtractSpellsFromSource(source)
 	return nil
 end
 
+function NativeAPI:GetSpellsFromSource(source)
+	if type(source) ~= "table" or issecretvalue(source) then return nil end
+	return ExtractSpellsFromSource(source)
+end
+
 function NativeAPI:GetPlayerSpells(playerID, set, damageType, sourceCreatureID)
 	local source = self:GetSessionSource(playerID, set, damageType, sourceCreatureID)
 

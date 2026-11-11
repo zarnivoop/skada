@@ -251,6 +251,7 @@ local function BarClick(bar, button)
 	local click3 = win.metadata.click3
 	-- The bar owns the source identifiers even when the id/name are secret.
 	-- Pass them straight to C_DamageMeter when drilling into spells.
+	win._drillSource = bar.source
 	win._drillSourceGUID = bar.sourceGUID
 	win._drillSourceCreatureID = bar.sourceCreatureID
 
@@ -745,6 +746,7 @@ function mod:Update(win)
 			bar.text = barlabel
 			bar.link = nil
 			bar.spellid = nil
+			bar.source = data.source
 			bar.sourceGUID = data.sourceGUID
 			bar.sourceCreatureID = data.sourceCreatureID
 			if data.spellid then
@@ -1154,6 +1156,7 @@ function mod:CreateBar(win, name, label, value, maxvalue, icon, o)
 	local bar = win.bargroup:NewCounterBar(name, label, value, maxvalue, icon)
 	bar.win = win
 	bar._skadaColor = nil
+	bar.source = nil
 	bar._rowY = nil
 	bar._rowAnimating = nil
 	bar._rowAnim = nil

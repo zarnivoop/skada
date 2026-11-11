@@ -696,6 +696,9 @@ end
 function Window:DisplayModes(settime)
 	self.history = wipe(self.history or {})
 	self:Wipe()
+	self._drillSource = nil
+	self._drillSourceGUID = nil
+	self._drillSourceCreatureID = nil
 
 	self.selectedplayer = nil
 	self.selectedmode = nil
@@ -748,6 +751,9 @@ end
 function Window:DisplaySets()
 	self.history = wipe(self.history or {})
 	self:Wipe()
+	self._drillSource = nil
+	self._drillSourceGUID = nil
+	self._drillSourceCreatureID = nil
 
 	self.metadata = wipe(self.metadata or {})
 
@@ -777,6 +783,9 @@ end
 -- 2) Go to modes list if we are in a mode.
 -- 3) Go to set list.
 function Window:RightClick(group, button)
+	self._drillSource = nil
+	self._drillSourceGUID = nil
+	self._drillSourceCreatureID = nil
 	if self.selectedmode then
 		-- If mode traversal history exists, go to last entry, else mode list.
 		if #self.history > 0 then
@@ -1022,6 +1031,7 @@ function Skada:DumpSpellDiagnostics()
 	if playerID ~= nil and not issecretvalue(playerID) then
 		self:Print("  detail player: " .. tostring(playerID))
 	end
+	self:Print("  drill source: " .. spellValueKind(win._drillSource))
 	self:Print("  drill GUID: " .. spellValueKind(win._drillSourceGUID))
 	self:Print("  drill creature ID: " .. spellValueKind(win._drillSourceCreatureID))
 

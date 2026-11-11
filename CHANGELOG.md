@@ -3,6 +3,7 @@ Spell detail navigation and empty state
 - Spell detail views now show an explicit message instead of a blank window when combat spell data is unavailable
 - Right-click on the empty bar-group background returns to the previous mode again
 - Title right-click remains the segment menu
+- Spell detail now carries the native source object from the clicked bar, so combat details work even when the source GUID is secret
 - Added `/skada spells` diagnostics for the selected spell detail source and secret-value shape during combat
 
 ## 2.6.3
