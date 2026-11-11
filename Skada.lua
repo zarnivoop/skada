@@ -1092,9 +1092,20 @@ function Skada:DumpSpellDiagnostics()
 		end
 	end
 
+	for i = 1, math.min(5, #win.dataset) do
+		local d = win.dataset[i]
+		if d and d.id then
+			local label = d.label
+			local labelText = (type(label) == "string" and not issecretvalue(label)) and label or spellValueKind(label)
+			self:Print("  dataset " .. tostring(i) .. ": id=" .. tostring(d.id)
+				.. " label=" .. tostring(labelText)
+				.. " value=" .. tostring(d.value)
+				.. " valuetext=" .. spellValueKind(d.valuetext))
+		end
+	end
+
 	local fields = { "combatSpells", "spells", "abilities", "damageSpells", "healingSpells", "combatSpellDetails" }
 	local found = false
-	local dumpedDetails = false
 	for damageType = 0, 10 do
 		local ok, source = pcall(self.NativeAPI.GetSessionSource, self.NativeAPI, win._drillSourceGUID, set, damageType, win._drillSourceCreatureID)
 		if ok and source ~= nil then
@@ -1103,9 +1114,9 @@ function Skada:DumpSpellDiagnostics()
 			if issecretvalue(source) then
 				self:Print("    source is secret; spell fields cannot be inspected")
 			else
-				if not dumpedDetails then
+				local sourceSpells = source.combatSpells
+				if type(sourceSpells) == "table" and not issecretvalue(sourceSpells) and sourceSpells[1] then
 					dumpSpellDetails(source, "type " .. tostring(damageType), function(line) self:Print(line) end)
-					dumpedDetails = true
 				end
 				for _, field in ipairs(fields) do
 					local okField, value = pcall(function() return source[field] end)
@@ -1189,6 +1200,7 @@ function Skada:DumpAPIDiagnostics()
 				local src = sources[1]
 				if type(src) == "table" and not issecretvalue(src) then
 					self:Print("  first source name=" .. spellValueKind(src.name)
+						.. " namevalue=" .. (not issecretvalue(src.name) and type(src.name) == "string" and src.name or "")
 						.. " guid=" .. spellValueKind(src.sourceGUID)
 						.. " creatureID=" .. spellValueKind(src.sourceCreatureID)
 						.. " total=" .. spellValueKind(src.totalAmount))
