@@ -7,6 +7,7 @@ Skada:AddLoadableModule("Healing", nil, function(Skada, L)
 
 	local mod = Skada:NewModule(L["Healing"])
 	local playermod = Skada:NewModule(L["Healing spell list"])
+	local targetsmod = Skada:NewModule(L["Healing targets"])
 	local DAMAGE_TYPE = 2 -- Healing
 
 	function playermod:Enter(win, id, label)
@@ -20,6 +21,19 @@ Skada:AddLoadableModule("Healing", nil, function(Skada, L)
 
 	function playermod:Update(win, set)
 		ModuleBase:UpdateSpellList(win, self.playerid, set, DAMAGE_TYPE, {valueKey = "totalAmount"})
+	end
+
+	function targetsmod:Enter(win, id, label)
+		targetsmod.playerid = id
+		if issecretvalue(label) then
+			targetsmod.title = L["Targets"]
+		else
+			targetsmod.title = tostring(label) .. " - " .. L["Targets"]
+		end
+	end
+
+	function targetsmod:Update(win, set)
+		ModuleBase:UpdateTargetList(win, self.playerid, set, DAMAGE_TYPE)
 	end
 
 	function mod:Update(win, set)
@@ -43,9 +57,12 @@ Skada:AddLoadableModule("Healing", nil, function(Skada, L)
 		spellValueKey = "totalAmount"
 	})
 
+	local spell_tooltip = ModuleBase:CreateSpellTooltip()
+
 	function mod:OnEnable()
-		playermod.metadata = {tooltip = hps_tooltip}
-		mod.metadata = {click1 = playermod, showspots = true, columns = {Healing = true, HPS = true, Percent = true}, icon = "Interface\\Icons\\spell_nature_healingtouch"}
+		playermod.metadata = {tooltip = hps_tooltip, post_tooltip = spell_tooltip}
+		targetsmod.metadata = {}
+		mod.metadata = {click1 = playermod, click2 = targetsmod, showspots = true, columns = {Healing = true, HPS = true, Percent = true}, icon = "Interface\\Icons\\spell_nature_healingtouch"}
 
 		ModuleBase:AddStandardFeeds(L["Healing: Personal HPS"], L["Healing: Raid HPS"], DAMAGE_TYPE, L["HPS"], L["RHPS"])
 		Skada:AddMode(self, L["Healing"])

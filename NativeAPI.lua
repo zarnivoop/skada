@@ -140,6 +140,27 @@ end
 --[[
 	Get detailed session source data (spells, etc.)
 ]]
+local DAMAGE_METER_TYPE_NAMES = {
+	[0] = "DamageDone",
+	[2] = "HealingDone",
+	[4] = "Absorbs",
+	[5] = "Interrupts",
+	[6] = "Dispels",
+	[7] = "DamageTaken",
+	[8] = "AvoidableDamageTaken",
+	[10] = "EnemyDamageTaken",
+}
+
+function NativeAPI:ResolveDamageMeterType(damageType)
+	if Enum and Enum.DamageMeterType then
+		local name = DAMAGE_METER_TYPE_NAMES[damageType]
+		if name and Enum.DamageMeterType[name] ~= nil then
+			return Enum.DamageMeterType[name]
+		end
+	end
+	return damageType
+end
+
 function NativeAPI:GetSessionSource(sourceGUID, set, damageType, sourceCreatureID)
 	if type(sourceGUID) == "nil" and type(sourceCreatureID) == "nil" then return nil end
 
@@ -200,13 +221,14 @@ function NativeAPI:GetSessionSource(sourceGUID, set, damageType, sourceCreatureI
 	-- prefer their ID.
 	local result
 	local preferType = not sessionID or not sessionType or (not issecretvalue(sessionType) and sessionType <= 1)
+	local resolvedType = self:ResolveDamageMeterType(damageType)
 	local tryType = function()
-		local ok, value = pcall(C_DamageMeter.GetCombatSessionSourceFromType, sessionType, damageType, sourceGUID, sourceCreatureID)
+		local ok, value = pcall(C_DamageMeter.GetCombatSessionSourceFromType, sessionType, resolvedType, sourceGUID, sourceCreatureID)
 		if ok and type(value) == "table" then result = value end
 	end
 	local tryID = function()
 		if not sessionID then return end
-		local ok, value = pcall(C_DamageMeter.GetCombatSessionSourceFromID, sessionID, damageType, sourceGUID, sourceCreatureID)
+		local ok, value = pcall(C_DamageMeter.GetCombatSessionSourceFromID, sessionID, resolvedType, sourceGUID, sourceCreatureID)
 		if ok and type(value) == "table" then result = value end
 	end
 
@@ -603,7 +625,7 @@ function NativeAPI:GetSessionByID(sessionID, damageType)
 		if i ~= damageType then tinsert(types, i) end
 	end
 	for _, dtype in ipairs(types) do
-		local success, candidate = pcall(C_DamageMeter.GetCombatSessionFromID, sessionID, dtype)
+		local success, candidate = pcall(C_DamageMeter.GetCombatSessionFromID, sessionID, self:ResolveDamageMeterType(dtype))
 		if success and type(candidate) == "table" then
 			result = candidate
 			pcall(function()
@@ -697,7 +719,8 @@ function NativeAPI:GetSessionByParams(sessionType, damageType)
 		return Skada.Simulation:GetMockSession(sessionType, damageType)
 	end
 
-	local success, result = pcall(C_DamageMeter.GetCombatSessionFromType, sessionType, damageType)
+	local resolvedDamageType = self:ResolveDamageMeterType(damageType)
+	local success, result = pcall(C_DamageMeter.GetCombatSessionFromType, sessionType, resolvedDamageType)
 	if success and type(result) == "table" then
 		self.sessionFrameCache[cacheKey] = {value = result}
 		return result

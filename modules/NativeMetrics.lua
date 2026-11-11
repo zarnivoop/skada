@@ -15,18 +15,41 @@ local function RegisterMetric(spec)
 		local displayCategory = L[spec.category or "Other"] or L["Other"]
 		local mod = Skada:NewModule(displayLabel)
 		local playermod = Skada:NewModule(displayLabel .. " details")
+		local targetsmod
+		if style == "players" then
+			targetsmod = Skada:NewModule(displayLabel .. " targets")
+		end
 
 		function playermod:Enter(win, id, barLabel)
 			playermod.playerid = id
 			if issecretvalue(barLabel) then
-				playermod.title = displayLabel
+				playermod.title = damageType == 10 and L["Players"] or displayLabel
 			else
-				playermod.title = tostring(barLabel) .. " - " .. displayLabel
+				playermod.title = tostring(barLabel) .. " - " .. (damageType == 10 and L["Players"] or displayLabel)
 			end
 		end
 
 		function playermod:Update(win, set)
-			ModuleBase:UpdateSpellList(win, self.playerid, set, damageType)
+			if damageType == 10 then
+				ModuleBase:UpdateTargetList(win, self.playerid, set, damageType)
+			else
+				ModuleBase:UpdateSpellList(win, self.playerid, set, damageType)
+			end
+		end
+
+		if targetsmod then
+			function targetsmod:Enter(win, id, barLabel)
+				targetsmod.playerid = id
+				if issecretvalue(barLabel) then
+					targetsmod.title = L["Targets"]
+				else
+					targetsmod.title = tostring(barLabel) .. " - " .. L["Targets"]
+				end
+			end
+
+			function targetsmod:Update(win, set)
+				ModuleBase:UpdateTargetList(win, self.playerid, set, damageType)
+			end
 		end
 
 		if style == "players" then
@@ -51,10 +74,18 @@ local function RegisterMetric(spec)
 				})
 			end
 
+			local spellTooltip = ModuleBase:CreateSpellTooltip()
+
 			function mod:OnEnable()
-				playermod.metadata = { tooltip = tooltip }
+				if damageType == 10 then
+					playermod.metadata = {}
+				else
+					playermod.metadata = { tooltip = tooltip, post_tooltip = spellTooltip }
+				end
+				if targetsmod then targetsmod.metadata = {} end
 				mod.metadata = {
 					click1 = playermod,
+					click2 = targetsmod,
 					showspots = true,
 					columns = spec.columns,
 					icon = spec.icon,

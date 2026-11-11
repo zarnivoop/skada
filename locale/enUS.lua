@@ -615,3 +615,13 @@ L["Slide bars to their new positions when their rank changes."] = "Slide bars to
 
 -- Spell detail empty state.
 L["No spell data recorded"] = "No spell data recorded"
+
+-- Target views and spell detail metadata.
+L["Damage targets"] = "Damage targets"
+L["Healing targets"] = "Healing targets"
+L["Targets"] = "Targets"
+L["Players"] = "Players"
+L["No target data recorded"] = "No target data recorded"
+L["Target"] = "Target"
+L["Overkill"] = "Overkill"
+L["Deadly"] = "Deadly"

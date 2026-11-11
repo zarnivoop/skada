@@ -7,6 +7,7 @@ Skada:AddLoadableModule("Damage", nil, function(Skada, L)
 
 	local mod = Skada:NewModule(L["Damage"])
 	local playermod = Skada:NewModule(L["Damage spell list"])
+	local targetsmod = Skada:NewModule(L["Damage targets"])
 	local DAMAGE_TYPE = 0 -- DamageDone
 
 	function playermod:Enter(win, id, label)
@@ -20,6 +21,19 @@ Skada:AddLoadableModule("Damage", nil, function(Skada, L)
 
 	function playermod:Update(win, set)
 		ModuleBase:UpdateSpellList(win, self.playerid, set, DAMAGE_TYPE, {valueKey = "totalAmount"})
+	end
+
+	function targetsmod:Enter(win, id, label)
+		targetsmod.playerid = id
+		if issecretvalue(label) then
+			targetsmod.title = L["Targets"]
+		else
+			targetsmod.title = tostring(label) .. " - " .. L["Targets"]
+		end
+	end
+
+	function targetsmod:Update(win, set)
+		ModuleBase:UpdateTargetList(win, self.playerid, set, DAMAGE_TYPE)
 	end
 
 	function mod:Update(win, set)
@@ -55,9 +69,12 @@ Skada:AddLoadableModule("Damage", nil, function(Skada, L)
 		labelShare = L["Damage share"]
 	})
 
+	local spell_tooltip = ModuleBase:CreateSpellTooltip()
+
 	function mod:OnEnable()
-		playermod.metadata = {tooltip = dps_tooltip}
-		mod.metadata = {click1 = playermod, post_tooltip = damage_tooltip, showspots = true, columns = {Damage = true, DPS = true, Percent = true}, icon = "Interface\\Icons\\Inv_throwingaxe_01"}
+		playermod.metadata = {tooltip = dps_tooltip, post_tooltip = spell_tooltip}
+		targetsmod.metadata = {}
+		mod.metadata = {click1 = playermod, click2 = targetsmod, post_tooltip = damage_tooltip, showspots = true, columns = {Damage = true, DPS = true, Percent = true}, icon = "Interface\\Icons\\Inv_throwingaxe_01"}
 
 		ModuleBase:AddStandardFeeds(L["Damage: Personal DPS"], L["Damage: Raid DPS"], 1, L["DPS"], L["RDPS"])
 		Skada:AddMode(self, L["Damage"])

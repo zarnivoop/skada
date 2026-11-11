@@ -321,13 +321,15 @@ local function showSpellPlaceholder(win, message)
 	d.class = nil
 	d.role = nil
 	d.color = nil
+	d.spellDetails = nil
+	d.target = nil
+	d.overkill = nil
+	d.avoidable = nil
+	d.deadly = nil
 	win.metadata.maxvalue = 1
 end
 
-function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
-	options = options or {}
-	local valueKey = options.valueKey or "totalAmount"
-
+function ModuleBase:GetDrillSpells(win, playerid, set, damageType)
 	local sourceGUID = win._drillSourceGUID
 	local sourceCreatureID = win._drillSourceCreatureID
 	local source = win._drillSource
@@ -338,37 +340,152 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 			sourceCreatureID = nil
 		end
 	end
-	local view, player
 	local spells
-
 	if type(source) == "table" and not issecretvalue(source) then
 		spells = Skada.NativeAPI:GetSpellsFromSource(source)
 	end
+	if spells ~= nil then return spells end
 
-	if spells == nil then
-		local hasDirectSource = type(sourceGUID) ~= "nil" or type(sourceCreatureID) ~= "nil"
-		if not hasDirectSource then
-			view = Skada.NativeAPI:GetSessionView(set, damageType)
-			player = Skada:find_player_in_session(view, playerid)
-			if type(player) ~= "table" then
-				player = Skada:find_player(set, playerid)
-			end
-			if type(player) ~= "table" then
-				showSpellPlaceholder(win, InCombatLockdown() and L["Spell details available after combat"] or L["No spell data recorded"])
-				return
-			end
-		end
-
-		local realID
-		if hasDirectSource then
-			realID = sourceGUID
-		else
-			realID = SecretHelper:GetPlayerID(player, playerid)
-		end
-		local viewSet
-		if type(view) ~= "nil" then viewSet = view else viewSet = set end
-		spells = Skada.NativeAPI:GetPlayerSpells(realID, viewSet, damageType, sourceCreatureID)
+	local hasDirectSource = type(sourceGUID) ~= "nil" or type(sourceCreatureID) ~= "nil"
+	local view = Skada.NativeAPI:GetSessionView(set, damageType)
+	local player = Skada:find_player_in_session(view, playerid)
+	if type(player) ~= "table" then
+		player = Skada:find_player(set, playerid)
 	end
+	if not hasDirectSource and type(player) ~= "table" then
+		return nil
+	end
+
+	local realID
+	if hasDirectSource then
+		realID = sourceGUID
+	else
+		realID = SecretHelper:GetPlayerID(player, playerid)
+	end
+	return Skada.NativeAPI:GetPlayerSpells(realID, view or set, damageType, sourceCreatureID)
+end
+
+local function spellTargetDetails(spell)
+	if type(spell) ~= "table" or issecretvalue(spell) then return nil end
+	local details = spell.combatSpellDetails
+	if type(details) ~= "table" or issecretvalue(details) then return nil end
+	if details.unitName ~= nil or details.amount ~= nil then
+		return details
+	end
+	local first = details[1]
+	if type(first) == "table" and not issecretvalue(first) then
+		return first
+	end
+	return nil
+end
+
+function ModuleBase:CreateSpellTooltip()
+	return function(win, id, label, tooltip)
+		local data = win._hoverSpell
+		if not data then return end
+		if data.target ~= nil then
+			tooltip:AddLine(L["Target"])
+			local ok = pcall(tooltip.AddLine, tooltip, data.target)
+			if not ok then tooltip:AddLine("?") end
+		end
+		local overkill = data.overkill
+		if overkill ~= nil and not issecretvalue(overkill) and overkill ~= 0 then
+			tooltip:AddDoubleLine(L["Overkill"], Skada:FormatNumber(overkill), 1, 1, 1, 1, 1, 1)
+		elseif issecretvalue(overkill) then
+			local ok = pcall(tooltip.AddDoubleLine, tooltip, L["Overkill"], Skada:FormatNumberSecret(overkill), 1, 1, 1, 1, 1, 1)
+			if not ok then tooltip:AddLine(L["Overkill"]) end
+		end
+		if data.avoidable then
+			tooltip:AddLine(L["Avoidable damage"], 1, 0.4, 0.4)
+		end
+		if data.deadly then
+			tooltip:AddLine(L["Deadly"], 1, 0.2, 0.2)
+		end
+	end
+end
+
+function ModuleBase:UpdateTargetList(win, playerid, set, damageType, options)
+	options = options or {}
+	local spells = self:GetDrillSpells(win, playerid, set, damageType)
+	if type(spells) ~= "table" or issecretvalue(spells) then
+		showSpellPlaceholder(win, InCombatLockdown() and L["Spell details available after combat"] or L["No target data recorded"])
+		return
+	end
+
+	local rows = {}
+	local map = {}
+	local max = 0
+	local nr = 1
+	for _, spell in ipairs(spells) do
+		local details = spellTargetDetails(spell)
+		if details then
+			local target = details.unitName
+			local amount = details.amount
+			if amount == nil then amount = spell.totalAmount end
+			if target ~= nil then
+				if not issecretvalue(target) and not issecretvalue(amount) and type(amount) == "number" then
+					local row = map[target]
+					if not row then
+						row = {
+							label = target,
+							value = 0,
+							class = details.unitClassFilename,
+							icon = details.specIconID,
+							order = nr,
+						}
+						map[target] = row
+						rows[#rows + 1] = row
+					end
+					row.value = row.value + amount
+					if row.value > max then max = row.value end
+				else
+					rows[#rows + 1] = {
+						label = target,
+						value = SecretHelper:GetDisplayValue(amount, nr, #spells),
+						valuetext = Skada:FormatNumberSecret(amount),
+						class = details.unitClassFilename,
+						icon = details.specIconID,
+						order = nr,
+					}
+				end
+				nr = nr + 1
+			end
+		end
+	end
+
+	if #rows == 0 then
+		showSpellPlaceholder(win, InCombatLockdown() and L["Spell details available after combat"] or L["No target data recorded"])
+		return
+	end
+
+	for i, row in ipairs(rows) do
+		local d = self:ReuseDatasetEntry(win.dataset, i)
+		d._is_nodata = nil
+		d.id = "target_" .. i
+		d.label = row.label
+		d.value = row.value
+		d.order = row.order
+		d.class = row.class
+		d.icon = row.icon
+		d.spellid = nil
+		d.link = nil
+		d.ignore = nil
+		if row.valuetext then
+			d.valuetext = row.valuetext
+		elseif issecretvalue(row.value) then
+			d.valuetext = Skada:FormatNumberSecret(row.value)
+		else
+			d.valuetext = Skada:FormatNumber(row.value)
+		end
+	end
+	win.metadata.maxvalue = max > 0 and max or 1
+end
+
+function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
+	options = options or {}
+	local valueKey = options.valueKey or "totalAmount"
+
+	local spells = self:GetDrillSpells(win, playerid, set, damageType)
 
 
 	if type(spells) == "nil" then
@@ -456,8 +573,19 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 						d.id = plainSpellID
 						d.spellid = plainSpellID
 					end
+					local details = spellTargetDetails(spell)
+					local target = details and details.unitName
+					d.spellDetails = details
+					d.target = target
+					d.overkill = spell.overkillAmount
+					d.avoidable = spell.isAvoidable
+					d.deadly = spell.isDeadly
 					if type(spellName) == "string" then
-						d.label = spellName
+						if type(target) == "string" and not issecretvalue(target) then
+							d.label = spellName .. " - " .. target
+						else
+							d.label = spellName
+						end
 					else
 						d.label = "Spell " .. tostring(nr)
 					end
@@ -486,7 +614,19 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 					d.id = spellID
 
 					local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
-					d.label = spellInfo and spellInfo.name or ("Spell " .. tostring(spellID))
+					local baseName = spellInfo and spellInfo.name or ("Spell " .. tostring(spellID))
+					local details = spellTargetDetails(spell)
+					local target = details and details.unitName
+					d.spellDetails = details
+					d.target = target
+					d.overkill = spell.overkillAmount
+					d.avoidable = spell.isAvoidable
+					d.deadly = spell.isDeadly
+					if type(target) == "string" and not issecretvalue(target) then
+						d.label = baseName .. " - " .. target
+					else
+						d.label = baseName
+					end
 
 					d.value = value
 					if value > max then max = value end
@@ -676,6 +816,14 @@ function ModuleBase:CreatePlayerTooltip(options)
 					end
 					local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
 					local name = spellInfo and spellInfo.name or ("Spell " .. tostring(spellID))
+					local details = s.combatSpellDetails
+					local target
+					if type(details) == "table" and not issecretvalue(details) then
+						target = details.unitName
+					end
+					if type(target) == "string" and not issecretvalue(target) then
+						name = name .. " - " .. target
+					end
 
 					local rawVal = s[spellValueKey]
 					if issecretvalue(rawVal) then
