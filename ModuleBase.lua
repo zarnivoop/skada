@@ -379,13 +379,20 @@ local function spellTargetDetails(spell)
 	return nil
 end
 
-local function spellTargetName(spell, details)
-	local target = details and details.unitName
-	if (target == nil or target == "") then
-		target = spell and spell.creatureName
+local function plainName(value)
+	if type(value) == "string" and not issecretvalue(value) and value ~= "" then
+		return value
 	end
-	if target == "" then target = nil end
-	return target
+	return nil
+end
+
+local function spellTargetName(spell, details)
+	if type(spell) ~= "table" or issecretvalue(spell) then spell = nil end
+	if type(details) ~= "table" or issecretvalue(details) then details = nil end
+	return (details and plainName(details.unitName))
+		or (details and plainName(details.name))
+		or (spell and plainName(spell.unitName))
+		or (spell and plainName(spell.creatureName))
 end
 
 function ModuleBase:CreateSourceTooltip(options)
@@ -450,29 +457,42 @@ function ModuleBase:CreateSpellTooltip()
 	end
 end
 
-function ModuleBase:GetReversePlayerTargets(player, set)
-	if type(player) ~= "table" or issecretvalue(player) then return nil end
-	local playerName = player.name
-	if type(playerName) ~= "string" or issecretvalue(playerName) then return nil end
-	local view = Skada.NativeAPI:GetSessionView(set, 10)
-	if type(view) ~= "table" or issecretvalue(view) then return nil end
-	local sources = view.combatSources
-	if type(sources) ~= "table" or issecretvalue(sources) then return nil end
+--[[
+	Damage done sources only carry combatSpellDetails.unitName for some
+	damage types; for player DamageDone the field is empty. Enemy damage taken
+	sources, on the other hand, keep their own combatSpells collection whose
+	details name the player who dealt the damage. This reverses that mapping so
+	a player's target list can be built after combat.
 
+	The enemy source object is read directly whenever possible. That is the same
+	object the Enemy damage taken bar drills into, so it also works for
+	creature-ID-only sources where a fresh source query can come back empty.
+]]
+local function collectReverseRows(view, playerName)
 	local rows = {}
+	if type(view) ~= "table" or issecretvalue(view) then return rows end
+	local sources = view.combatSources
+	if type(sources) ~= "table" or issecretvalue(sources) then return rows end
 	for _, enemy in ipairs(sources) do
 		if type(enemy) == "table" and not issecretvalue(enemy) then
-			local spells = Skada.NativeAPI:GetPlayerSpells(nil, view, 10, enemy.sourceCreatureID)
+			local spells = Skada.NativeAPI:GetSpellsFromSource(enemy)
+			if type(spells) ~= "table" or issecretvalue(spells) then
+				spells = Skada.NativeAPI:GetPlayerSpells(enemy.sourceGUID, view, 10, enemy.sourceCreatureID)
+			end
 			if type(spells) == "table" and not issecretvalue(spells) then
 				local total = 0
 				for _, spell in ipairs(spells) do
 					local details = spellTargetDetails(spell)
-					if details and details.unitName == playerName then
-						local amount = details.amount
-						if amount == nil or (type(amount) == "number" and amount == 0) then
+					if spellTargetName(spell, details) == playerName then
+						local amount = details and details.amount
+						if issecretvalue(amount) then
+							amount = nil
+						elseif type(amount) ~= "number" or amount == 0 then
 							amount = spell.totalAmount
 						end
-						if type(amount) == "number" then total = total + amount end
+						if type(amount) == "number" and not issecretvalue(amount) then
+							total = total + amount
+						end
 					end
 				end
 				if total > 0 then
@@ -481,6 +501,7 @@ function ModuleBase:GetReversePlayerTargets(player, set)
 						value = total,
 						class = enemy.classFilename,
 						icon = nil,
+						order = #rows + 1,
 					}
 				end
 			end
@@ -489,79 +510,117 @@ function ModuleBase:GetReversePlayerTargets(player, set)
 	return rows
 end
 
+function ModuleBase:GetReversePlayerTargets(player, set)
+	if type(player) ~= "table" or issecretvalue(player) then return nil end
+	local playerName = player.name
+	if type(playerName) ~= "string" or issecretvalue(playerName) or playerName == "" then
+		playerName = player.unitName
+	end
+	if type(playerName) ~= "string" or issecretvalue(playerName) or playerName == "" then
+		return nil
+	end
+
+	local rows = collectReverseRows(Skada.NativeAPI:GetSessionView(set, 10), playerName)
+	if #rows > 0 then return rows end
+
+	-- The selected segment can be Total or a historical session whose
+	-- EnemyDamageTaken view is empty or unavailable. Current and expired
+	-- sessions still carry the same player-to-mob mapping.
+	for _, sessionType in ipairs({1, 2}) do
+		local fallback = Skada.NativeAPI:GetSessionByParams(sessionType, 10)
+		if type(fallback) == "table" and fallback ~= set then
+			rows = collectReverseRows(fallback, playerName)
+			if #rows > 0 then return rows end
+		end
+	end
+	return nil
+end
+
 function ModuleBase:UpdateTargetList(win, playerid, set, damageType, options)
 	options = options or {}
 	local spells = self:GetDrillSpells(win, playerid, set, damageType)
-	if type(spells) ~= "table" or issecretvalue(spells) then
-		showSpellPlaceholder(win, InCombatLockdown() and L["Spell details available after combat"] or L["No target data recorded"])
-		return
-	end
-
 	local rows = {}
 	local map = {}
 	local max = 0
 	local nr = 1
-	for _, spell in ipairs(spells) do
-		local details = spellTargetDetails(spell)
-		if details then
-			local target = details.unitName
-			if target == nil or target == "" then target = details.name end
-			if target == nil or target == "" then target = spell.creatureName end
-			if target == "" then target = nil end
-			local amount = details.amount
-			if amount == nil or (type(amount) == "number" and amount == 0) then
-				amount = spell.totalAmount
-			end
-			if (amount == nil or (type(amount) == "number" and amount == 0))
-				and #spells == 1 and win._drillSource and not issecretvalue(win._drillSource) then
-				amount = win._drillSource.totalAmount
-			end
-			if target ~= nil then
-				local targetClass
-				local rawClass = details.unitClassFilename
-				if type(rawClass) == "string" and not issecretvalue(rawClass) and RAID_CLASS_COLORS[rawClass] then
-					targetClass = rawClass
+
+	local reverseRows
+	local function getReverseRows()
+		if reverseRows == nil then
+			reverseRows = self:GetReversePlayerTargets(win._drillSource, set) or false
+		end
+		return reverseRows or nil
+	end
+
+	if type(spells) ~= "table" or issecretvalue(spells) then
+		rows = getReverseRows() or rows
+		if #rows == 0 then
+			showSpellPlaceholder(win, InCombatLockdown() and L["Spell details available after combat"] or L["No target data recorded"])
+			return
+		end
+		for _, row in ipairs(rows) do
+			if type(row.value) == "number" and row.value > max then max = row.value end
+		end
+	else
+		for _, spell in ipairs(spells) do
+			local details = spellTargetDetails(spell)
+			if details then
+				local target = spellTargetName(spell, details)
+				local amount = details.amount
+				if not issecretvalue(amount) then
+					if amount == nil or (type(amount) == "number" and amount == 0) then
+						amount = spell.totalAmount
+					end
+					if not issecretvalue(amount)
+						and (amount == nil or (type(amount) == "number" and amount == 0))
+						and #spells == 1 and win._drillSource and not issecretvalue(win._drillSource) then
+						amount = win._drillSource.totalAmount
+					end
 				end
-				local targetIcon
-				if type(details.specIconID) == "number" and not issecretvalue(details.specIconID) then
-					targetIcon = details.specIconID
-				end
-				if not issecretvalue(target) and not issecretvalue(amount) and type(amount) == "number" then
-					local row = map[target]
-					if not row then
-						row = {
+				if target ~= nil then
+					local targetClass
+					local rawClass = details.unitClassFilename
+					if type(rawClass) == "string" and not issecretvalue(rawClass) and RAID_CLASS_COLORS[rawClass] then
+						targetClass = rawClass
+					end
+					local targetIcon
+					if type(details.specIconID) == "number" and not issecretvalue(details.specIconID) then
+						targetIcon = details.specIconID
+					end
+					if not issecretvalue(target) and not issecretvalue(amount) and type(amount) == "number" then
+						local row = map[target]
+						if not row then
+							row = {
+								label = target,
+								value = 0,
+								class = targetClass,
+								icon = targetIcon,
+								order = nr,
+							}
+							map[target] = row
+							rows[#rows + 1] = row
+						end
+						row.value = row.value + amount
+						if row.value > max then max = row.value end
+					else
+						rows[#rows + 1] = {
 							label = target,
-							value = 0,
+							value = SecretHelper:GetDisplayValue(amount, nr, #spells),
+							valuetext = Skada:FormatNumberSecret(amount),
 							class = targetClass,
 							icon = targetIcon,
 							order = nr,
 						}
-						map[target] = row
-						rows[#rows + 1] = row
 					end
-					row.value = row.value + amount
-					if row.value > max then max = row.value end
-				else
-					rows[#rows + 1] = {
-						label = target,
-						value = SecretHelper:GetDisplayValue(amount, nr, #spells),
-						valuetext = Skada:FormatNumberSecret(amount),
-						class = targetClass,
-						icon = targetIcon,
-						order = nr,
-					}
+					nr = nr + 1
 				end
-				nr = nr + 1
 			end
 		end
-	end
 
-	if #rows == 0 then
-		local reverseRows = self:GetReversePlayerTargets(win._drillSource, set)
-		if reverseRows then
-			rows = reverseRows
+		if #rows == 0 then
+			rows = getReverseRows() or rows
 			for _, row in ipairs(rows) do
-				if row.value and row.value > max then max = row.value end
+				if type(row.value) == "number" and row.value > max then max = row.value end
 			end
 		end
 	end
@@ -956,44 +1015,37 @@ function ModuleBase:CreatePlayerTooltip(options)
 		end
 
 		-- Target names are useful on their own when the top-spell section is
-		-- empty or when the spell collection is otherwise restricted.
+		-- empty or when the spell collection is otherwise restricted. Player
+		-- DamageDone data has no target names, so fall back to the reverse
+		-- lookup through Enemy damage taken.
+		local names = {}
 		if type(spells) == "table" and not issecretvalue(spells) then
 			local seen = {}
-			local names = {}
 			for _, s in ipairs(spells) do
-				local details = s.combatSpellDetails
-				local target
-				if type(details) == "table" and not issecretvalue(details) then
-					target = spellTargetName(s, details)
-				else
-					target = s.creatureName
-				end
-				if target ~= nil then
-					if not issecretvalue(target) then
-						if not seen[target] then
-							seen[target] = true
-							names[#names + 1] = target
-						end
-					else
+				if type(s) == "table" and not issecretvalue(s) then
+					local details = s.combatSpellDetails
+					local target = spellTargetName(s, details)
+					if target ~= nil and not seen[target] then
+						seen[target] = true
 						names[#names + 1] = target
 					end
 				end
 			end
-			if #names == 0 then
-				local reverseRows = ModuleBase:GetReversePlayerTargets(player, set)
-				if reverseRows then
-					for _, row in ipairs(reverseRows) do
-						names[#names + 1] = row.label
-					end
+		end
+		if #names == 0 then
+			local reverseRows = ModuleBase:GetReversePlayerTargets(player, set)
+			if reverseRows then
+				for _, row in ipairs(reverseRows) do
+					if row.label ~= nil then names[#names + 1] = row.label end
 				end
 			end
-			if #names > 0 then
-				tooltip:AddLine(" ")
-				tooltip:AddLine(L["Targets"])
-				for i = 1, math.min(3, #names) do
-					local ok = pcall(tooltip.AddLine, tooltip, names[i])
-					if not ok then tooltip:AddLine("?") end
-				end
+		end
+		if #names > 0 then
+			tooltip:AddLine(" ")
+			tooltip:AddLine(L["Targets"])
+			for i = 1, math.min(3, #names) do
+				local ok = pcall(tooltip.AddLine, tooltip, names[i])
+				if not ok then tooltip:AddLine("?") end
 			end
 		end
 	end

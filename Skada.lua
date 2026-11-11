@@ -1154,6 +1154,90 @@ function Skada:DumpSpellDiagnostics()
 	end
 end
 
+function Skada:DumpReverseDiagnostics()
+	local windows = self:GetWindows()
+	local win = self._lastActiveWindow
+	if not (win and win.selectedmode and win.selectedmode.playerid ~= nil) then
+		for _, candidate in ipairs(windows) do
+			if candidate.bargroup and candidate.bargroup:IsMouseOver() then
+				win = candidate
+				break
+			end
+		end
+	end
+	if not win then win = windows[1] end
+	if not win then
+		self:Print("Reverse diagnostics: no window")
+		return
+	end
+	self:Print("Reverse diagnostics:")
+	self:Print("  window: " .. tostring(win.db and win.db.name or "?"))
+	local set = win:get_selected_set()
+	self:Print("  set: " .. spellValueKind(set))
+	if type(set) ~= "table" or issecretvalue(set) then return end
+	local player = win._drillSource
+	self:Print("  player source: " .. spellValueKind(player))
+	if type(player) ~= "table" or issecretvalue(player) then
+		self:Print("  no plain player source to match; open a Targets view first")
+		return
+	end
+	local nameKind = spellValueKind(player.name)
+	local nameText = (type(player.name) == "string" and not issecretvalue(player.name)) and (" value=" .. player.name) or ""
+	self:Print("  player name: " .. nameKind .. nameText)
+
+	local function dumpView(tag, view)
+		self:Print("  " .. tag .. " view: " .. spellValueKind(view))
+		if type(view) ~= "table" or issecretvalue(view) then return end
+		local sources = view.combatSources
+		self:Print("    sources: " .. spellValueKind(sources))
+		if type(sources) ~= "table" or issecretvalue(sources) then return end
+		for i = 1, math.min(3, #sources) do
+			local enemy = sources[i]
+			if type(enemy) == "table" and not issecretvalue(enemy) then
+				local direct = self.NativeAPI:GetSpellsFromSource(enemy)
+				local fromSource = direct ~= nil
+				local spells = direct
+				if type(spells) ~= "table" or issecretvalue(spells) then
+					spells = self.NativeAPI:GetPlayerSpells(enemy.sourceGUID, view, 10, enemy.sourceCreatureID)
+				end
+				local count = (type(spells) == "table" and not issecretvalue(spells)) and #spells or -1
+				self:Print("    enemy " .. tostring(i) .. ": name=" .. spellValueKind(enemy.name)
+					.. " creatureID=" .. spellValueKind(enemy.sourceCreatureID)
+					.. " spellsFromSource=" .. tostring(fromSource)
+					.. " spells=" .. tostring(count))
+				if count > 0 then
+					for j = 1, math.min(2, #spells) do
+						local spell = spells[j]
+						if type(spell) == "table" and not issecretvalue(spell) then
+							local details = spell.combatSpellDetails
+							if type(details) == "table" and not issecretvalue(details) then
+								self:Print("      spell " .. tostring(j) .. " unitName=" .. spellValueKind(details.unitName)
+									.. ((type(details.unitName) == "string" and not issecretvalue(details.unitName)) and (" value=" .. details.unitName) or "")
+									.. " amount=" .. spellValueKind(details.amount))
+							else
+								self:Print("      spell " .. tostring(j) .. " details=" .. spellValueKind(details))
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
+	dumpView("selected", self.NativeAPI:GetSessionView(set, 10))
+	dumpView("current", self.NativeAPI:GetSessionByParams(1, 10))
+	dumpView("expired", self.NativeAPI:GetSessionByParams(2, 10))
+
+	local rows = self.ModuleBase:GetReversePlayerTargets(player, set)
+	self:Print("  reverse rows: " .. tostring(type(rows) == "table" and #rows or 0))
+	if type(rows) == "table" then
+		for i = 1, math.min(5, #rows) do
+			local row = rows[i]
+			self:Print("    row " .. tostring(i) .. ": " .. spellValueKind(row.label) .. " value=" .. tostring(row.value))
+		end
+	end
+end
+
 function Skada:DumpAPIDiagnostics()
 	self:Print("Damage meter diagnostics:")
 	if C_DamageMeter then
@@ -1297,6 +1381,10 @@ local function slashHandler(param)
 	end
 	if param == "spells" then
 		Skada:DumpSpellDiagnostics()
+		return
+	end
+	if param == "reverse" then
+		Skada:DumpReverseDiagnostics()
 		return
 	end
 	if param == "clearerrors" then

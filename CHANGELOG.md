@@ -1,5 +1,9 @@
 ## 2.6.4
 Spell detail navigation and empty state
+- Player target views and tooltips now read the enemy source's own `combatSpells` collection, so a player's damaged mobs appear even when a fresh creature-ID source query returns nothing
+- Added `/skada reverse` diagnostics for the player-to-enemy target fallback
+- Player target lookup now falls back to the current and expired Enemy damage taken sessions when the selected segment has none
+- Damage and Healing target rows now show a tooltip with the target and amount
 - Spell detail views now show an explicit message instead of a blank window when combat spell data is unavailable
 - Right-click on the empty bar-group background returns to the previous mode again
 - Title right-click remains the segment menu
