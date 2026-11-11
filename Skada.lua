@@ -1159,7 +1159,20 @@ function Skada:DumpAPIDiagnostics()
 	local viewSet = self.NativeAPI:GetSessionByParams(1, 0)
 	for dtype = 0, 10 do
 		local view = self.NativeAPI:GetSessionView(viewSet, dtype)
-		self:Print("Current type " .. tostring(dtype) .. ": " .. describeSession(view))
+		local line = "Current type " .. tostring(dtype) .. ": " .. describeSession(view)
+		self:Print(line)
+		if type(view) == "table" and not issecretvalue(view) then
+			local sources = view.combatSources
+			if type(sources) == "table" and not issecretvalue(sources) and sources[1] then
+				local src = sources[1]
+				if type(src) == "table" and not issecretvalue(src) then
+					self:Print("  first source name=" .. spellValueKind(src.name)
+						.. " guid=" .. spellValueKind(src.sourceGUID)
+						.. " creatureID=" .. spellValueKind(src.sourceCreatureID)
+						.. " total=" .. spellValueKind(src.totalAmount))
+				end
+			end
+		end
 	end
 	self:Print("Expired(2,0): " .. describeSession(self.NativeAPI:GetSessionByParams(2, 0)))
 	self:Print("Total(0,0): " .. describeSession(self.NativeAPI:GetSessionByParams(0, 0)))
@@ -1195,6 +1208,10 @@ end
 
 function Skada:RecordDisplayError(context, err)
 	local text = tostring(context or "Display") .. ": " .. tostring(err)
+	if _G.debugstack then
+		local stack = _G.debugstack(2, 8, 8)
+		if stack and stack ~= "" then text = text .. " | " .. stack end
+	end
 	if self.db and self.db.profile then
 		self.db.profile.lastError = text
 		self.db.profile.lastErrorTime = time and time() or nil
