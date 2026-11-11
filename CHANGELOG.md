@@ -13,6 +13,7 @@ Spell detail navigation and empty state
 - Session-view queries no longer return the incoming Damage session when the requested type query fails, which could show the player in Enemy damage taken
 - `/skada api` now prints each current damage type view for debugging
 - `/skada spells` now inspects the last-clicked or hovered window instead of always the first window, and prints target dataset values plus first spell details for every non-empty source
+- `/skada clearerrors` clears the saved display error, and the error line now includes its timestamp
 - Targeted views sanitize secret target class/icon values and scale unknown target amounts against the row count
 - Empty `combatSpellDetails.unitName` values fall back to the spell creature name instead of rendering a trailing separator
 - Player hover tooltips now use the hovered bar's source object and local-player GUID fallback, so top spells appear in combat

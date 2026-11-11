@@ -1039,7 +1039,8 @@ end
 
 function Skada:DumpSpellDiagnostics()
 	if self.db and self.db.profile and self.db.profile.lastError then
-		self:Print("Last display error: " .. tostring(self.db.profile.lastError))
+		local when = self.db.profile.lastErrorTime
+		self:Print("Last display error (" .. tostring(when or "?") .. "): " .. tostring(self.db.profile.lastError))
 	end
 	local windows = self:GetWindows()
 	local win = self._lastActiveWindow
@@ -1296,6 +1297,13 @@ local function slashHandler(param)
 	end
 	if param == "spells" then
 		Skada:DumpSpellDiagnostics()
+		return
+	end
+	if param == "clearerrors" then
+		Skada.db.profile.lastError = nil
+		Skada.db.profile.lastErrorTime = nil
+		Skada._displayErrorShown = nil
+		Skada:Print("Display error cleared")
 		return
 	end
 	if param == "summary" then
