@@ -315,6 +315,7 @@ local function BarEnter(bar)
 	win._hoverSource = bar.source
 	win._hoverIsLocalPlayer = bar.isLocalPlayer
 	win._hoverSourceGUID = bar.sourceGUID
+	win._hoverSourceCreatureID = bar.sourceCreatureID
 	win._hoverSpell = bar.spellData
 	ttactive = true
 	Skada:SetTooltipPosition(GameTooltip, win.bargroup)
@@ -326,6 +327,7 @@ local function BarLeave(bar)
 	win._hoverSource = nil
 	win._hoverIsLocalPlayer = nil
 	win._hoverSourceGUID = nil
+	win._hoverSourceCreatureID = nil
 	win._hoverSpell = nil
 	if ttactive then
 		GameTooltip:Hide()

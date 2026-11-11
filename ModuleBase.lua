@@ -1065,32 +1065,6 @@ function ModuleBase:CreatePlayerTooltip(options)
 end
 
 --[[
-	Add only the Targets section to an existing tooltip. Used as a post-tooltip
-	on the main Damage list, whose tooltip is otherwise the spell subview.
-]]
-function ModuleBase:CreateTargetsSectionTooltip(options)
-	options = options or {}
-	return function(win, id, label, tooltip)
-		local set = win:get_selected_set()
-		if type(set) ~= "table" then return end
-		local player = win._hoverSource
-		if type(player) ~= "table" then
-			local view = Skada.NativeAPI:GetSessionView(set, options.damageType or 0)
-			player = Skada:find_player_in_session(view, id) or Skada:find_player(set, id)
-		end
-		if type(player) ~= "table" then return end
-		local names = ModuleBase:GetTargetNames(player, set, options.damageType or 0)
-		if #names == 0 then return end
-		tooltip:AddLine(" ")
-		tooltip:AddLine(L["Targets"])
-		for i = 1, math.min(options.max or 3, #names) do
-			local ok = pcall(tooltip.AddLine, tooltip, names[i])
-			if not ok then tooltip:AddLine("?") end
-		end
-	end
-end
-
---[[
 	Create a simple tooltip handler without top spells
 	
 	@param labelTotal: Label for total line

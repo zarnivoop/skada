@@ -2984,6 +2984,14 @@ function Skada:AddSubviewToTooltip(tooltip, win, mode, id, label)
 	-- Clean dataset.
 	wipe(ttwin.dataset)
 
+	-- Carry the hovered bar's source into the fake window. Without this the
+	-- subview loses the clicked player (for example the Damage targets
+	-- subview cannot run its reverse target lookup and shows its empty state).
+	ttwin._drillSource = win._hoverSource
+	ttwin._drillIsLocalPlayer = win._hoverIsLocalPlayer
+	ttwin._drillSourceGUID = win._hoverSourceGUID
+	ttwin._drillSourceCreatureID = win._hoverSourceCreatureID
+
 	-- Tell mode we are entering our real window.
 	if mode.Enter then
 		mode:Enter(win, id, label)

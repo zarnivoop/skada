@@ -69,22 +69,13 @@ Skada:AddLoadableModule("Damage", nil, function(Skada, L)
 		labelShare = L["Damage share"]
 	})
 
-	local targets_section = ModuleBase:CreateTargetsSectionTooltip({
-		damageType = DAMAGE_TYPE
-	})
-
-	local function main_post_tooltip(win, id, label, tooltip)
-		damage_tooltip(win, id, label, tooltip)
-		targets_section(win, id, label, tooltip)
-	end
-
 	local spell_tooltip = ModuleBase:CreateSpellTooltip()
 	local target_tooltip = ModuleBase:CreateTargetTooltip()
 
 	function mod:OnEnable()
 		playermod.metadata = {tooltip = dps_tooltip, post_tooltip = spell_tooltip}
 		targetsmod.metadata = {tooltip = target_tooltip}
-		mod.metadata = {click1 = playermod, click2 = targetsmod, post_tooltip = main_post_tooltip, showspots = true, columns = {Damage = true, DPS = true, Percent = true}, icon = "Interface\\Icons\\Inv_throwingaxe_01"}
+		mod.metadata = {click1 = playermod, click2 = targetsmod, post_tooltip = damage_tooltip, showspots = true, columns = {Damage = true, DPS = true, Percent = true}, icon = "Interface\\Icons\\Inv_throwingaxe_01"}
 
 		ModuleBase:AddStandardFeeds(L["Damage: Personal DPS"], L["Damage: Raid DPS"], 1, L["DPS"], L["RDPS"])
 		Skada:AddMode(self, L["Damage"])
