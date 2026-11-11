@@ -634,9 +634,19 @@ function ModuleBase:CreatePlayerTooltip(options)
 		tooltip:AddDoubleLine(options.labelDamage, Skada:FormatNumberSecret(rawValue), 1, 1, 1, 1, 1, 1)
 		tooltip:AddDoubleLine(options.labelRate, Skada:FormatNumberSecret(rawRate), 1, 1, 1, 1, 1, 1)
 
-		-- Add top spells (unavailable while the spell collection is secret)
-		local realID = SecretHelper:GetPlayerID(player, id)
-		local spells = Skada.NativeAPI:GetPlayerSpells(realID, view, options.damageType)
+		-- Add top spells. Prefer the source object from the hovered bar; fall
+		-- back to the native query with the local player's plain unit GUID.
+		local spells = win._hoverSource and Skada.NativeAPI:GetSpellsFromSource(win._hoverSource)
+		if spells == nil then
+			local realID
+			if win._hoverIsLocalPlayer then
+				realID = UnitGUID("player")
+			end
+			if type(realID) ~= "string" or issecretvalue(realID) then
+				realID = SecretHelper:GetPlayerID(player, id)
+			end
+			spells = Skada.NativeAPI:GetPlayerSpells(realID, view, options.damageType)
+		end
 		if type(spells) == "table" and not issecretvalue(spells) then
 			local sorted = {}
 			local spellValueKey = options.spellValueKey or "totalAmount"

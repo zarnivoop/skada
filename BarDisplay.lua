@@ -311,13 +311,19 @@ local ttactive = false
 
 local function BarEnter(bar)
 	local win, id, label = bar.win, bar.id, bar.text
+	win._hoverSource = bar.source
+	win._hoverIsLocalPlayer = bar.isLocalPlayer
+	win._hoverSourceGUID = bar.sourceGUID
 	ttactive = true
 	Skada:SetTooltipPosition(GameTooltip, win.bargroup)
 	Skada:ShowTooltip(win, id, label)
 end
 
 local function BarLeave(bar)
-	local win, id, label = bar.win, bar.id, bar.text
+	local win = bar.win
+	win._hoverSource = nil
+	win._hoverIsLocalPlayer = nil
+	win._hoverSourceGUID = nil
 	if ttactive then
 		GameTooltip:Hide()
 		ttactive = false
