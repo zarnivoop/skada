@@ -9,6 +9,7 @@ Skada.versions = {
 			"Added `/skada reverse` diagnostics for the player-to-enemy target fallback",
 			"Player target lookup now falls back to the current and expired Enemy damage taken sessions when the selected segment has none",
 			"Damage and Healing target rows now show a tooltip with the target and amount",
+			"Hovering a damage row now ends its tooltip with a Targets section listing the damaged mobs, even though player DamageDone spell details have no target names",
 			"Spell detail views now show an explicit message instead of a blank window when combat spell data is unavailable",
 			"Right-click on the empty bar-group background returns to the previous mode again",
 			"Title right-click remains the segment menu",

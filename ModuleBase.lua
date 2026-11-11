@@ -536,6 +536,40 @@ function ModuleBase:GetReversePlayerTargets(player, set)
 	return nil
 end
 
+--[[
+	Collect plain target names for a player source. Direct spell details are
+	preferred; player DamageDone has none, so the reverse enemy lookup fills in.
+]]
+function ModuleBase:GetTargetNames(player, set, damageType)
+	local names, seen = {}, {}
+	local function add(value)
+		if type(value) == "string" and not issecretvalue(value) and value ~= "" and not seen[value] then
+			seen[value] = true
+			names[#names + 1] = value
+		end
+	end
+	if type(player) ~= "table" or issecretvalue(player) then return names end
+
+	local spells = Skada.NativeAPI:GetSpellsFromSource(player)
+	if type(spells) ~= "table" or issecretvalue(spells) then
+		spells = Skada.NativeAPI:GetPlayerSpells(player.sourceGUID, set, damageType)
+	end
+	if type(spells) == "table" and not issecretvalue(spells) then
+		for _, spell in ipairs(spells) do
+			if type(spell) == "table" and not issecretvalue(spell) then
+				add(spellTargetName(spell, spell.combatSpellDetails))
+			end
+		end
+	end
+	if #names == 0 then
+		local rows = self:GetReversePlayerTargets(player, set)
+		if rows then
+			for _, row in ipairs(rows) do add(row.label) end
+		end
+	end
+	return names
+end
+
 function ModuleBase:UpdateTargetList(win, playerid, set, damageType, options)
 	options = options or {}
 	local spells = self:GetDrillSpells(win, playerid, set, damageType)
@@ -1016,30 +1050,9 @@ function ModuleBase:CreatePlayerTooltip(options)
 
 		-- Target names are useful on their own when the top-spell section is
 		-- empty or when the spell collection is otherwise restricted. Player
-		-- DamageDone data has no target names, so fall back to the reverse
-		-- lookup through Enemy damage taken.
-		local names = {}
-		if type(spells) == "table" and not issecretvalue(spells) then
-			local seen = {}
-			for _, s in ipairs(spells) do
-				if type(s) == "table" and not issecretvalue(s) then
-					local details = s.combatSpellDetails
-					local target = spellTargetName(s, details)
-					if target ~= nil and not seen[target] then
-						seen[target] = true
-						names[#names + 1] = target
-					end
-				end
-			end
-		end
-		if #names == 0 then
-			local reverseRows = ModuleBase:GetReversePlayerTargets(player, set)
-			if reverseRows then
-				for _, row in ipairs(reverseRows) do
-					if row.label ~= nil then names[#names + 1] = row.label end
-				end
-			end
-		end
+		-- DamageDone data has no target names, so the helper falls back to the
+		-- reverse lookup through Enemy damage taken.
+		local names = ModuleBase:GetTargetNames(player, set, options.damageType)
 		if #names > 0 then
 			tooltip:AddLine(" ")
 			tooltip:AddLine(L["Targets"])
@@ -1047,6 +1060,32 @@ function ModuleBase:CreatePlayerTooltip(options)
 				local ok = pcall(tooltip.AddLine, tooltip, names[i])
 				if not ok then tooltip:AddLine("?") end
 			end
+		end
+	end
+end
+
+--[[
+	Add only the Targets section to an existing tooltip. Used as a post-tooltip
+	on the main Damage list, whose tooltip is otherwise the spell subview.
+]]
+function ModuleBase:CreateTargetsSectionTooltip(options)
+	options = options or {}
+	return function(win, id, label, tooltip)
+		local set = win:get_selected_set()
+		if type(set) ~= "table" then return end
+		local player = win._hoverSource
+		if type(player) ~= "table" then
+			local view = Skada.NativeAPI:GetSessionView(set, options.damageType or 0)
+			player = Skada:find_player_in_session(view, id) or Skada:find_player(set, id)
+		end
+		if type(player) ~= "table" then return end
+		local names = ModuleBase:GetTargetNames(player, set, options.damageType or 0)
+		if #names == 0 then return end
+		tooltip:AddLine(" ")
+		tooltip:AddLine(L["Targets"])
+		for i = 1, math.min(options.max or 3, #names) do
+			local ok = pcall(tooltip.AddLine, tooltip, names[i])
+			if not ok then tooltip:AddLine("?") end
 		end
 	end
 end
