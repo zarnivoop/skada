@@ -1156,6 +1156,11 @@ function Skada:DumpAPIDiagnostics()
 		self:Print("  " .. tostring(id) .. " - " .. tostring(name or "?"))
 	end
 	self:Print("Current(1,0): " .. describeSession(self.NativeAPI:GetSessionByParams(1, 0)))
+	local viewSet = self.NativeAPI:GetSessionByParams(1, 0)
+	for dtype = 0, 10 do
+		local view = self.NativeAPI:GetSessionView(viewSet, dtype)
+		self:Print("Current type " .. tostring(dtype) .. ": " .. describeSession(view))
+	end
 	self:Print("Expired(2,0): " .. describeSession(self.NativeAPI:GetSessionByParams(2, 0)))
 	self:Print("Total(0,0): " .. describeSession(self.NativeAPI:GetSessionByParams(0, 0)))
 	self:Print("Last current snapshot: " .. describeSession(self.NativeAPI.lastCurrentSession))

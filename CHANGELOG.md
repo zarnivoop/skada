@@ -10,6 +10,8 @@ Spell detail navigation and empty state
 - `/skada spells` now dumps the first spell detail keys and the last recorded display error
 - Shift-clicking a player opens a Targets view built from `combatSpellDetails.unitName`; clicking an enemy in Enemy damage taken lists its player contributors
 - Damage-meter type lookups now use `Enum.DamageMeterType` when available, including session views for Enemy damage taken
+- Session-view queries no longer return the incoming Damage session when the requested type query fails, which could show the player in Enemy damage taken
+- `/skada api` now prints each current damage type view for debugging
 - Targeted views sanitize secret target class/icon values and scale unknown target amounts against the row count
 - Empty `combatSpellDetails.unitName` values fall back to the spell creature name instead of rendering a trailing separator
 - Player hover tooltips now use the hovered bar's source object and local-player GUID fallback, so top spells appear in combat

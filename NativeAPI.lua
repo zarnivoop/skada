@@ -321,7 +321,7 @@ function NativeAPI:GetSessionView(set, damageType)
 		end
 	end
 
-	if not cache.available then return set end
+	if not cache.available then return nil end
 
 	local cacheKey
 	if sessionID then
@@ -344,9 +344,12 @@ function NativeAPI:GetSessionView(set, damageType)
 	-- such as EnemyDamageTaken. Historical sessions still prefer their ID.
 	local resolvedDamageType = self:ResolveDamageMeterType(damageType)
 	local preferType = not sessionID or not sessionType or (not issecretvalue(sessionType) and sessionType <= 1)
-	local result = nil
-	local tryType = function()
-		local ok, value = pcall(C_DamageMeter.GetCombatSessionFromType, sessionType, resolvedDamageType)
+	local result
+	local triedTypes = {}
+	local tryType = function(candidate)
+		if candidate == nil or triedTypes[candidate] then return end
+		triedTypes[candidate] = true
+		local ok, value = pcall(C_DamageMeter.GetCombatSessionFromType, candidate, resolvedDamageType)
 		if ok and type(value) == "table" then result = value end
 	end
 	local tryID = function()
@@ -355,11 +358,17 @@ function NativeAPI:GetSessionView(set, damageType)
 		if ok and type(value) == "table" then result = value end
 	end
 	if preferType then
-		tryType()
+		tryType(sessionType)
 		if not result then tryID() end
 	else
 		tryID()
-		if not result then tryType() end
+		if not result then tryType(sessionType) end
+	end
+	if not result then
+		for _, candidate in ipairs({1, 0, 2}) do
+			tryType(candidate)
+			if result then break end
+		end
 	end
 
 	if type(result) == "table" then
@@ -375,7 +384,7 @@ function NativeAPI:GetSessionView(set, damageType)
 	end
 
 	cache.results[cacheKey] = {value = false, expires = now + cache.ttl}
-	return set
+	return nil
 end
 
 function NativeAPI:GetSessionDurationSeconds(sessionType)
