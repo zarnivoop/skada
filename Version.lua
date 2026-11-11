@@ -10,6 +10,7 @@ Skada.versions = {
 			"Title right-click remains the segment menu",
 			"Spell detail now carries the native source object from the clicked bar, so combat details work even when the source GUID is secret",
 			"Local-player spell details fall back to `UnitGUID(\"player\")`, matching Details and avoiding the secret source GUID",
+			"Current-session spell lookup prefers `GetCombatSessionSourceFromType` and falls back to the ID query, matching Details' native path",
 			"Added `/skada spells` diagnostics for the selected spell detail source and secret-value shape during combat, including direct source fields",
 			"Spell detail now recognizes additional native spell collection field names and falls back to any table whose first entry has a spell ID",
 			"`/skada api` now lists the available `C_DamageMeter` functions for spell-accessor discovery",

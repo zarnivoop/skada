@@ -194,15 +194,31 @@ function NativeAPI:GetSessionSource(sourceGUID, set, damageType, sourceCreatureI
 		end
 	end
 
-	-- 3. Query by session ID when we have one (historical pulls), otherwise by type.
-	local success, result
-	if sessionID then
-		success, result = pcall(C_DamageMeter.GetCombatSessionSourceFromID, sessionID, damageType, sourceGUID, sourceCreatureID)
-	else
-		success, result = pcall(C_DamageMeter.GetCombatSessionSourceFromType, sessionType, damageType, sourceGUID, sourceCreatureID)
+	-- 3. Current and total sessions should use the type query, matching
+	-- Details. Session-ID queries can fail when the source GUID is secret even
+	-- though the equivalent type query succeeds. Historical sessions still
+	-- prefer their ID.
+	local result
+	local preferType = not sessionID or not sessionType or (not issecretvalue(sessionType) and sessionType <= 1)
+	local tryType = function()
+		local ok, value = pcall(C_DamageMeter.GetCombatSessionSourceFromType, sessionType, damageType, sourceGUID, sourceCreatureID)
+		if ok and type(value) == "table" then result = value end
+	end
+	local tryID = function()
+		if not sessionID then return end
+		local ok, value = pcall(C_DamageMeter.GetCombatSessionSourceFromID, sessionID, damageType, sourceGUID, sourceCreatureID)
+		if ok and type(value) == "table" then result = value end
 	end
 
-	if success and type(result) == "table" then
+	if preferType then
+		tryType()
+		if not result then tryID() end
+	else
+		tryID()
+		if not result then tryType() end
+	end
+
+	if result then
 		if not isSecret then
 			cache.results[cacheKey] = {value = result, expires = now + cache.ttl}
 		end
