@@ -994,6 +994,76 @@ function Skada:DumpDeathsDiagnostics()
 	end
 end
 
+local function spellValueKind(value)
+	if value == nil then return "nil" end
+	if issecretvalue(value) then return "secret" end
+	return type(value)
+end
+
+function Skada:DumpSpellDiagnostics()
+	local win = self:GetWindows()[1]
+	if not win then
+		self:Print("Spell diagnostics: no window")
+		return
+	end
+	local set = win:get_selected_set()
+	local mode = win.selectedmode
+	local playerID = mode and mode.playerid
+	self:Print("Spell diagnostics:")
+	self:Print("  window set: " .. tostring(win.selectedset))
+	self:Print("  resolved set: " .. spellValueKind(set))
+	if set == nil then return end
+	if issecretvalue(set) then
+		self:Print("  set is secret; cannot inspect session")
+		return
+	end
+	self:Print("  mode: " .. (mode and tostring(mode:GetName()) or "none"))
+	self:Print("  detail player id: " .. spellValueKind(playerID))
+	if playerID ~= nil and not issecretvalue(playerID) then
+		self:Print("  detail player: " .. tostring(playerID))
+	end
+	self:Print("  drill GUID: " .. spellValueKind(win._drillSourceGUID))
+	self:Print("  drill creature ID: " .. spellValueKind(win._drillSourceCreatureID))
+
+	local fields = { "combatSpells", "spells", "abilities", "damageSpells", "healingSpells", "combatSpellDetails" }
+	local found = false
+	for damageType = 0, 10 do
+		local ok, source = pcall(self.NativeAPI.GetSessionSource, self.NativeAPI, win._drillSourceGUID, set, damageType, win._drillSourceCreatureID)
+		if ok and source ~= nil then
+			found = true
+			self:Print("  source type " .. tostring(damageType) .. ": " .. spellValueKind(source))
+			if issecretvalue(source) then
+				self:Print("    source is secret; spell fields cannot be inspected")
+			else
+				for _, field in ipairs(fields) do
+					local okField, value = pcall(function() return source[field] end)
+					if okField and value ~= nil then
+						local kind = spellValueKind(value)
+						local line = "    " .. field .. ": " .. kind
+						if kind == "table" then
+							local okCount, count = pcall(function() return #value end)
+							if okCount then line = line .. " count=" .. tostring(count) end
+							local okKeys, keys = pcall(function()
+								local out = {}
+								for key, item in pairs(value) do
+									if #out >= 8 then break end
+									out[#out + 1] = tostring(key) .. ":" .. spellValueKind(item)
+								end
+								return out
+							end)
+							if okKeys and #keys > 0 then line = line .. " first={" .. table.concat(keys, ", ") .. "}" end
+						end
+						self:Print(line)
+					end
+				end
+			end
+		end
+	end
+	if not found then
+		self:Print("  no source found for the drill GUID or selected player")
+	end
+end
+
 function Skada:DumpAPIDiagnostics()
 	self:Print("Damage meter diagnostics:")
 	if C_DamageMeter and C_DamageMeter.IsDamageMeterAvailable then
@@ -1092,6 +1162,10 @@ local function slashHandler(param)
 	end
 	if param == "deaths" then
 		Skada:DumpDeathsDiagnostics()
+		return
+	end
+	if param == "spells" then
+		Skada:DumpSpellDiagnostics()
 		return
 	end
 	if param == "summary" then
