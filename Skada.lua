@@ -1039,7 +1039,6 @@ function Skada:DumpSpellDiagnostics()
 		local count = 0
 		for key, value in pairs(win._drillSource) do
 			count = count + 1
-			if count > 20 then break end
 			self:Print("    " .. tostring(key) .. ": " .. spellValueKind(value))
 		end
 	end
@@ -1085,6 +1084,16 @@ end
 
 function Skada:DumpAPIDiagnostics()
 	self:Print("Damage meter diagnostics:")
+	if C_DamageMeter then
+		local functions = {}
+		for key, value in pairs(C_DamageMeter) do
+			if type(value) == "function" then
+				functions[#functions + 1] = tostring(key)
+			end
+		end
+		table.sort(functions)
+		self:Print("C_DamageMeter functions: " .. table.concat(functions, ", "))
+	end
 	if C_DamageMeter and C_DamageMeter.IsDamageMeterAvailable then
 		local ok, available, reason = pcall(C_DamageMeter.IsDamageMeterAvailable)
 		self:Print("API available: " .. (ok and tostring(available) or "error") .. (reason and (" - " .. tostring(reason)) or ""))
