@@ -432,7 +432,10 @@ local function ExtractSpellsFromSource(source)
 	if type(source) ~= "table" then return nil end
 
 	-- Try to find spells in various possible locations
-	local spellFields = {"combatSpells", "spells", "abilities", "damageSpells", "healingSpells"}
+	local spellFields = {
+		"combatSpells", "combatSpellDetails", "spellDetails", "spellData",
+		"spells", "abilities", "damageSpells", "healingSpells", "damageAbilities", "healingAbilities",
+	}
 	for _, field in ipairs(spellFields) do
 		local val = source[field]
 		if issecretvalue(val) then
@@ -460,6 +463,19 @@ local function ExtractSpellsFromSource(source)
 
 	if itemCount > 0 then
 		return source
+	end
+
+	-- Native source layouts have changed between builds. If a plain table
+	-- contains a per-spell collection under an unexpected name, accept it when
+	-- its first entry has a spell identifier.
+	for _, value in pairs(source) do
+		if type(value) == "table" and not issecretvalue(value) then
+			local first = value[1]
+			if type(first) == "table" and not issecretvalue(first)
+				and (first.spellID or first.abilityID) then
+				return value
+			end
+		end
 	end
 
 	return nil

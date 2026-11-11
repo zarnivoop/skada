@@ -9,7 +9,8 @@ Skada.versions = {
 			"Right-click on the empty bar-group background returns to the previous mode again",
 			"Title right-click remains the segment menu",
 			"Spell detail now carries the native source object from the clicked bar, so combat details work even when the source GUID is secret",
-			"Added `/skada spells` diagnostics for the selected spell detail source and secret-value shape during combat",
+			"Added `/skada spells` diagnostics for the selected spell detail source and secret-value shape during combat, including direct source fields",
+			"Spell detail now recognizes additional native spell collection field names and falls back to any table whose first entry has a spell ID",
 		}
 	},
 	{

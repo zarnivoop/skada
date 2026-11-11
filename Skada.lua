@@ -1034,6 +1034,15 @@ function Skada:DumpSpellDiagnostics()
 	self:Print("  drill source: " .. spellValueKind(win._drillSource))
 	self:Print("  drill GUID: " .. spellValueKind(win._drillSourceGUID))
 	self:Print("  drill creature ID: " .. spellValueKind(win._drillSourceCreatureID))
+	if type(win._drillSource) == "table" and not issecretvalue(win._drillSource) then
+		self:Print("  direct source fields:")
+		local count = 0
+		for key, value in pairs(win._drillSource) do
+			count = count + 1
+			if count > 20 then break end
+			self:Print("    " .. tostring(key) .. ": " .. spellValueKind(value))
+		end
+	end
 
 	local fields = { "combatSpells", "spells", "abilities", "damageSpells", "healingSpells", "combatSpellDetails" }
 	local found = false
