@@ -379,6 +379,15 @@ local function spellTargetDetails(spell)
 	return nil
 end
 
+local function spellTargetName(spell, details)
+	local target = details and details.unitName
+	if (target == nil or target == "") then
+		target = spell and spell.creatureName
+	end
+	if target == "" then target = nil end
+	return target
+end
+
 function ModuleBase:CreateSpellTooltip()
 	return function(win, id, label, tooltip)
 		local data = win._hoverSpell
@@ -420,7 +429,8 @@ function ModuleBase:UpdateTargetList(win, playerid, set, damageType, options)
 		local details = spellTargetDetails(spell)
 		if details then
 			local target = details.unitName
-			if target == nil then target = details.name end
+			if target == nil or target == "" then target = details.name end
+			if target == nil or target == "" then target = spell.creatureName end
 			if target == "" then target = nil end
 			local amount = details.amount
 			if amount == nil then amount = spell.totalAmount end
@@ -585,14 +595,14 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 						d.spellid = plainSpellID
 					end
 					local details = spellTargetDetails(spell)
-					local target = details and details.unitName
+					local target = spellTargetName(spell, details)
 					d.spellDetails = details
 					d.target = target
 					d.overkill = spell.overkillAmount
 					d.avoidable = spell.isAvoidable
 					d.deadly = spell.isDeadly
 					if type(spellName) == "string" then
-						if type(target) == "string" and not issecretvalue(target) then
+						if type(target) == "string" and not issecretvalue(target) and target ~= "" then
 							d.label = spellName .. " - " .. target
 						else
 							d.label = spellName
@@ -603,7 +613,8 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 
 					d.value = SecretHelper:GetDisplayValue(rawValue, nr, #spells)
 					d.valuetext = Skada:FormatNumberSecret(rawValue)
-					d.icon = Skada:GetSpellIcon(rawSpellID)
+					local icon = Skada:GetSpellIcon(rawSpellID)
+					if icon ~= nil and not issecretvalue(icon) then d.icon = icon end
 					nr = nr + 1
 				end
 			end
@@ -627,13 +638,13 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 					local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
 					local baseName = spellInfo and spellInfo.name or ("Spell " .. tostring(spellID))
 					local details = spellTargetDetails(spell)
-					local target = details and details.unitName
+					local target = spellTargetName(spell, details)
 					d.spellDetails = details
 					d.target = target
 					d.overkill = spell.overkillAmount
 					d.avoidable = spell.isAvoidable
 					d.deadly = spell.isDeadly
-					if type(target) == "string" and not issecretvalue(target) then
+					if type(target) == "string" and not issecretvalue(target) and target ~= "" then
 						d.label = baseName .. " - " .. target
 					else
 						d.label = baseName
@@ -830,9 +841,11 @@ function ModuleBase:CreatePlayerTooltip(options)
 					local details = s.combatSpellDetails
 					local target
 					if type(details) == "table" and not issecretvalue(details) then
-						target = details.unitName
+						target = spellTargetName(s, details)
+					else
+						target = s.creatureName
 					end
-					if type(target) == "string" and not issecretvalue(target) then
+					if type(target) == "string" and not issecretvalue(target) and target ~= "" then
 						name = name .. " - " .. target
 					end
 
@@ -858,7 +871,9 @@ function ModuleBase:CreatePlayerTooltip(options)
 				local details = s.combatSpellDetails
 				local target
 				if type(details) == "table" and not issecretvalue(details) then
-					target = details.unitName
+					target = spellTargetName(s, details)
+				else
+					target = s.creatureName
 				end
 				if target ~= nil then
 					if not issecretvalue(target) then

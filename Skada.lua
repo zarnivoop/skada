@@ -1072,6 +1072,7 @@ function Skada:DumpSpellDiagnostics()
 
 	local fields = { "combatSpells", "spells", "abilities", "damageSpells", "healingSpells", "combatSpellDetails" }
 	local found = false
+	local dumpedDetails = false
 	for damageType = 0, 10 do
 		local ok, source = pcall(self.NativeAPI.GetSessionSource, self.NativeAPI, win._drillSourceGUID, set, damageType, win._drillSourceCreatureID)
 		if ok and source ~= nil then
@@ -1080,8 +1081,9 @@ function Skada:DumpSpellDiagnostics()
 			if issecretvalue(source) then
 				self:Print("    source is secret; spell fields cannot be inspected")
 			else
-				if not found then
+				if not dumpedDetails then
 					dumpSpellDetails(source, "type " .. tostring(damageType), function(line) self:Print(line) end)
+					dumpedDetails = true
 				end
 				for _, field in ipairs(fields) do
 					local okField, value = pcall(function() return source[field] end)
