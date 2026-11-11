@@ -404,10 +404,10 @@ function ModuleBase:CreateSpellTooltip()
 			local ok = pcall(tooltip.AddDoubleLine, tooltip, L["Overkill"], Skada:FormatNumberSecret(overkill), 1, 1, 1, 1, 1, 1)
 			if not ok then tooltip:AddLine(L["Overkill"]) end
 		end
-		if data.avoidable then
+		if data.avoidable ~= nil and not issecretvalue(data.avoidable) and data.avoidable then
 			tooltip:AddLine(L["Avoidable damage"], 1, 0.4, 0.4)
 		end
-		if data.deadly then
+		if data.deadly ~= nil and not issecretvalue(data.deadly) and data.deadly then
 			tooltip:AddLine(L["Deadly"], 1, 0.2, 0.2)
 		end
 	end
