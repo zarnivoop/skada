@@ -1026,7 +1026,13 @@ local function dumpSpellDetails(source, tag, printFn)
 	printFn("  " .. tag .. " first spell details: " .. spellValueKind(details))
 	if type(details) == "table" and not issecretvalue(details) then
 		for key, value in pairs(details) do
-			printFn("    " .. tostring(key) .. ": " .. spellValueKind(value))
+			local line = "    " .. tostring(key) .. ": " .. spellValueKind(value)
+			if type(value) == "number" and not issecretvalue(value) then
+				line = line .. " value=" .. tostring(value)
+			elseif type(value) == "string" and not issecretvalue(value) then
+				line = line .. " value=" .. value
+			end
+			printFn(line)
 		end
 	end
 end

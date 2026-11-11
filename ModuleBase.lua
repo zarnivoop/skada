@@ -433,7 +433,13 @@ function ModuleBase:UpdateTargetList(win, playerid, set, damageType, options)
 			if target == nil or target == "" then target = spell.creatureName end
 			if target == "" then target = nil end
 			local amount = details.amount
-			if amount == nil then amount = spell.totalAmount end
+			if amount == nil or (type(amount) == "number" and amount == 0) then
+				amount = spell.totalAmount
+			end
+			if (amount == nil or (type(amount) == "number" and amount == 0))
+				and #spells == 1 and win._drillSource and not issecretvalue(win._drillSource) then
+				amount = win._drillSource.totalAmount
+			end
 			if target ~= nil then
 				local targetClass
 				local rawClass = details.unitClassFilename
