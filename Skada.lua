@@ -1115,6 +1115,14 @@ end
 function Skada:DumpAPIDiagnostics()
 	self:Print("Damage meter diagnostics:")
 	if C_DamageMeter then
+		if Enum and Enum.DamageMeterType then
+			local enumValues = {}
+			for key, value in pairs(Enum.DamageMeterType) do
+				enumValues[#enumValues + 1] = tostring(key) .. "=" .. tostring(value)
+			end
+			table.sort(enumValues)
+			self:Print("DamageMeterType: " .. table.concat(enumValues, ", "))
+		end
 		local functions = {}
 		for key, value in pairs(C_DamageMeter) do
 			if type(value) == "function" then
