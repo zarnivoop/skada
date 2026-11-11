@@ -1,4 +1,5 @@
 ## 2.6.4
+- Spell detail views and their tooltip previews now fall back to a fresh native source query when the carried source exposes a restricted spell collection, instead of showing the after-combat placeholder
 - Fixed a secret-value crash in the top-spells tooltip: restricted spell IDs are resolved through `C_Spell.GetSpellName` via `pcall` and the resulting secret name is passed straight to the tooltip, so combat rows keep their real spell names
 Spell detail navigation and empty state
 - Player target views and tooltips now read the enemy source's own `combatSpells` collection, so a player's damaged mobs appear even when a fresh creature-ID source query returns nothing

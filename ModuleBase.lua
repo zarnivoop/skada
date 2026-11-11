@@ -340,11 +340,14 @@ function ModuleBase:GetDrillSpells(win, playerid, set, damageType)
 			sourceCreatureID = nil
 		end
 	end
-	local spells
 	if type(source) == "table" and not issecretvalue(source) then
-		spells = Skada.NativeAPI:GetSpellsFromSource(source)
+		local direct = Skada.NativeAPI:GetSpellsFromSource(source)
+		-- A restricted collection cannot be read. Fall through to a fresh
+		-- source query, which can still return plain spell data in combat.
+		if type(direct) == "table" and not issecretvalue(direct) then
+			return direct
+		end
 	end
-	if spells ~= nil then return spells end
 
 	local hasDirectSource = type(sourceGUID) ~= "nil" or type(sourceCreatureID) ~= "nil"
 	local view = Skada.NativeAPI:GetSessionView(set, damageType)
