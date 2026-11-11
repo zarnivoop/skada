@@ -1,33 +1,32 @@
 ## 2.6.4
-- The Targets placeholder during combat now says "Targets available after combat" instead of using the spell wording
-- Spell detail views and their tooltip previews now fall back to a fresh native source query when the carried source exposes a restricted spell collection, instead of showing the after-combat placeholder
-- Fixed a secret-value crash in the top-spells tooltip: restricted spell IDs are resolved through `C_Spell.GetSpellName` via `pcall` and the resulting secret name is passed straight to the tooltip, so combat rows keep their real spell names
-Spell detail navigation and empty state
+Target data, tooltips, and secret spell names
 - Player target views and tooltips now read the enemy source's own `combatSpells` collection, so a player's damaged mobs appear even when a fresh creature-ID source query returns nothing
-- Added `/skada reverse` diagnostics for the player-to-enemy target fallback
 - Player target lookup now falls back to the current and expired Enemy damage taken sessions when the selected segment has none
-- Damage and Healing target rows now show a tooltip with the target and amount
 - Row tooltips now carry the hovered bar's source into the click previews, so the Targets preview shows the damaged mobs instead of its empty state
-- Spell detail views now show an explicit message instead of a blank window when combat spell data is unavailable
-- Right-click on the empty bar-group background returns to the previous mode again
-- Title right-click remains the segment menu
-- Spell detail now carries the native source object from the clicked bar, so combat details work even when the source GUID is secret
-- Local-player spell details fall back to `UnitGUID("player")`, matching Details and avoiding the secret source GUID
-- Current-session spell and session views prefer `GetCombatSessionSourceFromType`/`GetCombatSessionFromType` and fall back to the ID query, matching Details' native path
-- Spell rows and tooltips show the target, overkill, avoidable, and deadly metadata exposed by `combatSpellDetails`; secret boolean markers are guarded before testing
-- `/skada spells` now dumps the first spell detail keys and the last recorded display error
+- Damage and Healing target rows now show a tooltip with the target and amount
 - Shift-clicking a player opens a Targets view built from `combatSpellDetails.unitName`; clicking an enemy in Enemy damage taken lists its player contributors
-- Damage-meter type lookups now use `Enum.DamageMeterType` when available, including session views for Enemy damage taken
-- Session-view queries no longer return the incoming Damage session when the requested type query fails, which could show the player in Enemy damage taken
-- `/skada api` now prints each current damage type view for debugging
-- `/skada spells` now inspects the last-clicked or hovered window instead of always the first window, and prints target dataset values plus first spell details for every non-empty source
-- `/skada clearerrors` clears the saved display error, and the error line now includes its timestamp
 - Targeted views sanitize secret target class/icon values and scale unknown target amounts against the row count
 - Empty `combatSpellDetails.unitName` values fall back to the spell creature name instead of rendering a trailing separator
+- The Targets placeholder during combat now says "Targets available after combat" instead of using the spell wording
+- Added `/skada reverse` diagnostics for the player-to-enemy target fallback
+- Spell detail views and their tooltip previews now fall back to a fresh native source query when the carried source exposes a restricted spell collection, instead of showing the after-combat placeholder
+- Fixed a secret-value crash in the top-spells tooltip: restricted spell IDs are resolved through `C_Spell.GetSpellName` via `pcall` and the resulting secret name is passed straight to the tooltip, so combat rows keep their real spell names
+- Spell detail views now show an explicit message instead of a blank window when combat spell data is unavailable
+- Spell detail now carries the native source object from the clicked bar, so combat details work even when the source GUID is secret
+- Local-player spell details fall back to `UnitGUID("player")`, matching Details and avoiding the secret source GUID
 - Player hover tooltips now use the hovered bar's source object and local-player GUID fallback, so top spells appear in combat
-- Added `/skada spells` diagnostics for the selected spell detail source and secret-value shape during combat, including direct source fields
+- Spell rows and tooltips show the target, overkill, avoidable, and deadly metadata exposed by `combatSpellDetails`; secret boolean markers are guarded before testing
 - Spell detail now recognizes additional native spell collection field names and falls back to any table whose first entry has a spell ID
+- Current-session spell and session views prefer `GetCombatSessionSourceFromType`/`GetCombatSessionFromType` and fall back to the ID query, matching Details' native path
+- Damage-meter type lookups now use `Enum.DamageMeterType` when available, including session views for Enemy damage taken
+- Session-view queries no longer return the incoming Damage session when the requested type query fails, which could show the player in Enemy damage taken
+- Right-click on the empty bar-group background returns to the previous mode again
+- Title right-click remains the segment menu
+- `/skada spells` now inspects the last-clicked or hovered window instead of always the first window, and prints target dataset values plus first spell details for every non-empty source
+- `/skada spells` now dumps the first spell detail keys and the last recorded display error
+- `/skada api` now prints each current damage type view for debugging
 - `/skada api` now lists the available `C_DamageMeter` functions for spell-accessor discovery
+- `/skada clearerrors` clears the saved display error, and the error line now includes its timestamp
 
 ## 2.6.3
 Optional row animation
