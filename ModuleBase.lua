@@ -365,6 +365,27 @@ function ModuleBase:GetDrillSpells(win, playerid, set, damageType)
 	return Skada.NativeAPI:GetPlayerSpells(realID, view or set, damageType, sourceCreatureID)
 end
 
+-- Resolve a spell name without comparing or indexing a secret spell ID.
+local function spellNameFromID(spellID)
+	if type(spellID) ~= "number" then return nil end
+	local info
+	if issecretvalue(spellID) then
+		local ok, result = pcall(function() return C_Spell.GetSpellInfo(spellID) end)
+		if ok and type(result) == "table" and not issecretvalue(result) then
+			info = result
+		end
+	elseif spellID > 0 then
+		info = C_Spell.GetSpellInfo(spellID)
+	end
+	if type(info) == "table" and not issecretvalue(info) then
+		local name = info.name
+		if type(name) == "string" and not issecretvalue(name) then
+			return name
+		end
+	end
+	return nil
+end
+
 local function spellTargetDetails(spell)
 	if type(spell) ~= "table" or issecretvalue(spell) then return nil end
 	local details = spell.combatSpellDetails
@@ -765,17 +786,8 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 					d.id = "spell_" .. nr
 					d.spellid = nil
 
-					local spellName
-					if secretSpellID then
-						local ok, name = pcall(function() return C_Spell.GetSpellName(rawSpellID) end)
-						if ok and type(name) == "string" then spellName = name end
-						local okInfo, info = pcall(function() return C_Spell.GetSpellInfo(rawSpellID) end)
-						if type(spellName) ~= "string" and okInfo and type(info) == "table" then
-							spellName = info.name
-						end
-					elseif plainSpellID and plainSpellID > 0 then
-						local info = C_Spell.GetSpellInfo(plainSpellID)
-						spellName = info and info.name
+					local spellName = spellNameFromID(rawSpellID)
+					if not secretSpellID and plainSpellID and plainSpellID > 0 then
 						d.id = plainSpellID
 						d.spellid = plainSpellID
 					end
@@ -812,16 +824,21 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 				local value = tonumber(spell[valueKey]) or 0
 				if value ~= 0 then
 					local spellID = 0
+					local spellIDIsSecret = false
 					if type(spell.spellID) == "number" then
-						spellID = spell.spellID
+						if issecretvalue(spell.spellID) then
+							spellIDIsSecret = true
+						else
+							spellID = spell.spellID
+						end
 					end
 
 					local d = self:ReuseDatasetEntry(win.dataset, nr)
 					d._is_nodata = nil
 					d.id = spellID
 
-					local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
-					local baseName = spellInfo and spellInfo.name or ("Spell " .. tostring(spellID))
+					local baseName = spellNameFromID(spellID)
+						or (spellIDIsSecret and L["Spell"] or ("Spell " .. tostring(spellID)))
 					local details = spellTargetDetails(spell)
 					local target = spellTargetName(spell, details)
 					d.spellDetails = details
@@ -1019,11 +1036,16 @@ function ModuleBase:CreatePlayerTooltip(options)
 				for i = 1, math.min(3, #sorted) do
 					local s = sorted[i]
 					local spellID = 0
+					local spellIDIsSecret = false
 					if type(s.spellID) == "number" then
-						spellID = s.spellID
+						if issecretvalue(s.spellID) then
+							spellIDIsSecret = true
+						else
+							spellID = s.spellID
+						end
 					end
-					local spellInfo = spellID > 0 and C_Spell.GetSpellInfo(spellID)
-					local name = spellInfo and spellInfo.name or ("Spell " .. tostring(spellID))
+					local name = spellNameFromID(spellID)
+						or (spellIDIsSecret and L["Spell"] or ("Spell " .. tostring(spellID)))
 					local details = s.combatSpellDetails
 					local target
 					if type(details) == "table" and not issecretvalue(details) then

@@ -228,6 +228,7 @@ L["Hides Skada's window when in Battlegrounds/Arenas."] = "Hides Skada's window 
 L["Healed players"] = "Healed players"
 L["Healed by"] = "Healed by"
 L["Absorb details"] = "Absorb details"
+L["Spell"] = "Spell"
 L["Spell details"] = "Spell details"
 L["Healing spell list"] = "Healing spell list"
 L["Damage spell list"] = "Damage spell list"

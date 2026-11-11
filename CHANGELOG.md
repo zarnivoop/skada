@@ -1,4 +1,5 @@
 ## 2.6.4
+- Fixed a secret-value crash in the top-spells tooltip: a restricted spell ID is no longer compared to zero, and falls back to a generic spell label during combat
 Spell detail navigation and empty state
 - Player target views and tooltips now read the enemy source's own `combatSpells` collection, so a player's damaged mobs appear even when a fresh creature-ID source query returns nothing
 - Added `/skada reverse` diagnostics for the player-to-enemy target fallback

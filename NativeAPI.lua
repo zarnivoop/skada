@@ -517,7 +517,13 @@ local function ExtractSpellsFromSource(source)
 		if type(v) ~= "table" then
 			return nil
 		end
-		if not v.spellID and not v.abilityID and not v.totalAmount then
+		local spellID = v.spellID
+		local abilityID = v.abilityID
+		local totalAmount = v.totalAmount
+		if issecretvalue(spellID) or issecretvalue(abilityID) or issecretvalue(totalAmount) then
+			return source
+		end
+		if spellID == nil and abilityID == nil and totalAmount == nil then
 			return nil
 		end
 	end
