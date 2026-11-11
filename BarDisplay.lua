@@ -755,11 +755,11 @@ function mod:Update(win)
 			bar.text = barlabel
 			bar.link = nil
 			bar.spellid = nil
-			bar.source = data.source
-			bar.isLocalPlayer = data.isLocalPlayer
+			bar.source = data.source or win._drillSource
+			bar.isLocalPlayer = data.isLocalPlayer or win._drillIsLocalPlayer
 			bar.spellData = data
-			bar.sourceGUID = data.sourceGUID
-			bar.sourceCreatureID = data.sourceCreatureID
+			bar.sourceGUID = data.sourceGUID or win._drillSourceGUID
+			bar.sourceCreatureID = data.sourceCreatureID or win._drillSourceCreatureID
 			if data.spellid then
 				bar.spellid = data.spellid
 			elseif data.hyperlink then

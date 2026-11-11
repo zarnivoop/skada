@@ -12,6 +12,7 @@ Skada.versions = {
 			"Local-player spell details fall back to `UnitGUID(\"player\")`, matching Details and avoiding the secret source GUID",
 			"Current-session spell lookup prefers `GetCombatSessionSourceFromType` and falls back to the ID query, matching Details' native path",
 			"Spell rows and tooltips show the target, overkill, avoidable, and deadly metadata exposed by `combatSpellDetails`",
+			"`/skada spells` now dumps the first spell detail keys and the last recorded display error",
 			"Shift-clicking a player opens a Targets view built from `combatSpellDetails.unitName`; clicking an enemy in Enemy damage taken lists its player contributors",
 			"Damage-meter type lookups now use `Enum.DamageMeterType` when available",
 			"Player hover tooltips now use the hovered bar's source object and local-player GUID fallback, so top spells appear in combat",

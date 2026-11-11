@@ -420,17 +420,28 @@ function ModuleBase:UpdateTargetList(win, playerid, set, damageType, options)
 		local details = spellTargetDetails(spell)
 		if details then
 			local target = details.unitName
+			if target == nil then target = details.name end
+			if target == "" then target = nil end
 			local amount = details.amount
 			if amount == nil then amount = spell.totalAmount end
 			if target ~= nil then
+				local targetClass
+				local rawClass = details.unitClassFilename
+				if type(rawClass) == "string" and not issecretvalue(rawClass) and RAID_CLASS_COLORS[rawClass] then
+					targetClass = rawClass
+				end
+				local targetIcon
+				if type(details.specIconID) == "number" and not issecretvalue(details.specIconID) then
+					targetIcon = details.specIconID
+				end
 				if not issecretvalue(target) and not issecretvalue(amount) and type(amount) == "number" then
 					local row = map[target]
 					if not row then
 						row = {
 							label = target,
 							value = 0,
-							class = details.unitClassFilename,
-							icon = details.specIconID,
+							class = targetClass,
+							icon = targetIcon,
 							order = nr,
 						}
 						map[target] = row
@@ -443,8 +454,8 @@ function ModuleBase:UpdateTargetList(win, playerid, set, damageType, options)
 						label = target,
 						value = SecretHelper:GetDisplayValue(amount, nr, #spells),
 						valuetext = Skada:FormatNumberSecret(amount),
-						class = details.unitClassFilename,
-						icon = details.specIconID,
+						class = targetClass,
+						icon = targetIcon,
 						order = nr,
 					}
 				end
@@ -478,7 +489,7 @@ function ModuleBase:UpdateTargetList(win, playerid, set, damageType, options)
 			d.valuetext = Skada:FormatNumber(row.value)
 		end
 	end
-	win.metadata.maxvalue = max > 0 and max or 1
+	win.metadata.maxvalue = max > 0 and max or (#rows > 0 and #rows or 1)
 end
 
 function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
@@ -834,6 +845,38 @@ function ModuleBase:CreatePlayerTooltip(options)
 						local percent = playerVal > 0 and (val / playerVal) * 100 or 0
 						tooltip:AddDoubleLine(name, Skada:FormatNumber(val) .. " (" .. string.format("%02.1f%%", percent) .. ")", 1, 1, 1, 1, 1, 1)
 					end
+				end
+			end
+		end
+
+		-- Target names are useful on their own when the top-spell section is
+		-- empty or when the spell collection is otherwise restricted.
+		if type(spells) == "table" and not issecretvalue(spells) then
+			local seen = {}
+			local names = {}
+			for _, s in ipairs(spells) do
+				local details = s.combatSpellDetails
+				local target
+				if type(details) == "table" and not issecretvalue(details) then
+					target = details.unitName
+				end
+				if target ~= nil then
+					if not issecretvalue(target) then
+						if not seen[target] then
+							seen[target] = true
+							names[#names + 1] = target
+						end
+					else
+						names[#names + 1] = target
+					end
+				end
+			end
+			if #names > 0 then
+				tooltip:AddLine(" ")
+				tooltip:AddLine(L["Targets"])
+				for i = 1, math.min(3, #names) do
+					local ok = pcall(tooltip.AddLine, tooltip, names[i])
+					if not ok then tooltip:AddLine("?") end
 				end
 			end
 		end

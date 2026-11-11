@@ -1012,7 +1012,29 @@ local function spellValueKind(value)
 	return type(value)
 end
 
+local function dumpSpellDetails(source, tag, printFn)
+	if type(source) ~= "table" or issecretvalue(source) then return end
+	local spells = source.combatSpells
+	if type(spells) ~= "table" then return end
+	if issecretvalue(spells) then
+		printFn("  " .. tag .. " combatSpells: secret")
+		return
+	end
+	local first = spells[1]
+	if type(first) ~= "table" or issecretvalue(first) then return end
+	local details = first.combatSpellDetails
+	printFn("  " .. tag .. " first spell details: " .. spellValueKind(details))
+	if type(details) == "table" and not issecretvalue(details) then
+		for key, value in pairs(details) do
+			printFn("    " .. tostring(key) .. ": " .. spellValueKind(value))
+		end
+	end
+end
+
 function Skada:DumpSpellDiagnostics()
+	if self.db and self.db.profile and self.db.profile.lastError then
+		self:Print("Last display error: " .. tostring(self.db.profile.lastError))
+	end
 	local win = self:GetWindows()[1]
 	if not win then
 		self:Print("Spell diagnostics: no window")
@@ -1035,6 +1057,7 @@ function Skada:DumpSpellDiagnostics()
 		self:Print("  detail player: " .. tostring(playerID))
 	end
 	self:Print("  drill source: " .. spellValueKind(win._drillSource))
+	dumpSpellDetails(win._drillSource, "direct", function(line) self:Print(line) end)
 	self:Print("  drill local player: " .. tostring(win._drillIsLocalPlayer))
 	self:Print("  drill GUID: " .. spellValueKind(win._drillSourceGUID))
 	self:Print("  drill creature ID: " .. spellValueKind(win._drillSourceCreatureID))
@@ -1057,6 +1080,9 @@ function Skada:DumpSpellDiagnostics()
 			if issecretvalue(source) then
 				self:Print("    source is secret; spell fields cannot be inspected")
 			else
+				if not found then
+					dumpSpellDetails(source, "type " .. tostring(damageType), function(line) self:Print(line) end)
+				end
 				for _, field in ipairs(fields) do
 					local okField, value = pcall(function() return source[field] end)
 					if okField and value ~= nil then
