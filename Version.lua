@@ -1,6 +1,15 @@
 local _, Skada = ...
 Skada.versions = {
 	{
+		id = "2.6.5",
+		title = "Skada 2.6.5",
+		message = "Restore Damage spell details",
+		changes = {
+			"Spell detail views and tooltip previews now ask the native source for the spell list first and only use the carried bar source as a fallback, matching the pre-2.6.4 lookup order for damage while keeping the secret-source support",
+			"Empty or restricted carried collections are no longer treated as a complete spell list",
+		}
+	},
+	{
 		id = "2.6.4",
 		title = "Skada 2.6.4",
 		message = "Target data, tooltips, and secret spell names",

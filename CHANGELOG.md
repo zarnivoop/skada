@@ -1,3 +1,8 @@
+## 2.6.5
+Restore Damage spell details
+- Spell detail views and tooltip previews now ask the native source for the spell list first and only use the carried bar source as a fallback, matching the pre-2.6.4 lookup order for damage while keeping the secret-source support
+- Empty or restricted carried collections are no longer treated as a complete spell list
+
 ## 2.6.4
 Target data, tooltips, and secret spell names
 - Player target views and tooltips now read the enemy source's own `combatSpells` collection, so a player's damaged mobs appear even when a fresh creature-ID source query returns nothing

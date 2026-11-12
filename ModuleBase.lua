@@ -340,14 +340,6 @@ function ModuleBase:GetDrillSpells(win, playerid, set, damageType)
 			sourceCreatureID = nil
 		end
 	end
-	if type(source) == "table" and not issecretvalue(source) then
-		local direct = Skada.NativeAPI:GetSpellsFromSource(source)
-		-- A restricted collection cannot be read. Fall through to a fresh
-		-- source query, which can still return plain spell data in combat.
-		if type(direct) == "table" and not issecretvalue(direct) then
-			return direct
-		end
-	end
 
 	local hasDirectSource = type(sourceGUID) ~= "nil" or type(sourceCreatureID) ~= "nil"
 	local view = Skada.NativeAPI:GetSessionView(set, damageType)
@@ -355,17 +347,30 @@ function ModuleBase:GetDrillSpells(win, playerid, set, damageType)
 	if type(player) ~= "table" then
 		player = Skada:find_player(set, playerid)
 	end
-	if not hasDirectSource and type(player) ~= "table" then
-		return nil
-	end
 
+	-- Ask the native source first. The carried bar source can expose a
+	-- different collection per damage type (DamageDone and HealingDone are not
+	-- symmetric), so it is only a fallback when the query is unavailable.
 	local realID
 	if hasDirectSource then
 		realID = sourceGUID
-	else
+	elseif type(player) == "table" then
 		realID = SecretHelper:GetPlayerID(player, playerid)
 	end
-	return Skada.NativeAPI:GetPlayerSpells(realID, view or set, damageType, sourceCreatureID)
+	if type(realID) ~= "nil" or type(sourceCreatureID) ~= "nil" then
+		local queried = Skada.NativeAPI:GetPlayerSpells(realID, view or set, damageType, sourceCreatureID)
+		if type(queried) == "table" and not issecretvalue(queried) and #queried > 0 then
+			return queried
+		end
+	end
+
+	if type(source) == "table" and not issecretvalue(source) then
+		local direct = Skada.NativeAPI:GetSpellsFromSource(source)
+		if type(direct) == "table" and not issecretvalue(direct) and #direct > 0 then
+			return direct
+		end
+	end
+	return nil
 end
 
 -- Resolve a spell name without comparing or indexing a secret spell ID.
