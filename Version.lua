@@ -1,6 +1,16 @@
 local _, Skada = ...
 Skada.versions = {
 	{
+		id = "2.6.7",
+		title = "Skada 2.6.7",
+		message = "Per-player spell details in combat",
+		changes = {
+			"Player and enemy bars now keep their own source, GUID, and `isLocalPlayer` flag; only spell and target detail rows fall back to the window's drill context",
+			"This stops a stale local-player flag from making every player's spell view query `UnitGUID(\"player\")`, matching Details' `sourceGUID` path for other players during combat",
+			"Details research note: Details queries `UnitGUID(\"player\")` only when `source.isLocalPlayer` is true, and passes the native `sourceGUID` for everyone else; secret GUIDs are passed straight to `C_DamageMeter` without comparison",
+		}
+	},
+	{
 		id = "2.6.6",
 		title = "Skada 2.6.6",
 		message = "Window position restore",

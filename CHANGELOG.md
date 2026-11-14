@@ -1,3 +1,9 @@
+## 2.6.7
+Per-player spell details in combat
+- Player and enemy bars now keep their own source, GUID, and `isLocalPlayer` flag; only spell and target detail rows fall back to the window's drill context
+- This stops a stale local-player flag from making every player's spell view query `UnitGUID("player")`, matching Details' `sourceGUID` path for other players during combat
+- Details research note: Details queries `UnitGUID("player")` only when `source.isLocalPlayer` is true, and passes the native `sourceGUID` for everyone else; secret GUIDs are passed straight to `C_DamageMeter` without comparison
+
 ## 2.6.6
 Window position restore
 - Window positions are stored as top-left offsets instead of centre-relative `LEFT`/`CENTER` points, which could shift a window when the client was still sizing `UIParent` at login

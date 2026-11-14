@@ -802,11 +802,23 @@ function mod:Update(win)
 			bar.text = barlabel
 			bar.link = nil
 			bar.spellid = nil
-			bar.source = data.source or win._drillSource
-			bar.isLocalPlayer = data.isLocalPlayer or win._drillIsLocalPlayer
+			-- Player and enemy rows own their source, including a false
+			-- isLocalPlayer flag. Only detail rows (spells, targets) fall back
+			-- to the window's drill context. Using `or` here turned every other
+			-- player into the local player once the local player had been
+			-- clicked, so their spell view showed the local player's spells.
+			if type(data.source) == "table" then
+				bar.source = data.source
+				bar.isLocalPlayer = data.isLocalPlayer
+				bar.sourceGUID = data.sourceGUID
+				bar.sourceCreatureID = data.sourceCreatureID
+			else
+				bar.source = win._drillSource
+				bar.isLocalPlayer = win._drillIsLocalPlayer
+				bar.sourceGUID = win._drillSourceGUID
+				bar.sourceCreatureID = win._drillSourceCreatureID
+			end
 			bar.spellData = data
-			bar.sourceGUID = data.sourceGUID or win._drillSourceGUID
-			bar.sourceCreatureID = data.sourceCreatureID or win._drillSourceCreatureID
 			if data.spellid then
 				bar.spellid = data.spellid
 			elseif data.hyperlink then
