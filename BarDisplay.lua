@@ -15,6 +15,30 @@ local applyColumnGeometry
 local libwindow = LibStub("LibWindow-1.1")
 local media = LibStub("LibSharedMedia-3.0")
 
+-- Store window positions relative to the parent's top-left corner. LibWindow's
+-- SavePosition may pick a centre-relative point (LEFT/RIGHT/CENTER), which
+-- moves when UIParent's height changes or is still unknown early at login.
+-- Only the second window tends to hit that path because it is often placed
+-- near the middle of the screen.
+local function saveWindowPosition(win)
+	local g = win and win.bargroup
+	local db = win and win.db
+	if not g or not db then return end
+	-- A legacy centre-relative point is re-applied once UIParent has its final
+	-- size; do not overwrite it with the early login position in the meantime.
+	if win._pendingPositionNormalize then return end
+	local parent = g:GetParent() or UIParent
+	local parentHeight = parent:GetHeight()
+	if not parentHeight or parentHeight <= 0 then return end
+	local left, top = g:GetLeft(), g:GetTop()
+	if not left or not top then return end
+	local s = g:GetScale() or 1
+	db.x = left * s
+	db.y = top * s - parentHeight
+	db.point = "TOPLEFT"
+	db.scale = s
+end
+
 -- Aliases
 local table_sort = table.sort
 local next, pairs, ipairs, type = next, pairs, ipairs, type
@@ -164,6 +188,26 @@ function mod:Create(window)
 
 	-- Restore window position.
 	libwindow.RestorePosition(window.bargroup)
+
+	-- Older profiles may store a centre-relative point. Re-apply it after
+	-- login has finished sizing UIParent, then switch the profile to a stable
+	-- top-left offset so the next login restores exactly.
+	if window.db.point ~= "TOPLEFT" then
+		window._pendingPositionNormalize = true
+		local group = window.bargroup
+		local function normalize()
+			if window.bargroup ~= group or not window._pendingPositionNormalize then return end
+			window._pendingPositionNormalize = nil
+			libwindow.RestorePosition(group)
+			saveWindowPosition(window)
+		end
+		local timer = _G.C_Timer
+		if timer and timer.After then
+			timer.After(0.2, normalize)
+		else
+			normalize()
+		end
+	end
 
 	if not mod.class_icon_tcoords then -- amortized class icon coordinate adjustment
 		mod.class_icon_tcoords = {}
@@ -927,7 +971,12 @@ function mod:Update(win)
 end
 
 function mod:AnchorMoved(cbk, group, x, y)
-	libwindow.SavePosition(group)
+	local win = group.win
+	if win then
+		-- A user move wins over the pending legacy-position normalization.
+		win._pendingPositionNormalize = nil
+		saveWindowPosition(win)
+	end
 end
 
 function mod:WindowResized(cbk, group)
@@ -951,7 +1000,7 @@ function mod:WindowResized(cbk, group)
 	group:SetHeight(snappedHeight)
 
 	-- Save position and size
-	libwindow.SavePosition(group)
+	saveWindowPosition(group.win)
 	group.win.db.background.height = snappedHeight
 	group.win.db.barwidth = width
 	group:SetLength(width)
@@ -1372,7 +1421,7 @@ function mod:ApplySettings(win)
 	-- Bar inset
 	g:SetBarInset(p.barinset or 0)
 
-	libwindow.SavePosition(g)
+	saveWindowPosition(win)
 
 	g:SortBars()
 end

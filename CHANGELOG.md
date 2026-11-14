@@ -1,3 +1,9 @@
+## 2.6.6
+Window position restore
+- Window positions are stored as top-left offsets instead of centre-relative `LEFT`/`CENTER` points, which could shift a window when the client was still sizing `UIParent` at login
+- Existing centre-relative positions are re-applied once login has settled and migrated to the stable format
+- A user move always overrides the pending migration
+
 ## 2.6.5
 Restore Damage spell details
 - Spell detail views and tooltip previews now ask the native source for the spell list first and only use the carried bar source as a fallback, matching the pre-2.6.4 lookup order for damage while keeping the secret-source support

@@ -1,6 +1,16 @@
 local _, Skada = ...
 Skada.versions = {
 	{
+		id = "2.6.6",
+		title = "Skada 2.6.6",
+		message = "Window position restore",
+		changes = {
+			"Window positions are stored as top-left offsets instead of centre-relative `LEFT`/`CENTER` points, which could shift a window when the client was still sizing `UIParent` at login",
+			"Existing centre-relative positions are re-applied once login has settled and migrated to the stable format",
+			"A user move always overrides the pending migration",
+		}
+	},
+	{
 		id = "2.6.5",
 		title = "Skada 2.6.5",
 		message = "Restore Damage spell details",
