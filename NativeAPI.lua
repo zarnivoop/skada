@@ -63,6 +63,9 @@ NativeAPI.sessionTypeCache = {
 -- current session briefly around combat boundaries; keep the last valid data.
 NativeAPI.lastSessions = nil
 NativeAPI.lastCurrentSession = nil
+NativeAPI.plainGUIDByName = {}
+NativeAPI.plainGUIDBySpec = {}
+
 NativeAPI.sessionByIDCache = {}
 NativeAPI.knownSessions = {}
 NativeAPI.lastKnownSessionID = nil
@@ -81,6 +84,61 @@ local function sessionHasSources(set)
 	return #sources > 0
 end
 
+function NativeAPI:ClearPlainGUIDCache()
+	wipe(self.plainGUIDByName)
+	wipe(self.plainGUIDBySpec)
+end
+
+-- Remember a source's plain GUID while the client still exposes it. During
+-- combat names and GUIDs can be secret, so a lookup by a still-readable name
+-- or spec icon lets us query that player's spells, matching Details' serial
+-- cache. Ambiguous spec icons are dropped rather than guessed.
+function NativeAPI:RememberSourceGUID(source)
+	if type(source) ~= "table" or issecretvalue(source) then return end
+	local guid = source.sourceGUID
+	if type(guid) ~= "string" or issecretvalue(guid) then return end
+
+	local name = source.name
+	if type(name) == "string" and not issecretvalue(name) and name ~= "" then
+		self.plainGUIDByName[name] = guid
+	end
+
+	local icon = source.specIconID
+	if type(icon) == "number" and not issecretvalue(icon) then
+		local existing = self.plainGUIDBySpec[icon]
+		if existing == nil then
+			self.plainGUIDBySpec[icon] = guid
+		elseif existing ~= guid then
+			self.plainGUIDBySpec[icon] = false
+		end
+	end
+end
+
+function NativeAPI:ResolveSourceGUID(source)
+	if type(source) ~= "table" or issecretvalue(source) then return nil end
+	local guid = source.sourceGUID
+	if type(guid) == "string" and not issecretvalue(guid) then return guid end
+
+	local name = source.name
+	if type(name) == "string" and not issecretvalue(name) then
+		local cached = self.plainGUIDByName[name]
+		if cached then return cached end
+	end
+
+	local icon = source.specIconID
+	if type(icon) == "number" and not issecretvalue(icon) then
+		local cached = self.plainGUIDBySpec[icon]
+		if cached then return cached end
+	end
+
+	local localFlag = source.isLocalPlayer
+	if not issecretvalue(localFlag) and localFlag then
+		local unitGUID = UnitGUID("player")
+		if type(unitGUID) == "string" then return unitGUID end
+	end
+	return nil
+end
+
 function NativeAPI:ClearSessionCache()
 	self.lastSessions = nil
 	self.lastCurrentSession = nil
@@ -91,6 +149,7 @@ function NativeAPI:ClearSessionCache()
 	self.lastKnownDamageType = 0
 	wipe(self.sessionFrameCache)
 	self.availableFrameCache = nil
+	self:ClearPlainGUIDCache()
 end
 
 function NativeAPI:TrackSession(sessionID, damageType)
@@ -555,6 +614,7 @@ end
 
 function NativeAPI:GetPlayerSpells(playerID, set, damageType, sourceCreatureID)
 	local source = self:GetSessionSource(playerID, set, damageType, sourceCreatureID)
+	if source then self:RememberSourceGUID(source) end
 
 	if type(source) == "nil" then
 		if Skada.db.profile.debug then

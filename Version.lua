@@ -1,6 +1,16 @@
 local _, Skada = ...
 Skada.versions = {
 	{
+		id = "2.6.8",
+		title = "Skada 2.6.8",
+		message = "Combat spell lookup for every player",
+		changes = {
+			"The local player's `UnitGUID` is now used even when it is secret, matching Details",
+			"Plain GUIDs are cached by player name and spec icon before combat, so other players' spell details can still be queried after their live GUID becomes secret",
+			"`/skada spells` now prints `UnitGUID`, the resolved cached GUID, and the `GetDrillSpells` result for Damage and Healing",
+		}
+	},
+	{
 		id = "2.6.7",
 		title = "Skada 2.6.7",
 		message = "Per-player spell details in combat",

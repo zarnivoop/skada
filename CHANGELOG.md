@@ -1,3 +1,9 @@
+## 2.6.8
+Combat spell lookup for every player
+- The local player's `UnitGUID` is now used even when it is secret, matching Details
+- Plain GUIDs are cached by player name and spec icon before combat, so other players' spell details can still be queried after their live GUID becomes secret
+- `/skada spells` now prints `UnitGUID`, the resolved cached GUID, and the `GetDrillSpells` result for Damage and Healing
+
 ## 2.6.7
 Per-player spell details in combat
 - Player and enemy bars now keep their own source, GUID, and `isLocalPlayer` flag; only spell and target detail rows fall back to the window's drill context

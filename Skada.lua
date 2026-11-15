@@ -1090,6 +1090,12 @@ function Skada:DumpSpellDiagnostics()
 	self:Print("  drill local player: " .. tostring(win._drillIsLocalPlayer))
 	self:Print("  drill GUID: " .. spellValueKind(win._drillSourceGUID))
 	self:Print("  drill creature ID: " .. spellValueKind(win._drillSourceCreatureID))
+	local unitGUID = UnitGUID("player")
+	local unitText = (type(unitGUID) == "string" and not issecretvalue(unitGUID)) and (" value=" .. unitGUID) or ""
+	self:Print("  UnitGUID(player): " .. spellValueKind(unitGUID) .. unitText)
+	local resolvedGUID = self.NativeAPI:ResolveSourceGUID(win._drillSource)
+	local resolvedText = (type(resolvedGUID) == "string" and not issecretvalue(resolvedGUID)) and (" value=" .. resolvedGUID) or ""
+	self:Print("  resolved source GUID: " .. spellValueKind(resolvedGUID) .. resolvedText)
 	if type(win._drillSource) == "table" and not issecretvalue(win._drillSource) then
 		self:Print("  direct source fields:")
 		local count = 0
@@ -1151,6 +1157,19 @@ function Skada:DumpSpellDiagnostics()
 	end
 	if not found then
 		self:Print("  no source found for the drill GUID or selected player")
+	end
+
+	if playerID ~= nil and not issecretvalue(playerID) then
+		for _, dtype in ipairs({0, 2}) do
+			local okDrill, drill = pcall(self.ModuleBase.GetDrillSpells, self.ModuleBase, win, playerID, set, dtype)
+			if okDrill then
+				local kind = spellValueKind(drill)
+				local count = (type(drill) == "table" and not issecretvalue(drill)) and #drill or -1
+				self:Print("  GetDrillSpells(" .. tostring(dtype) .. "): " .. kind .. " count=" .. tostring(count))
+			else
+				self:Print("  GetDrillSpells(" .. tostring(dtype) .. ") error: " .. tostring(drill))
+			end
+		end
 	end
 end
 
