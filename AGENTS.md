@@ -80,6 +80,8 @@ Modules should be "Hardened" by default:
 - **Combat summary**: `Summary.lua` provides a post-combat panel with duration, raid DPS/HPS, deaths, avoidable damage, interrupts, dispels, top damage, and top avoidable ability. It can also be written to the configured chat channel instead of the window; window remains the default. It opens from the window menu or `/skada summary`. Auto-display is off by default; when enabled it defaults to boss fights only and omits zero-value rows. It derives top damage share, first death and death rate, avoidable tax, interrupt/dispel cadence, and absorb share, and always ends with one short humorous verdict. A one-line comparison against the last matching attempt is shown when encounter, difficulty, and group size match; `pullhistory` stores up to 20 compact pull snapshots per encounter and the comparison can be disabled in General options. Its dragged position is stored per profile, and it hides immediately on `PLAYER_REGEN_DISABLED`.
 - **Migration**: `Skada:ApplyThemeMigration()` runs once per profile and only replaces the old out-of-box look (`Skada Glass`, 260px bars); custom themes are left untouched.
 
+- **Changelog**: `CHANGELOG.md` feeds both the in-game version list and the GitHub release notes. Keep entries player-facing: features and fixes only, no API names, file names, secret-value internals, or diagnostic command details.
+
 ## 4. Local Machine Setup (Stefan)
 
 - Repo: `/home/stefan/Dokument/skada` (branch `midnight`).
