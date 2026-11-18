@@ -1103,7 +1103,23 @@ function Skada:DumpSpellDiagnostics()
 			count = count + 1
 			self:Print("    " .. tostring(key) .. ": " .. spellValueKind(value))
 		end
+		local src = win._drillSource
+		local classValue = src.classFilename
+		local classText = (type(classValue) == "string" and not issecretvalue(classValue)) and classValue or spellValueKind(classValue)
+		local classification = src.classification
+		local classificationText = (type(classification) == "string" and not issecretvalue(classification)) and classification or spellValueKind(classification)
+		local localFlag = src.isLocalPlayer
+		local localText = issecretvalue(localFlag) and "secret" or tostring(localFlag)
+		self:Print("  plain source: class=" .. tostring(classText) .. " classification=" .. tostring(classificationText) .. " local=" .. localText)
 	end
+	local function countKeys(t)
+		local n = 0
+		if type(t) == "table" then for _ in pairs(t) do n = n + 1 end end
+		return n
+	end
+	self:Print("  guid cache: names=" .. tostring(countKeys(self.NativeAPI.plainGUIDByName))
+		.. " specs=" .. tostring(countKeys(self.NativeAPI.plainGUIDBySpec))
+		.. " classes=" .. tostring(countKeys(self.NativeAPI.plainGUIDByClass)))
 
 	for i = 1, math.min(5, #win.dataset) do
 		local d = win.dataset[i]

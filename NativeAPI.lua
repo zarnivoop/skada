@@ -65,6 +65,7 @@ NativeAPI.lastSessions = nil
 NativeAPI.lastCurrentSession = nil
 NativeAPI.plainGUIDByName = {}
 NativeAPI.plainGUIDBySpec = {}
+NativeAPI.plainGUIDByClass = {}
 
 NativeAPI.sessionByIDCache = {}
 NativeAPI.knownSessions = {}
@@ -87,31 +88,50 @@ end
 function NativeAPI:ClearPlainGUIDCache()
 	wipe(self.plainGUIDByName)
 	wipe(self.plainGUIDBySpec)
+	wipe(self.plainGUIDByClass)
 end
 
--- Remember a source's plain GUID while the client still exposes it. During
--- combat names and GUIDs can be secret, so a lookup by a still-readable name
--- or spec icon lets us query that player's spells, matching Details' serial
--- cache. Ambiguous spec icons are dropped rather than guessed.
-function NativeAPI:RememberSourceGUID(source)
-	if type(source) ~= "table" or issecretvalue(source) then return end
-	local guid = source.sourceGUID
-	if type(guid) ~= "string" or issecretvalue(guid) then return end
-
-	local name = source.name
-	if type(name) == "string" and not issecretvalue(name) and name ~= "" then
-		self.plainGUIDByName[name] = guid
-	end
-
-	local icon = source.specIconID
-	if type(icon) == "number" and not issecretvalue(icon) then
-		local existing = self.plainGUIDBySpec[icon]
-		if existing == nil then
-			self.plainGUIDBySpec[icon] = guid
-		elseif existing ~= guid then
-			self.plainGUIDBySpec[icon] = false
+-- Rebuild the plain-GUID lookup from a complete, readable player snapshot.
+-- During combat names, GUIDs, and spec icons can all be secret at once, so a
+-- class that is unique in the group is often the only readable key left.
+-- Ambiguous names/specs/classes are dropped rather than guessed.
+function NativeAPI:CachePlainSources(sources)
+	if type(sources) ~= "table" or issecretvalue(sources) then return end
+	local byName, bySpec, byClass = {}, {}, {}
+	local specCount, classCount = {}, {}
+	local plainCount = 0
+	for _, source in ipairs(sources) do
+		if type(source) == "table" and not issecretvalue(source) then
+			local guid = source.sourceGUID
+			if type(guid) == "string" and not issecretvalue(guid) then
+				plainCount = plainCount + 1
+				local name = source.name
+				if type(name) == "string" and not issecretvalue(name) and name ~= "" then
+					byName[name] = guid
+				end
+				local icon = source.specIconID
+				if type(icon) == "number" and not issecretvalue(icon) then
+					specCount[icon] = (specCount[icon] or 0) + 1
+					bySpec[icon] = guid
+				end
+				local class = source.classFilename
+				if type(class) == "string" and not issecretvalue(class) then
+					classCount[class] = (classCount[class] or 0) + 1
+					byClass[class] = guid
+				end
+			end
 		end
 	end
+	if plainCount == 0 then return end
+	for icon, count in pairs(specCount) do
+		if count ~= 1 then bySpec[icon] = nil end
+	end
+	for class, count in pairs(classCount) do
+		if count ~= 1 then byClass[class] = nil end
+	end
+	self.plainGUIDByName = byName
+	self.plainGUIDBySpec = bySpec
+	self.plainGUIDByClass = byClass
 end
 
 function NativeAPI:ResolveSourceGUID(source)
@@ -128,6 +148,12 @@ function NativeAPI:ResolveSourceGUID(source)
 	local icon = source.specIconID
 	if type(icon) == "number" and not issecretvalue(icon) then
 		local cached = self.plainGUIDBySpec[icon]
+		if cached then return cached end
+	end
+
+	local class = source.classFilename
+	if type(class) == "string" and not issecretvalue(class) then
+		local cached = self.plainGUIDByClass[class]
 		if cached then return cached end
 	end
 
@@ -438,6 +464,9 @@ function NativeAPI:GetSessionView(set, damageType)
 				result.sessionType = sessionType
 			end
 		end)
+		if damageType == 0 and type(result.combatSources) == "table" then
+			self:CachePlainSources(result.combatSources)
+		end
 		cache.results[cacheKey] = {value = result, expires = now + cache.ttl}
 		return result
 	end
@@ -614,7 +643,6 @@ end
 
 function NativeAPI:GetPlayerSpells(playerID, set, damageType, sourceCreatureID)
 	local source = self:GetSessionSource(playerID, set, damageType, sourceCreatureID)
-	if source then self:RememberSourceGUID(source) end
 
 	if type(source) == "nil" then
 		if Skada.db.profile.debug then

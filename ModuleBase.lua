@@ -81,7 +81,6 @@ function ModuleBase:UpdatePlayerList(win, set, options)
 		-- bars and let FormatNumberSecret produce display text.
 		for _, player in ipairs(sources) do
 			if type(player) == "table" and not issecretvalue(player) then
-				Skada.NativeAPI:RememberSourceGUID(player)
 				local rawValue = player[valueKey]
 				if type(rawValue) == "nil" then
 					rawValue = player.totalAmount
@@ -119,7 +118,6 @@ function ModuleBase:UpdatePlayerList(win, set, options)
 		-- FAST PATH: Standard arithmetic and comparisons (no secrets)
 		for _, player in ipairs(sources) do
 			if type(player) == "table" then
-				Skada.NativeAPI:RememberSourceGUID(player)
 				local playerName = player.name
 				if type(playerName) ~= "string" then
 					playerName = player.unitName
@@ -224,7 +222,6 @@ function ModuleBase:UpdateSimpleList(win, set, options)
 		-- SLOW PATH
 		for _, player in ipairs(sources) do
 			if type(player) == "table" and not issecretvalue(player) then
-				Skada.NativeAPI:RememberSourceGUID(player)
 				local rawValue = player[valueKey]
 				if type(rawValue) == "nil" then
 					rawValue = player.totalAmount
@@ -252,7 +249,6 @@ function ModuleBase:UpdateSimpleList(win, set, options)
 		-- FAST PATH
 		for _, player in ipairs(sources) do
 			if type(player) == "table" then
-				Skada.NativeAPI:RememberSourceGUID(player)
 				local playerName = player.name
 				if type(playerName) ~= "string" then
 					playerName = player.unitName
