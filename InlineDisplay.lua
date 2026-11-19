@@ -63,7 +63,11 @@ end
 
 function mod:Create(window, isnew)
 	if not window.frame then
-		window.frame = CreateFrame("Frame", window.db.name.."InlineFrame", UIParent, "BackdropTemplate")
+		-- Reuse the frame across a reload or a display switch. Reusing by
+		-- global name also avoids a duplicate-name error when the window was
+		-- destroyed and recreated within the same session.
+		local frameName = window.db.name.."InlineFrame"
+		window.frame = _G[frameName] or CreateFrame("Frame", frameName, UIParent, "BackdropTemplate")
 		window.frame.win = window
 		window.frame:SetFrameLevel(5)
 		-- Ensure a sensible default height for the inline display (it ignores barheight)
@@ -77,6 +81,12 @@ function mod:Create(window, isnew)
 		window.frame:SetPoint("LEFT", -1)
 		if window.db.background.color.a==51/255 then window.db.background.color = {r=255, b=250/255, g=250/255, a=1 } end
 	end
+
+	if not window.db.height or window.db.height < 16 then
+		window.db.height = 23
+	end
+	window.frame:SetHeight(window.db.height)
+	window.frame:SetWidth(window.db.width or GetScreenWidth())
 
 	window.frame:EnableMouse()
 	window.frame:SetScript("OnMouseDown", function(frame, button)
@@ -111,6 +121,7 @@ function mod:Create(window, isnew)
 		libwindow.SavePosition(frame)
 	end)
 
+	if not window.frame.fstitle then
 	local titlebg = CreateFrame("Frame", "InlineTitleBackground", window.frame)
 	local title = window.frame:CreateFontString("frameTitle", "OVERLAY", "ChatFontNormal")
 	title:SetTextColor(self:GetFontColor(window.db))
@@ -204,12 +215,17 @@ function mod:Create(window, isnew)
 		barlibrary.bars[temp] = bar
 		temp = temp - 1
 	until(temp < 1)
+	end
+
 	self:Update(window)
 end
 
 function mod:Destroy(win)
+	if not win.frame then return end
 	win.frame:Hide()
-	win.frame = nil
+	if not win._switching then
+		win.frame = nil
+	end
 end
 
 function mod:Wipe(win) end

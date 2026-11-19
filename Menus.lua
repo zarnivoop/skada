@@ -50,6 +50,18 @@ local function AddWindowEntries(root, window)
 	root:CreateDivider()
 	AddSetEntries(root, window)
 	root:CreateDivider()
+	root:CreateButton(L["Display"], function()
+		CreateContext(UIParent, function(_, sub)
+			sub:CreateTitle(L["Display"])
+			for key, display in pairs(Skada.displays) do
+				if key ~= "broker" and display.name then
+					sub:CreateRadio(display.name, function() return window.db.display == key end, function()
+						Skada:SwitchWindowDisplay(window.db.name, key)
+					end)
+				end
+			end
+		end)
+	end)
 	root:CreateCheckbox(L["Lock window"], function() return window.db.barslocked end, function()
 		window.db.barslocked = not window.db.barslocked
 		Skada:ApplySettings()

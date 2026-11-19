@@ -199,6 +199,7 @@ L["Enter the name for the window."] = "Enter the name for the window."
 
 L["Bar display"] = "Bar display"
 L["Display system"] = "Display system"
+L["Display"] = "Display"
 L["Choose the system to be used for displaying data in this window."] = "Choose the system to be used for displaying data in this window."
 
 L["Hides HPS from the Healing modes."] = "Hides HPS from the Healing modes."

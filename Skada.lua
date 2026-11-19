@@ -271,6 +271,27 @@ function Window:AddOptions()
 		name = function() return db.name end,
 		args = {
 
+			display = {
+				type = "select",
+				name = L["Display"],
+				desc = L["Choose the system to be used for displaying data in this window."],
+				values = function()
+					local values = {}
+					for key, display in pairs(Skada.displays) do
+						if key ~= "broker" and display.name then
+							values[key] = display.name
+						end
+					end
+					if db.display == "broker" and values.broker == nil and Skada.displays.broker and Skada.displays.broker.name then
+						values.broker = Skada.displays.broker.name
+					end
+					return values
+				end,
+				get = function() return db.display end,
+				set = function(_, value) Skada:SwitchWindowDisplay(db.name, value) end,
+				order = 0,
+			},
+
 			rename = {
 				type = "input",
 				name = L["Rename window"],
@@ -392,6 +413,103 @@ function Window:destroy()
 
 	local name = self.db.name or Skada.windowdefaults.name
 	Skada.options.args.windows.args[name] = nil -- remove from options
+end
+
+local DISPLAY_STATE_KEYS = {"x", "y", "point", "scale", "width", "height", "barwidth"}
+
+-- Remember enough geometry for each display to restore it after a switch.
+-- The keys are shared by LibWindow, so they have to be snapshotted per
+-- display instead of living only on the window db.
+function Skada:SaveDisplayState(win, key)
+	if not win or not win.db or not key then return end
+	local db = win.db
+	db.displays = db.displays or {}
+	local state = db.displays[key] or {}
+	for _, k in ipairs(DISPLAY_STATE_KEYS) do
+		state[k] = db[k]
+	end
+	state.bgheight = db.background and db.background.height or nil
+	db.displays[key] = state
+end
+
+function Skada:RestoreDisplayState(win, key)
+	if not win or not win.db then return false end
+	local state = win.db.displays and win.db.displays[key]
+	if type(state) ~= "table" then return false end
+	for _, k in ipairs(DISPLAY_STATE_KEYS) do
+		win.db[k] = state[k]
+	end
+	if win.db.background and state.bgheight ~= nil then
+		win.db.background.height = state.bgheight
+	end
+	return true
+end
+
+function Skada:PrepareDisplayDefaults(win, key)
+	local db = win.db
+	if key == "inline" then
+		if not db.height or db.height < 16 then db.height = 23 end
+		db.width = nil
+		db.scale = 1
+		db.x, db.y, db.point = nil, nil, nil
+	elseif key == "bar" then
+		-- Let LibWindow center the bar window the first time it is used.
+		db.x, db.y, db.point = nil, nil, nil
+		db.scale = db.scale or 1
+	end
+end
+
+function Window:SwitchDisplay(name)
+	if not name or (name == self.db.display and self.display) then return false end
+	local display = Skada.displays[name]
+	if not display or name == "broker" then return false end
+
+	local wasShown = self:IsShown()
+	local priorMode = self.selectedmode
+	local priorSet = self.selectedset or self.db.set
+	Skada:SaveDisplayState(self, self.db.display)
+
+	self._switching = true
+	if self.display then
+		self.display:Destroy(self)
+	end
+	self._switching = nil
+
+	self.db.display = name
+	self.display = display
+	self:AddOptions()
+
+	local hadState = Skada:RestoreDisplayState(self, name)
+	if not hadState then
+		Skada:PrepareDisplayDefaults(self, name)
+	end
+	self.display:Create(self, not hadState)
+
+	if priorMode then
+		self:DisplayMode(priorMode)
+	elseif priorSet then
+		self:DisplayModes(priorSet)
+	else
+		self:DisplaySets()
+	end
+
+	Skada:ApplySettings()
+	if wasShown and not self.db.hidden then
+		self:Show()
+	else
+		self:Hide()
+	end
+	Skada:UpdateDisplay(true)
+	return true
+end
+
+function Skada:SwitchWindowDisplay(windowName, displayKey)
+	for _, win in ipairs(windows) do
+		if win.db.name == windowName then
+			return win:SwitchDisplay(displayKey)
+		end
+	end
+	return false
 end
 
 function Window:SetDisplay(name)
@@ -1416,6 +1534,25 @@ local function slashHandler(param)
 	end
 	if param == "spells" then
 		Skada:DumpSpellDiagnostics()
+		return
+	end
+	if param == "display" or param:match("^display%s+") then
+		local key = param:match("^display%s+(%S+)")
+		local win = Skada._lastActiveWindow or Skada:GetWindows()[1]
+		if not win then
+			Skada:Print("No window to switch")
+			return
+		end
+		if not key then
+			Skada:Print("Display: " .. tostring(win.db.display))
+			return
+		end
+		if key == "line" then key = "inline" end
+		if Skada:SwitchWindowDisplay(win.db.name, key) then
+			Skada:Print("Display: " .. tostring(win.db.display))
+		else
+			Skada:Print("Unknown display: " .. tostring(key))
+		end
 		return
 	end
 	if param == "reverse" then
