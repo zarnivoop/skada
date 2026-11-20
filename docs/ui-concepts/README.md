@@ -12,3 +12,10 @@ Constraint that shaped them: in combat, `C_DamageMeter` values are secret. Skada
 6. **Spell mosaic**: treemap drilldown of a player's abilities. Live rank-sized tiles; true area after combat.
 
 Recommendation: build a `Board` display with cards first, then the ledger and focus matrix as layouts.
+
+## Implemented on this branch
+
+- Display switching is live: a window can switch between Bars, Line and Ledger at runtime, with per-display geometry.
+- Window settings and the window menu expose the display selector. `/skada display bar|line|ledger` switches the last active window.
+- Per-window combat and after-combat displays are available under Display switching; `/skada display combat|after <key|none>` configures them.
+- The Ledger is implemented as the `ledger` display. It is intended as the after-combat review display.
