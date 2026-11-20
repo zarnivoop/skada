@@ -101,6 +101,8 @@ Skada.windowdefaults = {
 	mode = nil,
 
 	display = "bar",
+	displayincombat = "",
+	displayoutofcombat = "",
 	snapto = true,
 	version = 1,
 	smoothing = true,

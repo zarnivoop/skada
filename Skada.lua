@@ -263,6 +263,19 @@ function Window:new()
 	}, mt)
 end
 
+local function getDisplayValues(includeNone)
+	local values = {}
+	if includeNone then
+		values[""] = L["None"]
+	end
+	for key, display in pairs(Skada.displays) do
+		if key ~= "broker" and display.name then
+			values[key] = display.name
+		end
+	end
+	return values
+end
+
 function Window:AddOptions()
 	local db = self.db
 
@@ -276,12 +289,7 @@ function Window:AddOptions()
 				name = L["Display"],
 				desc = L["Choose the system to be used for displaying data in this window."],
 				values = function()
-					local values = {}
-					for key, display in pairs(Skada.displays) do
-						if key ~= "broker" and display.name then
-							values[key] = display.name
-						end
-					end
+					local values = getDisplayValues(false)
 					if db.display == "broker" and values.broker == nil and Skada.displays.broker and Skada.displays.broker.name then
 						values.broker = Skada.displays.broker.name
 					end
@@ -340,6 +348,32 @@ function Window:AddOptions()
 			},
 
 		}
+	}
+
+	options.args.displayswitch = {
+		type = "group",
+		name = L["Display switching"],
+		order = 3,
+		args = {
+			displayincombat = {
+				type = "select",
+				name = L["Combat display"],
+				desc = L["Display to switch to when combat starts."],
+				values = function() return getDisplayValues(true) end,
+				get = function() return db.displayincombat or "" end,
+				set = function(_, value) db.displayincombat = value end,
+				order = 1,
+			},
+			displayoutofcombat = {
+				type = "select",
+				name = L["After combat display"],
+				desc = L["Display to switch to when combat ends."],
+				values = function() return getDisplayValues(true) end,
+				get = function() return db.displayoutofcombat or "" end,
+				set = function(_, value) db.displayoutofcombat = value end,
+				order = 2,
+			},
+		},
 	}
 
 	options.args.switchoptions = {
@@ -1547,6 +1581,22 @@ local function slashHandler(param)
 			Skada:Print("Display: " .. tostring(win.db.display))
 			return
 		end
+		if key == "combat" or key == "after" then
+			local value = param:match("^display%s+%S+%s+(%S+)")
+			local field = key == "combat" and "displayincombat" or "displayoutofcombat"
+			if not value then
+				Skada:Print(key .. " display: " .. tostring(win.db[field] or ""))
+				return
+			end
+			if value == "none" then value = "" end
+			if value ~= "" and (not Skada.displays[value] or value == "broker") then
+				Skada:Print("Unknown display: " .. tostring(value))
+				return
+			end
+			win.db[field] = value
+			Skada:Print(key .. " display: " .. (value == "" and "None" or tostring(value)))
+			return
+		end
 		if key == "line" then key = "inline" end
 		if Skada:SwitchWindowDisplay(win.db.name, key) then
 			Skada:Print("Display: " .. tostring(win.db.display))
@@ -2147,6 +2197,10 @@ function Skada:Tick()
 			if not win.selectedset then
 				win.selectedset = "current"
 			end
+			local combatDisplay = win.db.displayincombat
+			if combatDisplay and combatDisplay ~= "" and combatDisplay ~= win.db.display then
+				win:SwitchDisplay(combatDisplay)
+			end
 			local combatMode = win.db.modeincombat
 			if combatMode == "auto" then
 				combatMode = self:GetAutoModeName()
@@ -2183,6 +2237,10 @@ function Skada:Tick()
 			end
 			if not win.db.hidden and self.db.profile.hidecombat and (not self.db.profile.hidesolo or IsInGroup()) then
 				win:Show()
+			end
+			local postDisplay = win.db.displayoutofcombat
+			if postDisplay and postDisplay ~= "" and postDisplay ~= win.db.display then
+				win:SwitchDisplay(postDisplay)
 			end
 		end
 		if self.db.profile.showcombatsummary and summarySet and self:ShouldShowCombatSummary(summarySet) then
