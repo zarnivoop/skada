@@ -61,6 +61,7 @@ Options.lua
 Settings.lua
 BarDisplay.lua
 InlineDisplay.lua
+LedgerDisplay.lua
 BrokerDisplay.lua
 Version.lua
 

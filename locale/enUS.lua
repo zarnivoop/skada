@@ -143,6 +143,13 @@ L["Enables the title bar."] = "Enables the title bar."
 
 L["Total healing"] = "Total healing"
 L["Interrupts"] = "Interrupts"
+L["Player"] = "Player"
+L["Taken"] = "Taken"
+L["Avoid"] = "Avoid"
+L["Int"] = "Int"
+L["Disp"] = "Disp"
+L["Ledger"] = "Ledger"
+L["A table of damage, healing, damage taken, avoidable damage, interrupts, dispels and deaths."] = "A table of damage, healing, damage taken, avoidable damage, interrupts, dispels and deaths."
 
 L["Skada Menu"] = "Skada Menu"
 L["Switch to mode"] = "Switch to mode"

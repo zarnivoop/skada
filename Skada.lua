@@ -490,6 +490,11 @@ function Skada:PrepareDisplayDefaults(win, key)
 		-- Let LibWindow center the bar window the first time it is used.
 		db.x, db.y, db.point = nil, nil, nil
 		db.scale = db.scale or 1
+	elseif key == "ledger" then
+		db.width = 840
+		db.height = 420
+		db.scale = 1
+		db.x, db.y, db.point = nil, nil, nil
 	end
 end
 
