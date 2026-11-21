@@ -2805,7 +2805,15 @@ Everything below this is OK to use in modes.
 
 function Skada:GetSets()
 	if self.NativeAPI then
-		return self.NativeAPI:GetAvailableSessions()
+		local sessions = self.NativeAPI:GetAvailableSessions() or {}
+		local newest = {}
+		-- The API returns sessions oldest first. Reverse a copy so every
+		-- segment list shows the most recent fight first. Reversing avoids
+		-- comparing fields that can be secret.
+		for i = #sessions, 1, -1 do
+			newest[#newest + 1] = sessions[i]
+		end
+		return newest
 	end
 	return {}
 end
