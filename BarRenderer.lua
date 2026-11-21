@@ -361,6 +361,14 @@ local function createActionButton(frame, title, key, texture, onClick)
 	return b
 end
 
+local function applyHeaderVisibility(frame)
+	local header = frame.header
+	if not header then return end
+	local p = frame.win and frame.win.db
+	local hide = frame._titleHover or (p and p.hoverbuttons == false)
+	header:SetShown((frame._headerShown and not hide) and true or false)
+end
+
 local function applyTitleAndActions(win, frame, p)
 	local button = frame.button
 	local fontName = "SkadaBarTitle" .. (win.db.name or "window")
@@ -397,20 +405,24 @@ local function applyTitleAndActions(win, frame, p)
 	local size = p.buttonsize or 15
 	local spacing = p.buttonspacing or 6
 	local right = p.buttonpaddingright or 10
-	local previous = button
+	local previous
 	for _, b in ipairs(frame.buttons) do
 		local setting = p.buttons and b.key and p.buttons[b.key]
 		if setting ~= nil then b:SetShown(setting and true or false) end
 		if b:IsShown() then
 			b:SetSize(size, size)
 			b:ClearAllPoints()
-			b:SetPoint("RIGHT", previous, "RIGHT", -right, 0)
+			if previous then
+				b:SetPoint("RIGHT", previous, "LEFT", -spacing, 0)
+			else
+				b:SetPoint("RIGHT", button, "RIGHT", -right, 0)
+			end
 			previous = b
-			right = spacing
 		end
 	end
 	local alpha = (p.hoverbuttons ~= false) and (frame._titleHover and 1 or 0) or 0.25
 	frame:SetButtonsOpacity(alpha)
+	applyHeaderVisibility(frame)
 end
 
 local function createShell(win)
@@ -479,6 +491,7 @@ local function createShell(win)
 	frame.button:SetScript("OnEnter", function(self)
 		frame._titleHover = true
 		self:GetParent():SetButtonsOpacity((self:GetParent().win.db.hoverbuttons ~= false) and 1 or 0.25)
+		applyHeaderVisibility(frame)
 		GameTooltip:SetOwner(self, "ANCHOR_TOP")
 		GameTooltip:ClearLines()
 		GameTooltip:AddLine(L["Left click: mode"])
@@ -488,6 +501,7 @@ local function createShell(win)
 	frame.button:SetScript("OnLeave", function(self)
 		frame._titleHover = false
 		self:GetParent():SetButtonsOpacity((self:GetParent().win.db.hoverbuttons ~= false) and 0 or 0.25)
+		applyHeaderVisibility(frame)
 		GameTooltip:Hide()
 	end)
 
@@ -763,7 +777,8 @@ local function updateColumnHeader(frame, win, spec)
 	for i = 1, #spec do key = key .. "|" .. tostring(spec[i].label) end
 	if frame._headerKey == key then return end
 	frame._headerKey = key
-	header:SetShown(show and true or false)
+	frame._headerShown = show
+	applyHeaderVisibility(frame)
 	for i = 1, 3 do header.labels[i]:Hide() end
 	if not show then return end
 	local font = fontPath(p.columnheaderfont or p.barfont, "Marcellus")
