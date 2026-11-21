@@ -18,6 +18,7 @@ Skada:AddDisplaySystem("bar", mod)
 local pairs, ipairs, type = pairs, ipairs, type
 local table_sort = table.sort
 local max, min, floor = math.max, math.min, math.floor
+local stopAnimator
 
 local COLUMN_WIDTH = 64
 local COLUMN_GAP = 6
@@ -60,6 +61,12 @@ local function snapPixels(value, scale)
 	if not value then return 0 end
 	if not scale or scale <= 0 then scale = 1 end
 	return floor(value * scale + 0.5) / scale
+end
+
+local function srgbToLinear(value)
+	value = value or 0
+	if value <= 0 then return 0 end
+	return value ^ 2.2
 end
 
 local function mediaStatusbar(key)
@@ -306,12 +313,12 @@ local function applyTitleAndActions(win, frame, p)
 		button.skadaBackground = button:CreateTexture(nil, "ARTWORK")
 		button.skadaBackground:SetAllPoints(button)
 	end
-	button.skadaBackground:SetColorTexture(0, 0, 0, 1)
-	if not button.skadaTint then
-		button.skadaTint = button:CreateTexture(nil, "ARTWORK")
-		button.skadaTint:SetAllPoints(button)
-	end
-	button.skadaTint:SetColorTexture(p.title.color.r, p.title.color.g, p.title.color.b, 0.30)
+	local titleBg = button.skadaBackground
+	local c1, c2 = p.title.color, p.title.color2 or p.title.color
+	titleBg:SetColorTexture(1, 1, 1, 1)
+	titleBg:SetGradient("HORIZONTAL",
+		CreateColor(srgbToLinear(c1.r), srgbToLinear(c1.g), srgbToLinear(c1.b), c1.a or 1),
+		CreateColor(srgbToLinear(c2.r), srgbToLinear(c2.g), srgbToLinear(c2.b), c2.a or 1))
 	Skada:ApplyBorder(button, p.title.bordertexture, p.title.bordercolor, p.title.borderthickness)
 
 	local fs = button:GetFontString()
@@ -568,6 +575,7 @@ end
 
 function mod:Destroy(win)
 	if win.bargroup then
+		stopAnimator(win.bargroup)
 		win.bargroup:Hide()
 		win.bargroup.win = nil
 		win.bargroup = nil
@@ -577,6 +585,7 @@ end
 function mod:Wipe(win)
 	local frame = win.bargroup
 	if not frame then return end
+	stopAnimator(frame)
 	frame.offset = 0
 	for _, row in ipairs(frame.rows) do
 		row:Hide()
@@ -601,6 +610,12 @@ function mod:Layout(win)
 	local frame = win.bargroup
 	if not frame then return end
 	frame._styleVersion = (frame._styleVersion or 0) + 1
+	stopAnimator(frame)
+	for _, row in ipairs(frame.rows) do
+		row._anim = nil
+		row._targetWidth = nil
+		row._currentWidth = nil
+	end
 	local p = win.db
 	local scale = frame:GetEffectiveScale() or 1
 	frame.rowHeight = snapPixels(p.barheight or 22, scale)
@@ -799,8 +814,76 @@ local function releaseRow(frame, row)
 	local id = row.id
 	row:Hide()
 	row.id = nil
+	row._anim = nil
+	row._targetWidth = nil
+	row._currentWidth = nil
+	row._currentY = nil
+	row._targetY = nil
+	if row.spark then row.spark:Hide() end
 	if id ~= nil then frame.rowById[id] = nil end
 	frame.rowPool[#frame.rowPool + 1] = row
+end
+
+local function anchorRow(row, frame, y, growup)
+	row:ClearAllPoints()
+	if growup then
+		row:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 0, y)
+		row:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, y)
+	else
+		row:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -y)
+		row:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, -y)
+	end
+end
+
+local function stepAnimations(frame, elapsed)
+	local active = false
+	for _, row in ipairs(frame.rows) do
+		local target = row._targetWidth
+		if target then
+			local current = row._currentWidth or target
+			local diff = target - current
+			if math.abs(diff) <= 0.5 then
+				row._currentWidth = target
+				row._targetWidth = nil
+				row.fill:SetWidth(target)
+			else
+				current = current + diff * 0.25
+				row._currentWidth = current
+				row.fill:SetWidth(current)
+				active = true
+			end
+		end
+		local anim = row._anim
+		if anim then
+			anim.elapsed = (anim.elapsed or 0) + elapsed
+			local t = min(1, anim.elapsed / 0.16)
+			local eased = 1 - (1 - t) * (1 - t)
+			local y = anim.fromY + (anim.toY - anim.fromY) * eased
+			row._currentY = y
+			anchorRow(row, frame, y, row._growup)
+			if t >= 1 then
+				row._currentY = anim.toY
+				row._anim = nil
+			else
+				active = true
+			end
+		end
+	end
+	if not active then
+		frame:SetScript("OnUpdate", nil)
+		frame._animating = false
+	end
+end
+
+local function ensureAnimator(frame)
+	if frame._animating then return end
+	frame._animating = true
+	frame:SetScript("OnUpdate", stepAnimations)
+end
+
+stopAnimator = function(frame)
+	frame:SetScript("OnUpdate", nil)
+	frame._animating = false
 end
 
 function mod:Update(win)
@@ -933,27 +1016,50 @@ function mod:Update(win)
 				end
 			end
 			local targetWidth = max(1, usable * ratio)
-			if not row._fillWidth or math.abs(row._fillWidth - targetWidth) > 0.5 then
-				row._fillWidth = targetWidth
+			if p.smoothing and row._currentWidth then
+				if math.abs(row._currentWidth - targetWidth) > 0.5 then
+					row._targetWidth = targetWidth
+					ensureAnimator(frame)
+				else
+					row._targetWidth = nil
+				end
+			else
+				row._targetWidth = nil
+				row._currentWidth = targetWidth
 				row.fill:SetWidth(targetWidth)
 			end
 
 			local index = row._visibleIndex
 			local y = (index - 1) * step
-			if row._rowY ~= y or row._reverse ~= p.reversegrowth then
-				row._rowY = y
-				row._reverse = p.reversegrowth
-				row:ClearAllPoints()
-				if p.reversegrowth then
-					row:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 0, y)
-					row:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, y)
+			if row._targetY ~= y or row._growup ~= p.reversegrowth then
+				local grew = p.reversegrowth and true or false
+				row._targetY = y
+				row._growup = grew
+				if p.animaterows == false or not row._currentY or not row:IsShown() then
+					row._currentY = y
+					row._anim = nil
+					anchorRow(row, frame, y, grew)
 				else
-					row:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -y)
-					row:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, -y)
+					row._anim = { fromY = row._currentY, toY = y, elapsed = 0 }
+					ensureAnimator(frame)
 				end
 			end
 			if row:GetHeight() ~= frame.rowHeight then row:SetHeight(frame.rowHeight) end
 			if not row:IsShown() then row:Show() end
+			if p.spark and visibleIndex == 1 then
+				if not row.spark then
+					row.spark = row:CreateTexture(nil, "OVERLAY")
+					row.spark:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark")
+					row.spark:SetBlendMode("ADD")
+					row.spark:SetWidth(12)
+				end
+				row.spark:SetHeight((frame.rowHeight or 22) * 2.2)
+				row.spark:ClearAllPoints()
+				row.spark:SetPoint("CENTER", row.fill, "RIGHT", 0, 0)
+				row.spark:Show()
+			elseif row.spark then
+				row.spark:Hide()
+			end
 
 			if not data.ignore then nr = nr + 1 end
 		end
@@ -979,7 +1085,10 @@ function mod:Show(win)
 end
 
 function mod:Hide(win)
-	if win.bargroup then win.bargroup:Hide() end
+	if win.bargroup then
+		stopAnimator(win.bargroup)
+		win.bargroup:Hide()
+	end
 end
 
 function mod:IsShown(win)

@@ -14,6 +14,8 @@ Implemented:
 - pooled rows with direct fill textures
 - unified column layout shared by headers and values; names use the first visible column
 - visible-row scrolling, class/spell colours, icons, total crest, tooltips and clicks
+- smoothing, rank-change row animation, spark and self-highlight
+- themed title gradient using linearised colour values
 - cached layout/style/fill work: unchanged rows skip geometry, colours and textures
 - no `SpecializedLibBars` calls or legacy column/color/row repair code
 
@@ -21,15 +23,14 @@ Measured in the simulator with the custom `bar` display:
 
 | Case | Library | Custom |
 |---|---:|---:|
-| 13 visible rows | — | 0.082 ms |
-| 40 visible rows | 6.638 ms | 0.233 ms |
+| 13 visible rows | — | 0.08 ms |
+| 40 visible rows | 6.638 ms | 0.27 ms |
 
-Remaining parity work before this can be called production-ready:
+Remaining before this can be called production-ready:
 
-- title bar currently uses a dark base with a light theme tint rather than the full
-  themed backdrop/gradient treatment
-- row animation, smoothing and spark are not yet reimplemented
-- client-side benchmark and the full in-game parity matrix are still required
+- client-side benchmark at raid density
+- full in-game parity matrix across modes, themes, widths, combat transitions and
+  secret values
 
 ## Recommendation
 
