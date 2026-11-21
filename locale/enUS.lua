@@ -151,6 +151,8 @@ L["Disp"] = "Disp"
 L["Ledger"] = "Ledger"
 L["Summary"] = "Summary"
 L["Show summary"] = "Show summary"
+L["Window menu"] = "Window menu"
+L["Click to switch displays or configure the window."] = "Click to switch displays or configure the window."
 L["Show the summary strip at the top of the ledger."] = "Show the summary strip at the top of the ledger."
 L["A table of damage, healing, damage taken, avoidable damage, interrupts, dispels and deaths."] = "A table of damage, healing, damage taken, avoidable damage, interrupts, dispels and deaths."
 

@@ -66,7 +66,6 @@ function mod:Create(window)
 		local bargroup = window.bargroup -- ticket 323
 
 		-- Add window buttons.
-		window.bargroup:AddButton(L["Configure"], L["Configure description"], "Interface\\Buttons\\UI-OptionsButton", "Interface\\Buttons\\UI-OptionsButton", function() Skada:OpenMenu(bargroup.win) end)
 		window.bargroup:AddButton(L["Reset"], L["Reset description"], "Interface\\Buttons\\UI-StopButton", "Interface\\Buttons\\UI-StopButton", function() Skada:ShowPopup() end)
 		window.bargroup:AddButton(L["Segment"], L["Segment description"], "Interface\\Buttons\\UI-GuildButton-PublicNote-Up", "Interface\\Buttons\\UI-GuildButton-PublicNote-Up", function() Skada:SegmentMenu(bargroup.win) end)
 		window.bargroup:AddButton(L["Mode"], L["Mode description"], "Interface\\GROUPFRAME\\UI-GROUP-MAINASSISTICON", "Interface\\GROUPFRAME\\UI-GROUP-MAINASSISTICON", function() Skada:ModeMenu(bargroup.win) end)
@@ -1383,7 +1382,6 @@ function mod:ApplySettings(win)
 	g:SetButtonLayout(p.buttonspacing or 3, p.buttonpaddingright or 8, buttonSize, buttonOffset)
 
 	-- Button visibility.
-	g:ShowButton(L["Configure"], p.buttons.menu)
 	g:ShowButton(L["Reset"], p.buttons.reset)
 	g:ShowButton(L["Mode"], p.buttons.mode)
 	g:ShowButton(L["Segment"], p.buttons.segment)
@@ -2198,17 +2196,6 @@ function mod:AddDisplayOptions(win, options)
 								Skada:ApplySettings()
 							end,
 					},
-					menu = {
-							type="toggle",
-							name=L["Configure"],
-							order=5,
-							get=function() return db.buttons.menu end,
-							set=function()
-								db.buttons.menu = not db.buttons.menu
-								Skada:ApplySettings()
-							end,
-					},
-
 				}
 			}
 		}

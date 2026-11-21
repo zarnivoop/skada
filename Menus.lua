@@ -83,7 +83,8 @@ end
 function Skada:DisplayMenu(window)
 	if not window then return end
 	CreateContext(UIParent, function(_, root)
-		root:CreateTitle(L["Display"])
+		root:CreateTitle(window.db.name or L["Display"])
+
 		local keys = {}
 		for key, display in pairs(Skada.displays) do
 			if key ~= "broker" and display.name then
@@ -99,6 +100,48 @@ function Skada:DisplayMenu(window)
 				Skada:SwitchWindowDisplay(window.db.name, key)
 			end)
 		end
+
+		root:CreateDivider()
+		root:CreateButton(L["Mode"], function()
+			CreateContext(UIParent, function(_, sub)
+				AddModeEntries(sub, window)
+			end)
+		end)
+		root:CreateButton(L["Segment"], function()
+			CreateContext(UIParent, function(_, sub)
+				AddSetEntries(sub, window)
+			end)
+		end)
+
+		root:CreateDivider()
+		root:CreateCheckbox(L["Lock window"], function() return window.db.barslocked end, function()
+			window.db.barslocked = not window.db.barslocked
+			Skada:ApplySettings()
+		end)
+		root:CreateButton(L["Duplicate window"], function()
+			Skada:DuplicateWindow(window.db.name)
+		end)
+		root:CreateButton(L["Hide window"], function()
+			if window:IsShown() then
+				window.db.hidden = true
+				window:Hide()
+			else
+				window.db.hidden = false
+				window:Show()
+			end
+		end)
+
+		root:CreateDivider()
+		if window.selectedmode then
+			root:CreateButton(L["Report"], function()
+				Skada:ReportMenu(window)
+			end)
+		end
+		root:CreateButton(L["Combat summary"], function()
+			Skada:ShowCombatSummary(window:get_selected_set())
+		end)
+		root:CreateButton(L["Reset"], function() Skada:Reset() end)
+		root:CreateButton(L["Configure"], function() Skada:OpenOptions(window) end)
 	end)
 end
 
@@ -113,12 +156,12 @@ function Skada:CreateDisplayButton(parent, win, size)
 		self:SetAlpha(1)
 		GameTooltip:SetOwner(self, "ANCHOR_TOP")
 		GameTooltip:ClearLines()
-		GameTooltip:AddLine(L["Display"])
+		GameTooltip:AddLine(L["Window menu"])
 		local current = win.db and Skada.displays[win.db.display]
 		if current and current.name then
 			GameTooltip:AddLine(current.name, 0.62, 0.82, 1)
 		end
-		GameTooltip:AddLine(L["Click to switch the window display."], 0.68, 0.72, 0.78)
+		GameTooltip:AddLine(L["Click to switch displays or configure the window."], 0.68, 0.72, 0.78)
 		GameTooltip:Show()
 	end)
 	button:SetScript("OnLeave", function(self)

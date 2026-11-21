@@ -568,21 +568,13 @@ function mod:Create(window, isnew)
 		subtitle:SetTextColor(0.55, 0.66, 0.76)
 		frame.subtitle = subtitle
 
-		local menu = CreateFrame("Button", nil, titleBar)
-		menu:SetSize(44, 20)
-		menu:SetPoint("RIGHT", titleBar, "RIGHT", -6, 0)
-		menu:SetNormalFontObject(_G.GameFontNormalSmall)
-		menu:SetText("MENU")
-		menu:SetScript("OnClick", function() Skada:OpenMenu(frame.win) end)
-		frame.menuButton = menu
-
 		local displayButton = Skada:CreateDisplayButton(titleBar, window, 15)
 		displayButton:SetPoint("TOPLEFT", titleBar, "TOPLEFT", 6, -7)
 		frame.displayButton = displayButton
 
 		local summaryButton = CreateFrame("Button", nil, titleBar)
 		summaryButton:SetSize(64, 20)
-		summaryButton:SetPoint("RIGHT", menu, "LEFT", -6, 0)
+		summaryButton:SetPoint("RIGHT", titleBar, "RIGHT", -6, 0)
 		summaryButton:SetNormalFontObject(_G.GameFontNormalSmall)
 		summaryButton:SetText(L["Summary"])
 		summaryButton:SetScript("OnClick", function()

@@ -202,42 +202,8 @@ function mod:Create(window, isnew)
 		window.frame.barsHolder:SetPoint("BOTTOMRIGHT", window.frame, "BOTTOMRIGHT", 0, 0)
 	end
 
-	local skadamenubuttonbackdrop = {
-		-- bgFile = "Interface\\Buttons\\UI-OptionsButton",
-		-- edgeFile = "Interface\\Buttons\\UI-OptionsButton",
-		bgFile = nil,
-		edgeFile = nil,
-		tile = true,
-		tileSize = 12,
-		edgeSize = 0,
-		insets = {
-			left = 0,
-			right = 0,
-			top = 0,
-			bottom = 0
-		}
-	}
-
-	local menu = CreateFrame("Button", "InlineFrameMenuButton", window.frame, "BackdropTemplate")
-	menu:ClearAllPoints()
-	menu:SetWidth(12)
-	menu:SetHeight(12)
-	menu:SetNormalTexture("Interface\\Buttons\\UI-OptionsButton")
-	menu:SetHighlightTexture("Interface\\Buttons\\UI-OptionsButton", "ADD")
-	menu:SetAlpha(0.5)
-	menu:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-	menu:SetBackdropColor(window.db.title.textcolor.r,window.db.title.textcolor.g,window.db.title.textcolor.b,window.db.title.textcolor.a)
-	menu:SetPoint("BOTTOMLEFT", window.frame, "BOTTOMLEFT", 6, window.db.height/2-8)
-	menu:SetFrameLevel(9)
-	menu:SetBackdrop(skadamenubuttonbackdrop)
-	menu:SetScript("OnClick", function()
-		Skada:OpenMenu(window)
-	end)
-	window.frame.menu = menu
-	window.frame.skadamenubutton = title
-
 	local displayButton = Skada:CreateDisplayButton(window.frame, window, 14)
-	displayButton:SetPoint("BOTTOMLEFT", window.frame, "BOTTOMLEFT", 24, (window.db.height or 30) / 2 - 8)
+	displayButton:SetPoint("BOTTOMLEFT", window.frame, "BOTTOMLEFT", 6, (window.db.height or 30) / 2 - 8)
 	window.frame.displayButton = displayButton
 
 	window.frame.barstartx = leftmargin + window.frame.fstitle:GetStringWidth()
@@ -531,9 +497,8 @@ function mod:ApplySettings(win)
 		bar.bg:EnableMouse(not p.clickthrough)
 	end
 
-	f.menu:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 6, win.db.height/2-8)
 	if f.displayButton then
-		f.displayButton:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 24, win.db.height/2-8)
+		f.displayButton:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 6, win.db.height/2-8)
 	end
 
 	f:EnableMouse(not p.clickthrough)
