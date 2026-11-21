@@ -10,10 +10,36 @@ local barlibrary = {
 	nextuuid = 1
 }
 local leftmargin = 40
-local ttactive = false
 
 local libwindow = LibStub("LibWindow-1.1")
 local media = LibStub("LibSharedMedia-3.0")
+
+local function fixLegacyPosition(win)
+	local db = win.db
+	if not db then return end
+	local point = db.point
+	if (point == "BOTTOMLEFT" or point == "BOTTOM" or point == "BOTTOMRIGHT") and (db.y or 0) == 0 then
+		local frame = win.frame
+		if frame then
+			frame:ClearAllPoints()
+			frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, -100)
+			libwindow.SavePosition(frame)
+		end
+	end
+end
+
+local function stripWidth(db)
+	local screenWidth = UIParent:GetWidth() or GetScreenWidth()
+	local point = db and db.point
+	if point == "TOPLEFT" or point == "BOTTOMLEFT" or point == "LEFT" then
+		local x = db.x or 0
+		if x > 0 then
+			return math.max(300, screenWidth - x)
+		end
+	end
+	return screenWidth
+end
+local ttactive = false
 
 mod.name = name
 mod.description = L["Inline display is a horizontal window style."]
@@ -75,7 +101,7 @@ function mod:Create(window, isnew)
 			window.db.height = 23
 		end
 		window.frame:SetHeight(window.db.height)
-		window.frame:SetWidth(window.db.width or GetScreenWidth())
+		window.frame:SetWidth(stripWidth(window.db))
 		window.frame:ClearAllPoints()
 		window.frame:SetPoint("BOTTOM", -1)
 		window.frame:SetPoint("LEFT", -1)
@@ -86,7 +112,7 @@ function mod:Create(window, isnew)
 		window.db.height = 23
 	end
 	window.frame:SetHeight(window.db.height)
-	window.frame:SetWidth(window.db.width or GetScreenWidth())
+	window.frame:SetWidth(stripWidth(window.db))
 
 	window.frame:EnableMouse()
 	window.frame:SetScript("OnMouseDown", function(frame, button)
@@ -107,6 +133,9 @@ function mod:Create(window, isnew)
 		libwindow.SavePosition(window.frame)
 	else
 		libwindow.RestorePosition(window.frame)
+	end
+	if not isnew then
+		fixLegacyPosition(window)
 	end
 
 	window.frame:EnableMouse(true)
@@ -491,7 +520,7 @@ function mod:ApplySettings(win)
 	--bars
 	--
 	f:SetHeight(p.height)
-	f:SetWidth(win.db.width or GetScreenWidth())
+	f:SetWidth(stripWidth(win.db))
 	f.fstitle:SetTextColor(self:GetFontColor(p))
 	f.fstitle:SetFont(self:GetFont(p))
 	for k,bar in pairs(mybars) do
