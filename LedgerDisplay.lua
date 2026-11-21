@@ -271,7 +271,7 @@ local function layout(win)
 		end
 	end
 	if frame.titleText then
-		frame.titleText:SetPoint("LEFT", frame, "TOPLEFT", PADDING, -(TITLE_HEIGHT / 2))
+		frame.titleText:SetPoint("LEFT", frame, "TOPLEFT", PADDING + 20, -(TITLE_HEIGHT / 2))
 	end
 	if frame.subtitle then
 		frame.subtitle:SetPoint("LEFT", frame.titleText, "RIGHT", 8, 0)
@@ -397,7 +397,7 @@ function mod:Create(window, isnew)
 		frame.titleBg = bg
 
 		local title = titleBar:CreateFontString(nil, "OVERLAY")
-		title:SetPoint("LEFT", titleBar, "LEFT", PADDING, 0)
+		title:SetPoint("LEFT", titleBar, "LEFT", PADDING + 20, 0)
 		title:SetText(L["Ledger"])
 		frame.titleText = title
 
@@ -413,6 +413,10 @@ function mod:Create(window, isnew)
 		menu:SetText("MENU")
 		menu:SetScript("OnClick", function() Skada:OpenMenu(frame.win) end)
 		frame.menuButton = menu
+
+		local displayButton = Skada:CreateDisplayButton(titleBar, window, 15)
+		displayButton:SetPoint("TOPLEFT", titleBar, "TOPLEFT", 6, -7)
+		frame.displayButton = displayButton
 
 		local summary = CreateFrame("Frame", nil, frame)
 		summary:SetPoint("TOPLEFT", titleBar, "BOTTOMLEFT", PADDING, -6)

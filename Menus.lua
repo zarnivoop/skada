@@ -80,6 +80,57 @@ local function AddWindowEntries(root, window)
 	end)
 end
 
+function Skada:DisplayMenu(window)
+	if not window then return end
+	CreateContext(UIParent, function(_, root)
+		root:CreateTitle(L["Display"])
+		local keys = {}
+		for key, display in pairs(Skada.displays) do
+			if key ~= "broker" and display.name then
+				keys[#keys + 1] = key
+			end
+		end
+		table.sort(keys)
+		for _, key in ipairs(keys) do
+			local display = Skada.displays[key]
+			root:CreateRadio(display.name, function()
+				return window.db.display == key
+			end, function()
+				Skada:SwitchWindowDisplay(window.db.name, key)
+			end)
+		end
+	end)
+end
+
+function Skada:CreateDisplayButton(parent, win, size)
+	size = size or 14
+	local button = CreateFrame("Button", nil, parent)
+	button:SetSize(size, size)
+	button:SetNormalTexture("Interface\\Buttons\\UI-RefreshButton")
+	button:SetHighlightTexture("Interface\\Buttons\\UI-RefreshButton", "ADD")
+	button:SetAlpha(0.55)
+	button:SetScript("OnEnter", function(self)
+		self:SetAlpha(1)
+		GameTooltip:SetOwner(self, "ANCHOR_TOP")
+		GameTooltip:ClearLines()
+		GameTooltip:AddLine(L["Display"])
+		local current = win.db and Skada.displays[win.db.display]
+		if current and current.name then
+			GameTooltip:AddLine(current.name, 0.62, 0.82, 1)
+		end
+		GameTooltip:AddLine(L["Click to switch the window display."], 0.68, 0.72, 0.78)
+		GameTooltip:Show()
+	end)
+	button:SetScript("OnLeave", function(self)
+		self:SetAlpha(0.55)
+		GameTooltip:Hide()
+	end)
+	button:SetScript("OnClick", function()
+		Skada:DisplayMenu(win)
+	end)
+	return button
+end
+
 function Skada:ReportMenu(window)
 	CreateContext(UIParent, function(_, root)
 		root:CreateTitle(L["Report"])

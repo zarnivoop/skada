@@ -203,6 +203,10 @@ function mod:Create(window, isnew)
 	window.frame.menu = menu
 	window.frame.skadamenubutton = title
 
+	local displayButton = Skada:CreateDisplayButton(window.frame, window, 14)
+	displayButton:SetPoint("TOPLEFT", window.frame, "TOPLEFT", 6, -4)
+	window.frame.displayButton = displayButton
+
 	window.frame.barstartx = leftmargin + window.frame.fstitle:GetStringWidth()
 
 	window.frame.win = window
