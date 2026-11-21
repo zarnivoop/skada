@@ -277,7 +277,7 @@ local function createRow(frame)
 	row.fill = row:CreateTexture(nil, "ARTWORK")
 	row.fill:SetPoint("TOPLEFT", row, "TOPLEFT", 0, 0)
 	row.fill:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 0)
-	row.fill:SetTexture("Interface\\Buttons\\WHITE8X8")
+	row.fill:SetTexture(frame._barTexture or "Interface\\Buttons\\WHITE8X8")
 	row.fill:SetVertexColor(0.3, 0.5, 0.8, 1)
 	row.icon = row:CreateTexture(nil, "OVERLAY")
 	row.icon:SetSize(22, 22)
@@ -727,11 +727,14 @@ function mod:Layout(win)
 
 	local texture = p.bartexturepath or mediaStatusbar(p.bartexture)
 	local font = fontPath(p.barfont, "ABF")
+	frame._barTexture = texture
 	frame._fontPath = font
 	frame._fontSize = p.barfontsize or 13
 	frame._fontFlags = p.barfontflags or ""
 	for _, row in ipairs(frame.rows) do
 		row:SetHeight(frame.rowHeight)
+		row._barTexture = texture
+		row.fill:SetTexture(texture)
 		row:EnableMouse(not p.clickthrough)
 		row:EnableMouseWheel(not p.clickthrough)
 		if row.iconFrame then row.iconFrame:EnableMouse(not p.clickthrough) end
@@ -901,6 +904,7 @@ local function resetRowForUse(row)
 	row._iconKey = nil
 	row._styleKey = nil
 	row._hasIcon = false
+	row._barTexture = nil
 	row._anim = nil
 	row._targetWidth = nil
 	row._currentWidth = nil
@@ -1064,6 +1068,11 @@ function mod:Update(win)
 			row.sourceCreatureID = data.sourceCreatureID or win._drillSourceCreatureID
 			visibleIndex = visibleIndex + 1
 			row._visibleIndex = visibleIndex
+			if row:GetHeight() ~= frame.rowHeight then row:SetHeight(frame.rowHeight) end
+			if row._barTexture ~= frame._barTexture then
+				row._barTexture = frame._barTexture
+				row.fill:SetTexture(frame._barTexture or "Interface\\Buttons\\WHITE8X8")
+			end
 
 			local iconKey = secretKey(data.role) .. "|" .. secretKey(data.class) .. "|" .. secretKey(data.icon) .. "|" .. tostring(p.roleicons) .. "|" .. tostring(p.classicons)
 			if row._iconKey ~= iconKey then
