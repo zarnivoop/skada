@@ -214,7 +214,7 @@ end
 local function ensureColumn(row, index)
 	local fs = row.columns[index]
 	if not fs then
-		fs = row:CreateFontString(nil, "OVERLAY")
+		fs = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 		fs:SetJustifyH("RIGHT")
 		fs:SetJustifyV("MIDDLE")
 		fs:SetWordWrap(false)
@@ -224,10 +224,19 @@ local function ensureColumn(row, index)
 end
 
 local function layoutRowText(row, frame, spec, p, hasIcon)
+	local font = frame._fontPath or "Fonts\\FRIZQT__.TTF"
+	local size = frame._fontSize or 13
+	local flags = frame._fontFlags or ""
+	row.label:SetFont(font, size, flags)
+	for i = 1, 3 do
+		local fs = row.columns[i]
+		if fs then fs:SetFont(font, size, flags) end
+	end
 	local firstSlot = 4 - #spec
 	for i = 1, #spec do
 		local slot = firstSlot + i - 1
 		local fs = ensureColumn(row, slot)
+		fs:SetFont(font, size, flags)
 		fs:ClearAllPoints()
 		fs:SetPoint("RIGHT", row, "RIGHT", -columnRightOffset(slot), 0)
 		fs:SetWidth(COLUMN_WIDTH)
@@ -271,8 +280,9 @@ local function createRow(frame)
 	row.iconFrame = CreateFrame("Frame", nil, row)
 	row.iconFrame:SetAllPoints(row.icon)
 	row.iconFrame:EnableMouse(false)
-	row.label = row:CreateFontString(nil, "OVERLAY")
+	row.label = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	row.label:SetWordWrap(false)
+	row.label:SetFont(frame._fontPath or "Fonts\\FRIZQT__.TTF", frame._fontSize or 13, frame._fontFlags or "")
 	row.label:SetJustifyV("MIDDLE")
 	row.columns = {}
 	row.separator = row:CreateTexture(nil, "OVERLAY")
@@ -632,6 +642,9 @@ function mod:Layout(win)
 
 	local texture = p.bartexturepath or mediaStatusbar(p.bartexture)
 	local font = fontPath(p.barfont, "ABF")
+	frame._fontPath = font
+	frame._fontSize = p.barfontsize or 13
+	frame._fontFlags = p.barfontflags or ""
 	for _, row in ipairs(frame.rows) do
 		row:SetHeight(frame.rowHeight)
 		row:EnableMouse(not p.clickthrough)
