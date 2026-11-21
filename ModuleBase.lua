@@ -806,6 +806,16 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 	options = options or {}
 	local valueKey = options.valueKey or "totalAmount"
 	win.metadata.isspelllist = true
+	local spellColumns = ({
+		[0] = "Damage",
+		[2] = "Healing",
+		[4] = "Absorbs",
+		[8] = "Avoidable",
+		[10] = "EnemyDamage",
+	})[damageType]
+	if spellColumns then
+		win.metadata.columns = { [spellColumns] = true, Percent = true }
+	end
 
 	local spells = self:GetDrillSpells(win, playerid, set, damageType)
 
