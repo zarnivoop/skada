@@ -69,6 +69,12 @@ local function srgbToLinear(value)
 	return value ^ 2.2
 end
 
+local function visibleRowCount(frame)
+	local spacing = frame.rowSpacing or 1
+	local step = (frame.rowHeight or 22) + spacing
+	return max(1, floor(((frame:GetHeight() or 0) + spacing + 0.5) / step))
+end
+
 local function mediaStatusbar(key)
 	if not key or key == "None" then return "Interface\\Buttons\\WHITE8X8" end
 	return media:Fetch("statusbar", key) or "Interface\\Buttons\\WHITE8X8"
@@ -1027,7 +1033,7 @@ function mod:Update(win)
 	local maxvalue = win.metadata.maxvalue or 1
 	if type(maxvalue) ~= "number" or maxvalue <= 0 then maxvalue = 1 end
 	local step = (frame.rowHeight or 22) + (frame.rowSpacing or 1)
-	local visibleRows = max(1, floor(((frame:GetHeight() or 100) + frame.rowSpacing) / step))
+	local visibleRows = visibleRowCount(frame)
 	local startIndex = min((frame.offset or 0) + 1, #dataset)
 	local endIndex = min(#dataset, startIndex + visibleRows - 1)
 	local specKey = table.concat({ tostring(frame:GetWidth()), tostring(#spec), tostring(p.iconscale), tostring(p.classicons), tostring(p.roleicons) }, ":")
@@ -1289,7 +1295,7 @@ function mod:OnMouseWheel(win, frame, direction)
 	local g = win.bargroup
 	if not g then return end
 	local step = (g.rowHeight or 22) + (g.rowSpacing or 1)
-	local visible = max(1, floor((g:GetHeight() or 100) / step))
+	local visible = visibleRowCount(g)
 	local maxOffset = max(0, #(win.dataset or {}) - visible)
 	if direction == 1 then
 		g.offset = max(0, (g.offset or 0) - 1)
