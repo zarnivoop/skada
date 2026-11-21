@@ -204,8 +204,14 @@ end
 
 local function setTextIfChanged(fs, text, secret)
 	if not fs then return end
-	if secret or fs._skadaText ~= text then
-		fs._skadaText = secret and nil or text
+	if secret then
+		fs._skadaText = nil
+		fs:SetText(text)
+		return
+	end
+	local current = fs:GetText()
+	if fs._skadaText ~= text or (not issecretvalue(current) and current ~= text) then
+		fs._skadaText = text
 		fs:SetText(text)
 	end
 end
@@ -1010,6 +1016,15 @@ function mod:Update(win)
 	local specKey = table.concat({ tostring(frame:GetWidth()), tostring(#spec), tostring(p.iconscale), tostring(p.classicons), tostring(p.roleicons) }, ":")
 	local fillVersion = tostring(p.barorientation or 1) .. ":" .. tostring(p.barinset or 0)
 	local styleVersion = frame._styleVersion or 0
+	local viewTitle = win.metadata and win.metadata.title
+	if not issecretvalue(viewTitle) and frame._lastViewTitle ~= viewTitle then
+		frame._lastViewTitle = viewTitle
+		frame._skipAnimation = true
+	end
+	if frame._lastSelectedMode ~= win.selectedmode then
+		frame._lastSelectedMode = win.selectedmode
+		frame._skipAnimation = true
+	end
 
 	local kept = {}
 	local nr = 1
@@ -1071,6 +1086,12 @@ function mod:Update(win)
 			local valuetext = data.valuetext
 			local valuetextSecret = issecretvalue(valuetext)
 			if valuetextSecret or valuetext ~= nil then
+				local valueColumn = ensureColumn(row, 3)
+				valueColumn:SetFont(frame._fontPath or "Fonts\\FRIZQT__.TTF", frame._fontSize or 13, frame._fontFlags or "")
+				valueColumn:ClearAllPoints()
+				valueColumn:SetPoint("RIGHT", row, "RIGHT", -COLUMN_RIGHT_PAD, 0)
+				valueColumn:SetWidth(COLUMN_WIDTH)
+				valueColumn:SetJustifyH("RIGHT")
 				for i2 = 1, 3 do
 					local fs = row.columns[i2]
 					if fs then
@@ -1143,7 +1164,7 @@ function mod:Update(win)
 				local grew = p.reversegrowth and true or false
 				row._targetY = y
 				row._growup = grew
-				if p.animaterows == false or frame._resizing or not row._currentY or not row:IsShown() then
+				if p.animaterows == false or frame._resizing or frame._skipAnimation or not row._currentY or not row:IsShown() then
 					row._currentY = y
 					row._anim = nil
 					anchorRow(row, frame, y, grew)
@@ -1181,6 +1202,40 @@ function mod:Update(win)
 	local active = {}
 	for row in pairs(kept) do active[#active + 1] = row end
 	frame.rows = active
+	frame._skipAnimation = nil
+end
+
+function mod:Dump(win)
+	win = win or Skada._lastActiveWindow or Skada:GetWindows()[1]
+	local frame = win and win.bargroup
+	if not frame then
+		Skada:Print("Bar diagnostic: no active bar window.")
+		return
+	end
+	Skada:Print(("Bar diagnostic: display=%s rows=%d frame=%sx%s scale=%s effective=%s dbScale=%s"):format(
+		tostring(win.db.display), #(frame.rows or {}), tostring(frame:GetWidth()), tostring(frame:GetHeight()),
+		tostring(frame:GetScale()), tostring(frame:GetEffectiveScale()), tostring(win.db.scale)))
+	for i, row in ipairs(frame.rows or {}) do
+		local text = row.label:GetText()
+		local textDesc
+		if issecretvalue(text) then textDesc = "<secret>"
+		elseif type(text) == "string" then textDesc = ("%q"):format(text)
+		else textDesc = tostring(text) end
+		local data = row.spellData
+		local dataLabel = data and data.label
+		local dataDesc
+		if issecretvalue(dataLabel) then dataDesc = "<secret>"
+		elseif type(dataLabel) == "string" then dataDesc = ("%q"):format(dataLabel)
+		else dataDesc = tostring(dataLabel) end
+		local r, g, b, a = row.label:GetTextColor()
+		local sw = "?"
+		pcall(function() sw = row.label:GetStringWidth() end)
+		Skada:Print(("row %d id=%s text=%s data=%s shown=%s label=%sx%s at %s,%s stringW=%s alpha=%s color=%.2f/%.2f/%.2f/%.2f y=%s targetY=%s anim=%s"):format(
+			i, tostring(row.id), textDesc, dataDesc, tostring(row.label:IsShown()),
+			tostring(row.label:GetWidth()), tostring(row.label:GetHeight()),
+			tostring(row.label:GetLeft()), tostring(row.label:GetTop()), tostring(sw), tostring(row.label:GetAlpha()),
+			r, g, b, a, tostring(row._currentY), tostring(row._targetY), tostring(row._anim ~= nil)))
+	end
 end
 
 function mod:ApplySettings(win)

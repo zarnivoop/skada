@@ -1590,6 +1590,15 @@ local function slashHandler(param)
 		Skada:DumpAPIDiagnostics()
 		return
 	end
+	if param == "bar" or param == "rows" then
+		local display = Skada.displays.bar
+		if display and display.Dump then
+			display:Dump(Skada._lastActiveWindow or Skada:GetWindows()[1])
+		else
+			Skada:Print("Bar display not loaded")
+		end
+		return
+	end
 	if param == "ledger" then
 		local display = Skada.displays.ledger
 		if display and display.Dump then
