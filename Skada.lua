@@ -2714,6 +2714,12 @@ function Skada:UpdateDisplay(force)
 						d.role = nil
 						d.color = nil
 						d.spellschool = nil
+						d.source = nil
+						d.sourceGUID = nil
+						d.sourceCreatureID = nil
+						d.isLocalPlayer = nil
+						d.spellDetails = nil
+						d.target = nil
 						win.selectedmode:FormatSetSummary(d, set)
 						d.value = total
 						d.label = L["Total"]

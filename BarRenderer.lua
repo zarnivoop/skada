@@ -993,6 +993,8 @@ end
 local function rowClick(row, button)
 	local win = row.win
 	if not win then return end
+	local data = row.spellData
+	if data and not issecretvalue(data.ignore) and data.ignore then return end
 	Skada._lastActiveWindow = win
 	local click1, click2, click3 = win.metadata.click1, win.metadata.click2, win.metadata.click3
 	win._drillSource = row.source
