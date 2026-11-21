@@ -1,3 +1,21 @@
+## 2.8.0
+Bar renderer and combat polish
+- Rebuilt the bar window on an internal renderer with smoother updates, row animations and a more visible spark
+- Windows resize live, snap to complete rows and keep their scale
+- Added a sticky total row and compact row density
+- Added alternating row bands for mode and segment lists, following the Alternate row colors setting
+- Columns are configurable per mode; DPS, HPS, APS, ADPS and DTPS start hidden
+- Added a single-value display option for a column-free layout
+- Damage and Healing spell lists now use aligned value and percent columns
+- Fixed spell icons and spell colors in combat, including restricted combat data
+- Fixed the total row showing one player's amount instead of the session total
+- The total row no longer opens a player's spell breakdown
+- Column headers hide while the title controls are shown, and title icons no longer overlap
+- Combat mode switching now defaults to None
+- Replaced the per-window broker display with a general LDB data-source toggle; existing broker windows become bar windows
+- New windows no longer ask for a display type; it can be changed afterward
+- Fixed scrolling past the last row, empty row labels and stale scale after resizing
+
 ## 2.7.0
 Window displays, ledger, and themes
 - Windows can now switch between bar, line, and ledger displays while keeping their position and settings
