@@ -90,6 +90,9 @@ function ModuleBase:UpdatePlayerList(win, set, options)
 				if type(rawValue) ~= "nil" or type(rawRate) ~= "nil" then
 					local d = self:ReuseDatasetEntry(win.dataset, nr)
 					d._is_nodata = nil
+					d.valueText1 = nil
+					d.valueText2 = nil
+					d.valueText3 = nil
 					d.id = "combat_" .. nr
 					d.source = player
 					d.isLocalPlayer = player.isLocalPlayer
@@ -105,6 +108,7 @@ function ModuleBase:UpdatePlayerList(win, set, options)
 					local rateText = Skada:FormatNumberSecret(rawRate)
 
 					if options.columns then
+						d.valuetext = nil
 						Skada:FormatValueText(d, valueText, options.columns[1], rateText, options.columns[2], "", options.columns[3])
 					else
 						d.valuetext = valueText
@@ -170,6 +174,7 @@ function ModuleBase:UpdatePlayerList(win, set, options)
 				local percentText = (options.includePercent and totalValue > 0) and string.format("%02.1f%%", (value / totalValue) * 100) or nil
 
 				if options.columns then
+					d.valuetext = nil
 					Skada:FormatValueText(d, valueText, options.columns[1], rateText, options.columns[2], percentText, options.columns[3])
 				else
 					d.valuetext = valueText
@@ -274,6 +279,9 @@ function ModuleBase:UpdateSimpleList(win, set, options)
 
 					local d = self:ReuseDatasetEntry(win.dataset, nr)
 					d._is_nodata = nil
+					d.valueText1 = nil
+					d.valueText2 = nil
+					d.valueText3 = nil
 					d.id = id
 					d.source = player
 					d.isLocalPlayer = player.isLocalPlayer

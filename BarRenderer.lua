@@ -152,6 +152,7 @@ local function columnRightOffset(slot)
 end
 
 local function buildColumnSpec(win)
+	if win.db.disablecolumns then return {} end
 	local mode = win.selectedmode
 	local columns = mode and mode.metadata and mode.metadata.columns
 	local custom = mode and mode.metadata and mode.metadata.columnSpec
@@ -272,6 +273,18 @@ local function ensureColumn(row, index)
 		row.columns[index] = fs
 	end
 	return fs
+end
+
+local function singleValueText(data)
+	local value = data.valuetext
+	if value ~= nil then return value end
+	local primary = data.valueText1
+	if primary == nil then return nil end
+	local percent = data.valueText3
+	if percent ~= nil and not issecretvalue(primary) and not issecretvalue(percent) then
+		return primary .. " (" .. percent .. ")"
+	end
+	return primary
 end
 
 local function layoutRowText(row, frame, spec, p, hasIcon)
@@ -1249,9 +1262,9 @@ function mod:Update(win)
 			end
 			setTextIfChanged(row.label, label, issecretvalue(label))
 
-			local valuetext = data.valuetext
+			local valuetext = singleValueText(data)
 			local valuetextSecret = issecretvalue(valuetext)
-			if #spec == 0 and (valuetextSecret or valuetext ~= nil) then
+			if #spec == 0 then
 				local valueColumn = ensureColumn(row, 3)
 				valueColumn:SetFont(frame._fontPath or "Fonts\\FRIZQT__.TTF", frame._fontSize or 13, frame._fontFlags or "")
 				valueColumn:ClearAllPoints()

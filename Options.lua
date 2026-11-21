@@ -64,6 +64,7 @@ Skada.windowdefaults = {
 	totalicon = [[Interface\AddOns\Skada\media\icons\ForeverCrest]],
 	showcolumnheaders = true,
 	showratecolumn = false,
+	disablecolumns = false,
 	stickytotal = true,
 	compact = false,
 	columnheadersheight = 8,

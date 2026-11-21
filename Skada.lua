@@ -867,6 +867,12 @@ end
 
 -- Sets up the mode list.
 function Window:DisplayModes(settime)
+	for _, row in ipairs(self.dataset or {}) do
+		row.valuetext = nil
+		row.valueText1 = nil
+		row.valueText2 = nil
+		row.valueText3 = nil
+	end
 	self.history = wipe(self.history or {})
 	self:Wipe()
 	self._drillSource = nil
@@ -924,6 +930,12 @@ end
 
 -- Sets up the set list.
 function Window:DisplaySets()
+	for _, row in ipairs(self.dataset or {}) do
+		row.valuetext = nil
+		row.valueText1 = nil
+		row.valueText2 = nil
+		row.valueText3 = nil
+	end
 	self.history = wipe(self.history or {})
 	self:Wipe()
 	self._drillSource = nil
