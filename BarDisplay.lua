@@ -610,6 +610,15 @@ snapBarRows = function(win)
 	end
 end
 
+local SPELL_FALLBACK_COLORS = {
+	{ r = 0.35, g = 0.55, b = 0.85 },
+	{ r = 0.80, g = 0.48, b = 0.35 },
+	{ r = 0.42, g = 0.72, b = 0.52 },
+	{ r = 0.72, g = 0.62, b = 0.32 },
+	{ r = 0.62, g = 0.48, b = 0.80 },
+	{ r = 0.32, g = 0.68, b = 0.72 },
+}
+
 local SCHOOL_COLORS = {
 	[1] = {r = 1, g = 0.82, b = 0.17},
 	[2] = {r = 0.96, g = 0.91, b = 0.11},
@@ -624,9 +633,9 @@ local function setBarColor(bar, data, win)
 	local r, g, b, a
 	if data.color then
 		r, g, b, a = data.color.r, data.color.g, data.color.b, data.color.a or 1
-	elseif data.spellschool and not issecretvalue(data.spellschool) and win.db.spellschoolcolors then
+	elseif data.spellschool and not issecretvalue(data.spellschool) and win.db.spellschoolcolors and SCHOOL_COLORS[data.spellschool] then
 		local color = SCHOOL_COLORS[data.spellschool]
-		if color then r, g, b, a = color.r, color.g, color.b, color.a or 1 end
+		r, g, b, a = color.r, color.g, color.b, color.a or 1
 	elseif data.class and not issecretvalue(data.class) and win.db.classcolorbars then
 		local color = Skada.classcolors[data.class]
 		if color then
@@ -638,6 +647,11 @@ local function setBarColor(bar, data, win)
 				b = b * (1 - amount) + mix.b * amount
 			end
 		end
+	end
+	if not r and win.metadata and win.metadata.isspelllist then
+		local order = tonumber(data.order) or 1
+		local color = SPELL_FALLBACK_COLORS[((order - 1) % #SPELL_FALLBACK_COLORS) + 1]
+		r, g, b, a = color.r, color.g, color.b, 1
 	end
 	if not r then
 		local color = win.db.barcolor

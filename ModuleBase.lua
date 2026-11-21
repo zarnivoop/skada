@@ -403,6 +403,49 @@ local function spellNameFromID(spellID)
 	return nil
 end
 
+local SCHOOL_BITS = { 1, 2, 4, 8, 16, 32, 64 }
+local SCHOOL_NAMES = {
+	[1] = L["Physical"],
+	[2] = L["Holy"],
+	[4] = L["Fire"],
+	[8] = L["Nature"],
+	[16] = L["Frost"],
+	[32] = L["Shadow"],
+	[64] = L["Arcane"],
+}
+
+local function normalizeSchool(school)
+	if type(school) ~= "number" or issecretvalue(school) then return nil end
+	if school >= 1 and school <= 7 then
+		return SCHOOL_BITS[school]
+	end
+	return school
+end
+
+local function spellSchool(spellID, spell)
+	local school = spell and (spell.spellSchool or spell.spellSchoolMask or spell.school or spell.schoolMask)
+	local normalized = normalizeSchool(school)
+	if normalized then return normalized end
+	if type(spellID) == "number" and not issecretvalue(spellID) and spellID > 0 then
+		if C_Spell.GetSpellSchool then
+			local ok, schoolID = pcall(C_Spell.GetSpellSchool, spellID)
+			normalized = normalizeSchool(ok and schoolID or nil)
+			if normalized then return normalized end
+		end
+		local ok, info = pcall(C_Spell.GetSpellInfo, spellID)
+		if ok and type(info) == "table" then
+			normalized = normalizeSchool(info.spellSchool or info.school)
+			if normalized then return normalized end
+		end
+	end
+	return nil
+end
+
+local function spellSchoolName(school)
+	if type(school) ~= "number" or issecretvalue(school) then return nil end
+	return SCHOOL_NAMES[school]
+end
+
 local function spellTargetDetails(spell)
 	if type(spell) ~= "table" or issecretvalue(spell) then return nil end
 	local details = spell.combatSpellDetails
@@ -474,6 +517,23 @@ function ModuleBase:CreateSpellTooltip()
 	return function(win, id, label, tooltip)
 		local data = win._hoverSpell
 		if not data then return end
+		local schoolName = spellSchoolName(data.spellschool)
+		if schoolName then
+			tooltip:AddDoubleLine(L["Spell school"], schoolName, 1, 1, 1, 1, 1, 1)
+		end
+		if data.amount ~= nil then
+			tooltip:AddDoubleLine(L["Amount"], Skada:FormatNumberSecret(data.amount), 1, 1, 1, 1, 1, 1)
+		end
+		local hits = data.hits
+		if hits ~= nil and not issecretvalue(hits) then
+			tooltip:AddDoubleLine(L["Hits"], tostring(hits), 1, 1, 1, 1, 1, 1)
+		end
+		local overhealing = data.overhealing
+		if overhealing ~= nil and not issecretvalue(overhealing) and overhealing ~= 0 then
+			tooltip:AddDoubleLine(L["Overhealing"], Skada:FormatNumber(overhealing), 1, 1, 1, 1, 1, 1)
+		elseif issecretvalue(overhealing) then
+			tooltip:AddDoubleLine(L["Overhealing"], Skada:FormatNumberSecret(overhealing), 1, 1, 1, 1, 1, 1)
+		end
 		if data.target ~= nil then
 			tooltip:AddLine(L["Target"])
 			local ok = pcall(tooltip.AddLine, tooltip, data.target)
@@ -728,6 +788,7 @@ end
 function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 	options = options or {}
 	local valueKey = options.valueKey or "totalAmount"
+	win.metadata.isspelllist = true
 
 	local spells = self:GetDrillSpells(win, playerid, set, damageType)
 
@@ -815,6 +876,11 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 					d.overkill = spell.overkillAmount
 					d.avoidable = spell.isAvoidable
 					d.deadly = spell.isDeadly
+					d.amount = rawValue
+					d.spellschool = spellSchool(plainSpellID or rawSpellID, spell)
+					d.hits = spell.hits or spell.hitCount or spell.count or spell.castCount or spell.numHits
+					d.overhealing = spell.overhealing or spell.overHealing or spell.overheal
+					d.order = nr
 					if type(spellName) == "string" then
 						if not issecretvalue(spellName)
 							and type(target) == "string" and not issecretvalue(target) and target ~= "" then
@@ -866,6 +932,11 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 					d.overkill = spell.overkillAmount
 					d.avoidable = spell.isAvoidable
 					d.deadly = spell.isDeadly
+					d.amount = value
+					d.spellschool = spellSchool(spellID, spell)
+					d.hits = spell.hits or spell.hitCount or spell.count or spell.castCount or spell.numHits
+					d.overhealing = spell.overhealing or spell.overHealing or spell.overheal
+					d.order = nr
 					if type(target) == "string" and not issecretvalue(target) and target ~= "" then
 						d.label = baseName .. " - " .. target
 					else

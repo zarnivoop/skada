@@ -656,3 +656,12 @@ L["Deadly"] = "Deadly"
 
 -- Target tooltip.
 L["Amount"] = "Amount"
+L["Spell school"] = "Spell school"
+L["Physical"] = "Physical"
+L["Holy"] = "Holy"
+L["Fire"] = "Fire"
+L["Nature"] = "Nature"
+L["Frost"] = "Frost"
+L["Shadow"] = "Shadow"
+L["Arcane"] = "Arcane"
+L["Hits"] = "Hits"
