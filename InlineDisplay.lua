@@ -98,8 +98,12 @@ function mod:Create(window, isnew)
 	-- Register with LibWindow-1.1.
 	libwindow.RegisterConfig(window.frame, window.db)
 
-	-- Restore window position.
-	if isnew then
+	-- Restore window position. A first-time inline window uses a visible
+	-- top-edge strip; switching from another display restores the position
+	-- prepared for it on the window db.
+	if isnew and not window.db.x and not window.db.y then
+		window.frame:ClearAllPoints()
+		window.frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, -100)
 		libwindow.SavePosition(window.frame)
 	else
 		libwindow.RestorePosition(window.frame)
