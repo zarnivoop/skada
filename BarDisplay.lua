@@ -956,9 +956,11 @@ function mod:Update(win)
 	-- If we are using "wipestale", remove all unchecked bars.
 	if win.metadata.wipestale then
 		local bars = win.bargroup:GetBars()
-		for name, bar in pairs(bars) do
-			if not bar.checked then
-				win.bargroup:RemoveBar(bar)
+		if bars then
+			for name, bar in pairs(bars) do
+				if not bar.checked then
+					win.bargroup:RemoveBar(bar)
+				end
 			end
 		end
 	end
@@ -1410,8 +1412,15 @@ function mod:ApplySettings(win)
 	local bgcolor = p.background.color
 	g:SetBackdropColor(bgcolor.r, bgcolor.g, bgcolor.b, bgcolor.a or 1)
 
-	-- Clickthrough
-	g:SetEnableMouse(not p.clickthrough)
+	-- Clickthrough. The library setter iterates GetBars(), which is nil on a
+	-- fresh or emptied group.
+	local clickthrough = not p.clickthrough
+	if g:GetBars() then
+		g:SetEnableMouse(clickthrough)
+	else
+		g.enablemouse = clickthrough
+		g:EnableMouse(clickthrough)
+	end
 
 	-- Scale
 	g:SetScale(p.scale)
