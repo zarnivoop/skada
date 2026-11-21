@@ -73,24 +73,49 @@ local function sourceKey(source)
 	return nil
 end
 
+local function addMetric(map, key, value, countOnly)
+	if not key then return end
+	if countOnly then
+		map[key] = (map[key] or 0) + 1
+	elseif value ~= nil then
+		local current = map[key]
+		if current == nil then
+			map[key] = value
+		elseif not issecretvalue(current) and not issecretvalue(value) then
+			map[key] = current + value
+		else
+			-- A secret cannot be added. Keep the latest value so the cell can
+			-- still display something in combat.
+			map[key] = value
+		end
+	end
+end
+
+local function sourceAmount(source)
+	local value = source.totalAmount
+	if value ~= nil then return value end
+	value = source.amount
+	if value ~= nil then return value end
+	value = source.total
+	if value ~= nil then return value end
+	value = source.value
+	if value ~= nil then return value end
+	return nil
+end
+
 local function metricMap(set, dtype, countOnly)
-	local map = {}
+	local map = { names = {} }
 	local view = Skada.NativeAPI:GetSessionView(set, dtype)
 	if type(view) ~= "table" or issecretvalue(view) then return map end
 	local sources = view.combatSources
 	if type(sources) ~= "table" or issecretvalue(sources) then return map end
 	for _, source in ipairs(sources) do
 		if type(source) == "table" and not issecretvalue(source) then
-			local key = sourceKey(source)
-			if key then
-				if countOnly then
-					map[key] = (map[key] or 0) + 1
-				else
-					local value = source.totalAmount
-					if type(value) == "number" and not issecretvalue(value) then
-						map[key] = (map[key] or 0) + value
-					end
-				end
+			local value = countOnly and nil or sourceAmount(source)
+			addMetric(map, sourceKey(source), value, countOnly)
+			local name = plainString(source.name)
+			if name then
+				addMetric(map.names, name, value, countOnly)
 			end
 		end
 	end
@@ -133,9 +158,11 @@ local function sumMap(map)
 	if type(map) ~= "table" then return nil end
 	local total = 0
 	local any = false
-	for _, value in pairs(map) do
-		total = total + value
-		any = true
+	for key, value in pairs(map) do
+		if key ~= "names" and type(value) == "number" and not issecretvalue(value) then
+			total = total + value
+			any = true
+		end
 	end
 	return any and total or nil
 end
@@ -167,6 +194,16 @@ local function classColor(class)
 	return 0.92, 0.95, 0.98
 end
 
+local function lookupMetric(map, key, source)
+	if type(map) ~= "table" then return nil end
+	local value = key and map[key] or nil
+	if value == nil and map.names then
+		local name = plainString(source.name)
+		if name then value = map.names[name] end
+	end
+	return value
+end
+
 local function buildRows(win, set)
 	local maps = {}
 	local damageView = Skada.NativeAPI:GetSessionView(set, 0)
@@ -185,11 +222,13 @@ local function buildRows(win, set)
 	end
 	-- Deaths can live in a different session than the current one; use the
 	-- same fallback the Deaths mode uses, then count per player.
-	maps.deaths = {}
+	maps.deaths = { names = {} }
 	for _, source in ipairs(deathSources(set)) do
 		if type(source) == "table" and not issecretvalue(source) then
 			local key = sourceKey(source)
 			if key then maps.deaths[key] = (maps.deaths[key] or 0) + 1 end
+			local name = plainString(source.name)
+			if name then maps.deaths.names[name] = (maps.deaths.names[name] or 0) + 1 end
 		end
 	end
 
@@ -205,10 +244,10 @@ local function buildRows(win, set)
 				order = order,
 				values = {},
 			}
-			row.values.damage = source.totalAmount
+			row.values.damage = sourceAmount(source)
 			for _, metric in ipairs(METRICS) do
 				if metric.key ~= "damage" then
-					row.values[metric.key] = key and maps[metric.key][key] or nil
+					row.values[metric.key] = lookupMetric(maps[metric.key], key, source)
 				end
 			end
 			rows[#rows + 1] = row
