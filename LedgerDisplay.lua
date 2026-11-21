@@ -142,38 +142,14 @@ local function metricMap(set, dtype, countOnly)
 end
 
 local function deathSources(set)
-	local function sourcesFrom(view)
-		if type(view) ~= "table" or issecretvalue(view) then return nil end
-		local sources = view.combatSources
-		if type(sources) ~= "table" or issecretvalue(sources) then
-			sources = view.participants
-		end
-		if type(sources) ~= "table" or issecretvalue(sources) then return nil end
-		return sources
+	local view = Skada.NativeAPI:GetSessionView(set, 9)
+	if type(view) ~= "table" or issecretvalue(view) then return {} end
+	local sources = view.combatSources
+	if type(sources) ~= "table" or issecretvalue(sources) then
+		sources = view.participants
 	end
-
-	local sources = sourcesFrom(Skada.NativeAPI:GetSessionView(set, 9))
-	if sources and #sources > 0 then return sources end
-
-	if C_DamageMeter then
-		local sessionID = type(set) == "table" and not issecretvalue(set) and set.sessionID or nil
-		if sessionID then
-			local ok, view = pcall(C_DamageMeter.GetCombatSessionFromID, sessionID, 9)
-			if ok then
-				sources = sourcesFrom(view)
-				if sources and #sources > 0 then return sources end
-			end
-		else
-			for _, sessionType in ipairs({1, 2, 0}) do
-				local ok, view = pcall(C_DamageMeter.GetCombatSessionFromType, sessionType, 9)
-				if ok then
-					sources = sourcesFrom(view)
-					if sources and #sources > 0 then return sources end
-				end
-			end
-		end
-	end
-	return sources or {}
+	if type(sources) ~= "table" or issecretvalue(sources) then return {} end
+	return sources
 end
 
 local function sumMap(map)
@@ -247,10 +223,20 @@ local function buildRows(win, set)
 	maps.deaths = { names = {} }
 	for _, source in ipairs(deathSources(set)) do
 		if type(source) == "table" and not issecretvalue(source) then
-			local key = sourceKey(source)
-			if key then maps.deaths[key] = (maps.deaths[key] or 0) + 1 end
-			local name = sourceName(source)
-			if name then maps.deaths.names[name] = (maps.deaths.names[name] or 0) + 1 end
+			local count = source.deaths
+			if issecretvalue(count) then
+				count = 1
+			elseif type(count) ~= "number" then
+				count = 1
+			elseif count <= 0 then
+				count = nil
+			end
+			if count then
+				local key = sourceKey(source)
+				if key then maps.deaths[key] = (maps.deaths[key] or 0) + count end
+				local name = sourceName(source)
+				if name then maps.deaths.names[name] = (maps.deaths.names[name] or 0) + count end
+			end
 		end
 	end
 
