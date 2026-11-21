@@ -1091,6 +1091,15 @@ function ModuleBase:GetSetTotal(set, damageType, options)
 	local view = Skada.NativeAPI:GetSessionView(set, damageType)
 	if type(view) ~= "table" then return 0 end
 
+	-- The native session exposes an aggregate total directly. Prefer it;
+	-- summing sources is only a fallback for older/mock views.
+	local sessionTotal = view.totalAmount
+	if issecretvalue(sessionTotal) then
+		return sessionTotal
+	elseif type(sessionTotal) == "number" then
+		return sessionTotal
+	end
+
 	local total = 0
 	local sources = view[sourcesKey]
 	if type(sources) ~= "table" then
