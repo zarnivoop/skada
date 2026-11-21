@@ -500,8 +500,19 @@ function Window:SwitchDisplay(name)
 	local wasShown = self:IsShown()
 	local priorMode = self.selectedmode
 	local priorSet = self.selectedset or self.db.set
+	local oldName = self.db.display
 	local keepX, keepY, keepPoint, keepScale = self.db.x, self.db.y, self.db.point, self.db.scale or 1
 	Skada:SaveDisplayState(self, self.db.display)
+
+	-- The bar title sits above the bar group, while the line and ledger titles
+	-- are inside their frames. Preserve the visible top edge, not the raw frame
+	-- top, so switching does not move the title.
+	local function titleOffset(key)
+		if key ~= "bar" then return 0 end
+		local height = (self.db.title and self.db.title.height) or 30
+		return height * (keepScale or 1)
+	end
+	local visualTop = keepY and (keepY + titleOffset(oldName)) or nil
 
 	self._switching = true
 	if self.display then
@@ -520,6 +531,9 @@ function Window:SwitchDisplay(name)
 	-- The renderer can change, but the window keeps its anchor. Only the
 	-- display-specific size is taken from the restored state.
 	self.db.x, self.db.y, self.db.point, self.db.scale = keepX, keepY, keepPoint, keepScale
+	if visualTop then
+		self.db.y = visualTop - titleOffset(name)
+	end
 	if name == "inline" then
 		-- The line display spans the UI width; a leftover window width would
 		-- clip most of its entries.
