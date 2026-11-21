@@ -790,14 +790,11 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 				transparentTheme = true
 			end
 		else
-			local titleColor = theme.title and theme.title.color
-			local c = titleColor or themeBg
-			if c then
-				local alpha = 0.62
-				if titleColor and titleColor.a and titleColor.a < alpha then
-					alpha = titleColor.a
-				end
-				ledgerBg = { r = c.r, g = c.g, b = c.b, a = alpha }
+			-- The bar list background is barbgcolor, not the title. Use the same
+			-- base for the ledger, raised to a readable alpha.
+			local base = theme.barbgcolor or themeBg
+			if base then
+				ledgerBg = { r = base.r, g = base.g, b = base.b, a = 0.62 }
 			end
 		end
 		win.db.ledgertransparent = transparentTheme and true or false
