@@ -56,6 +56,11 @@ local function plainString(value)
 	return nil
 end
 
+local function sourceName(source)
+	if type(source) ~= "table" or issecretvalue(source) then return nil end
+	return plainString(source.name) or plainString(source.playerName) or plainString(source.unitName)
+end
+
 local function formatValue(value)
 	if value == nil then return "-" end
 	if issecretvalue(value) then return Skada:FormatNumberSecret(value) end
@@ -66,7 +71,7 @@ end
 
 local function sourceKey(source)
 	if type(source) ~= "table" or issecretvalue(source) then return nil end
-	local guid = source.sourceGUID
+	local guid = source.sourceGUID or source.guid
 	if type(guid) == "string" and not issecretvalue(guid) then return guid end
 	local resolved = Skada.NativeAPI:ResolveSourceGUID(source)
 	if type(resolved) == "string" and not issecretvalue(resolved) then return resolved end
@@ -92,15 +97,26 @@ local function addMetric(map, key, value, countOnly)
 end
 
 local function sourceAmount(source)
-	local value = source.totalAmount
-	if value ~= nil then return value end
-	value = source.amount
-	if value ~= nil then return value end
-	value = source.total
-	if value ~= nil then return value end
-	value = source.value
-	if value ~= nil then return value end
-	return nil
+	local candidates = {
+		source.totalAmount,
+		source.amount,
+		source.total,
+		source.value,
+		source.healing,
+		source.healingDone,
+		source.totalHealing,
+		source.effectiveAmount,
+	}
+	local fallback
+	for i = 1, 8 do
+		local value = candidates[i]
+		if issecretvalue(value) then return value end
+		if type(value) == "number" then
+			if value ~= 0 then return value end
+			if fallback == nil then fallback = value end
+		end
+	end
+	return fallback
 end
 
 local function metricMap(set, dtype, countOnly)
@@ -108,12 +124,15 @@ local function metricMap(set, dtype, countOnly)
 	local view = Skada.NativeAPI:GetSessionView(set, dtype)
 	if type(view) ~= "table" or issecretvalue(view) then return map end
 	local sources = view.combatSources
+	if type(sources) ~= "table" or issecretvalue(sources) then
+		sources = view.participants
+	end
 	if type(sources) ~= "table" or issecretvalue(sources) then return map end
 	for _, source in ipairs(sources) do
 		if type(source) == "table" and not issecretvalue(source) then
 			local value = countOnly and nil or sourceAmount(source)
 			addMetric(map, sourceKey(source), value, countOnly)
-			local name = plainString(source.name)
+			local name = sourceName(source)
 			if name then
 				addMetric(map.names, name, value, countOnly)
 			end
@@ -126,6 +145,9 @@ local function deathSources(set)
 	local function sourcesFrom(view)
 		if type(view) ~= "table" or issecretvalue(view) then return nil end
 		local sources = view.combatSources
+		if type(sources) ~= "table" or issecretvalue(sources) then
+			sources = view.participants
+		end
 		if type(sources) ~= "table" or issecretvalue(sources) then return nil end
 		return sources
 	end
@@ -198,7 +220,7 @@ local function lookupMetric(map, key, source)
 	if type(map) ~= "table" then return nil end
 	local value = key and map[key] or nil
 	if value == nil and map.names then
-		local name = plainString(source.name)
+		local name = sourceName(source)
 		if name then value = map.names[name] end
 	end
 	return value
@@ -227,7 +249,7 @@ local function buildRows(win, set)
 		if type(source) == "table" and not issecretvalue(source) then
 			local key = sourceKey(source)
 			if key then maps.deaths[key] = (maps.deaths[key] or 0) + 1 end
-			local name = plainString(source.name)
+			local name = sourceName(source)
 			if name then maps.deaths.names[name] = (maps.deaths.names[name] or 0) + 1 end
 		end
 	end
@@ -862,6 +884,41 @@ function mod:Update(win)
 	updateSummary(win, damageView, maps)
 	updateHeader(win, canSort)
 	layout(win)
+end
+
+function mod:Dump(win)
+	win = win or Skada._lastActiveWindow or Skada:GetWindows()[1]
+	if not win then return end
+	local set = win:get_selected_set()
+	local setID = "nil"
+	if type(set) == "table" and not issecretvalue(set) then
+		setID = tostring(set.sessionID or set.sessionType or "?")
+	end
+	Skada:Print("Ledger set " .. setID .. " display=" .. tostring(win.db.display))
+	for _, dtype in ipairs({0, 2, 7, 5, 6, 8, 9}) do
+		local view = Skada.NativeAPI:GetSessionView(set, dtype)
+		local sources
+		if type(view) == "table" and not issecretvalue(view) then
+			sources = view.combatSources
+			if type(sources) ~= "table" or issecretvalue(sources) then
+				sources = view.participants
+			end
+		end
+		local count = type(sources) == "table" and #sources or 0
+		Skada:Print("  type " .. dtype .. " view=" .. tostring(view ~= nil) .. " sources=" .. count)
+		local first = type(sources) == "table" and sources[1] or nil
+		if type(first) == "table" and not issecretvalue(first) then
+			for key, value in pairs(first) do
+				local kind = type(value)
+				local secret = issecretvalue(value) and " secret" or ""
+				local text = ""
+				if not issecretvalue(value) and (kind == "number" or kind == "string") then
+					text = " " .. tostring(value)
+				end
+				Skada:Print("    " .. tostring(key) .. " " .. kind .. secret .. text)
+			end
+		end
+	end
 end
 
 function mod:AddDisplayOptions(win, options)

@@ -1570,6 +1570,15 @@ local function slashHandler(param)
 		Skada:DumpAPIDiagnostics()
 		return
 	end
+	if param == "ledger" then
+		local display = Skada.displays.ledger
+		if display and display.Dump then
+			display:Dump(Skada._lastActiveWindow)
+		else
+			Skada:Print("Ledger display not loaded")
+		end
+		return
+	end
 	if param == "deaths" then
 		Skada:DumpDeathsDiagnostics()
 		return
