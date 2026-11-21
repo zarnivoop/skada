@@ -238,6 +238,40 @@ local function buildRows(win, set)
 	return rows, damageView, maps, canSort
 end
 
+local function updateScroll(win)
+	local frame = win and win.ledgerFrame
+	if not frame or not frame.scroll then return end
+	local scroll = frame.scroll
+	local bar = frame.scrollBar
+	local child = frame.scrollChild
+	if not child then return end
+	local viewHeight = scroll:GetHeight() or 0
+	local contentHeight = child:GetHeight() or 0
+	local maxScroll = math.max(0, contentHeight - viewHeight)
+	if bar then
+		bar:SetMinMaxValues(0, maxScroll)
+		local value = scroll:GetVerticalScroll() or 0
+		if type(value) ~= "number" or issecretvalue(value) then value = 0 end
+		if value > maxScroll then value = maxScroll end
+		bar:SetValue(value)
+		bar:SetShown(maxScroll > 0)
+	end
+end
+
+local function scrollBy(win, delta)
+	local frame = win and win.ledgerFrame
+	if not frame or not frame.scroll then return end
+	local scroll = frame.scroll
+	local maxScroll = scroll:GetVerticalScrollRange()
+	if type(maxScroll) ~= "number" or issecretvalue(maxScroll) then return end
+	local value = (scroll:GetVerticalScroll() or 0) - (delta or 0) * ROW_HEIGHT * 3
+	value = math.max(0, math.min(maxScroll, value))
+	scroll:SetVerticalScroll(value)
+	if frame.scrollBar then
+		frame.scrollBar:SetValue(value)
+	end
+end
+
 local function layout(win)
 	local frame = win.ledgerFrame
 	if not frame then return end
@@ -300,6 +334,7 @@ local function layout(win)
 			end
 		end
 	end
+	updateScroll(win)
 end
 
 local function updateSummary(win, damageView, maps)
@@ -482,10 +517,28 @@ function mod:Create(window, isnew)
 			header.cols[i + 1] = fs
 		end
 
-		local scroll = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
+		local scroll = CreateFrame("ScrollFrame", nil, frame)
 		scroll:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -4)
 		scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -SCROLLBAR - 2, PADDING)
+		scroll:EnableMouseWheel(true)
+		scroll:SetScript("OnMouseWheel", function(_, delta) scrollBy(frame.win, delta) end)
 		frame.scroll = scroll
+
+		local scrollBar = CreateFrame("Slider", nil, frame)
+		scrollBar:SetOrientation("VERTICAL")
+		scrollBar:SetWidth(12)
+		scrollBar:SetPoint("TOPRIGHT", scroll, "TOPRIGHT", 16, 0)
+		scrollBar:SetPoint("BOTTOMRIGHT", scroll, "BOTTOMRIGHT", 16, 0)
+		scrollBar:SetMinMaxValues(0, 0)
+		scrollBar:SetValueStep(ROW_HEIGHT)
+		scrollBar:SetObeyStepOnDrag(true)
+		scrollBar:SetThumbTexture("Interface\\Buttons\\UI-ScrollBar-Knob")
+		scrollBar:SetScript("OnValueChanged", function(_, value)
+			scroll:SetVerticalScroll(value or 0)
+		end)
+		scrollBar:Hide()
+		frame.scrollBar = scrollBar
+
 		local child = CreateFrame("Frame", nil, scroll)
 		child:SetWidth(frame:GetWidth() - PADDING * 2 - SCROLLBAR)
 		child:SetHeight(1)
@@ -512,6 +565,8 @@ function mod:Create(window, isnew)
 				GameTooltip:Show()
 			end)
 			row:SetScript("OnLeave", function() GameTooltip:Hide() end)
+			row:EnableMouseWheel(true)
+			row:SetScript("OnMouseWheel", function(_, delta) scrollBy(frame.win, delta) end)
 
 			local bg = row:CreateTexture(nil, "BACKGROUND")
 			bg:SetAllPoints(row)
@@ -659,6 +714,7 @@ function mod:Update(win)
 	win._ledgerRows = rows
 	local scrollChild = frame.scrollChild
 	scrollChild:SetHeight(math.max(1, #rows) * ROW_HEIGHT)
+	updateScroll(win)
 
 	for i = 1, MAX_ROWS do
 		local row = frame.rows[i]
