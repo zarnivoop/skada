@@ -487,8 +487,8 @@ function Skada:PrepareDisplayDefaults(win, key)
 	elseif key == "bar" then
 		-- Bar geometry lives in barwidth/background.height.
 	elseif key == "ledger" then
-		db.width = 840
-		db.height = 420
+		db.width = 760
+		db.height = 360
 	end
 end
 
@@ -520,6 +520,11 @@ function Window:SwitchDisplay(name)
 	-- The renderer can change, but the window keeps its anchor. Only the
 	-- display-specific size is taken from the restored state.
 	self.db.x, self.db.y, self.db.point, self.db.scale = keepX, keepY, keepPoint, keepScale
+	if name == "inline" then
+		-- The line display spans the UI width; a leftover window width would
+		-- clip most of its entries.
+		self.db.width = nil
+	end
 	self.display:Create(self, not hadState)
 
 	if priorMode then

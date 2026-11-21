@@ -387,7 +387,7 @@ function mod:Create(window, isnew)
 	window.ledgerFrame = frame
 	frame.win = window
 	frame:SetFrameLevel(5)
-	frame:SetSize(window.db.width or 840, window.db.height or 420)
+	frame:SetSize(window.db.width or 760, window.db.height or 360)
 
 	if not frame.titleBar then
 		frame:SetBackdrop({
@@ -596,6 +596,32 @@ function mod:Create(window, isnew)
 			end
 			frame.rows[i] = row
 		end
+
+		local resize = CreateFrame("Button", nil, frame)
+		resize:SetSize(16, 16)
+		resize:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -2, 2)
+		resize:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+		resize:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+		resize:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+		resize:SetAlpha(0.45)
+		resize:SetScript("OnEnter", function(self) self:SetAlpha(0.85) end)
+		resize:SetScript("OnLeave", function(self) self:SetAlpha(0.45) end)
+		resize:SetScript("OnMouseDown", function(_, button)
+			if button == "LeftButton" then
+				frame:StartSizing("BOTTOMRIGHT")
+			end
+		end)
+		resize:SetScript("OnMouseUp", function()
+			frame:StopMovingOrSizing()
+			local width = math.max(600, frame:GetWidth() or 760)
+			local height = math.max(260, frame:GetHeight() or 360)
+			frame:SetSize(width, height)
+			window.db.width = width
+			window.db.height = height
+			libwindow.SavePosition(frame)
+			layout(window)
+		end)
+		frame.resizeButton = resize
 	end
 
 	libwindow.RegisterConfig(frame, window.db)
@@ -606,10 +632,12 @@ function mod:Create(window, isnew)
 	else
 		libwindow.RestorePosition(frame)
 	end
-	frame:SetSize(window.db.width or 840, window.db.height or 420)
+	frame:SetSize(window.db.width or 760, window.db.height or 360)
 
 	frame:EnableMouse(true)
 	frame:SetMovable(true)
+	frame:SetResizable(true)
+	frame:SetMinResize(600, 260)
 	frame:SetScript("OnSizeChanged", function()
 		if frame.win then layout(frame.win) end
 	end)
@@ -661,7 +689,7 @@ function mod:ApplySettings(win)
 	local titlePath = db.title and (db.title.fontpath or media:Fetch("font", db.title.font)) or fontPath
 	local titleSize = db.title and (db.title.fontsize or 13) or 13
 
-	frame:SetSize(db.width or 840, db.height or 420)
+	frame:SetSize(db.width or 760, db.height or 360)
 	if frame.titleText then
 		frame.titleText:SetFont(titlePath, titleSize, "")
 	end
