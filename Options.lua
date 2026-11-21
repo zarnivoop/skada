@@ -74,6 +74,7 @@ Skada.windowdefaults = {
 	rowseparatorcolor = { r = 0.45, g = 0.62, b = 0.75, a = 0.25 },
 
 	title = { textcolor = { r = 0.98, g = 0.99, b = 1.00, a = 1 }, height = 30, font = Skada.ThemeFonts.title, fontsize = 13, paddingleft = 12, paddingtop = 3, texture = "Forever Bar", bordercolor = { r = 0.32, g = 0.48, b = 0.62, a = 0.12 }, bordertexture = "Forever Line", borderthickness = 1, color = { r = 0.06, g = 0.11, b = 0.20, a = 0.68 }, color2 = { r = 0.015, g = 0.028, b = 0.055, a = 0.68 }, fontflags = "", textalign = "LEFT" },
+	ledgerbgcolor = { r = 0.025, g = 0.035, b = 0.045, a = 0.62 },
 	background = {
 		height = 300,
 		texture = "None",
