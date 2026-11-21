@@ -237,7 +237,7 @@ function mod:Create(window, isnew)
 	window.frame.skadamenubutton = title
 
 	local displayButton = Skada:CreateDisplayButton(window.frame, window, 14)
-	displayButton:SetPoint("TOPLEFT", window.frame, "TOPLEFT", 6, -4)
+	displayButton:SetPoint("BOTTOMLEFT", window.frame, "BOTTOMLEFT", 24, (window.db.height or 30) / 2 - 8)
 	window.frame.displayButton = displayButton
 
 	window.frame.barstartx = leftmargin + window.frame.fstitle:GetStringWidth()
@@ -532,6 +532,9 @@ function mod:ApplySettings(win)
 	end
 
 	f.menu:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 6, win.db.height/2-8)
+	if f.displayButton then
+		f.displayButton:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 24, win.db.height/2-8)
+	end
 
 	f:EnableMouse(not p.clickthrough)
 	f:SetScale(p.scale)
