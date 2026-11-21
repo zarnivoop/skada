@@ -657,6 +657,9 @@ function Window:DisplayMode(mode)
 
 	self.selectedplayer = nil
 	self.selectedmode = mode
+	if not self.selectedset then
+		self.selectedset = "current"
+	end
 
 	self.metadata = wipe(self.metadata or {})
 

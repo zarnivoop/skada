@@ -573,11 +573,16 @@ local function setRowStyle(row, data, win, p, hasIcon)
 	local isList = win.metadata and (win.metadata.is_modelist or win.metadata.is_setlist)
 	local r, g, b, a = getBarColor(data, win, p)
 	if isList then
-		-- Lists use full-width bars whose length carries no meaning. Hide the
-		-- fill and let alternating row bands do the visual separation.
-		row.fill:Hide()
+		-- Lists use full-width bars whose length carries no meaning. Keep a low
+		-- opacity tint so rows remain colored, with alternating dark bands.
+		local alternate = row._visibleIndex and row._visibleIndex % 2 == 0
+		local shade = alternate and 0.45 or 1.00
+		row.fill:Show()
+		row.fill:SetVertexColor(r * shade, g * shade, b * shade, 1)
+		row.fill:SetAlpha(alternate and 0.55 or 0.04)
 	else
 		row.fill:Show()
+		row.fill:SetAlpha(1)
 		row.fill:SetVertexColor(r, g, b, a)
 	end
 
@@ -611,7 +616,7 @@ local function setRowStyle(row, data, win, p, hasIcon)
 	local alternate = row._visibleIndex and row._visibleIndex % 2 == 0
 	if isList then
 		local tint = 0.040
-		local alpha = p.transparentbackground and 0 or (alternate and 0.22 or 0.10)
+		local alpha = p.transparentbackground and 0 or (alternate and 0.20 or 0.02)
 		row.bg:SetColorTexture(bg.r + tint, bg.g + tint * 1.15, bg.b + tint * 1.55, alpha)
 	elseif p.alternaterows and alternate then
 		local d = 0.04
@@ -1158,7 +1163,15 @@ function mod:Update(win)
 			end
 
 			local value = data.value
-			if type(value) ~= "number" then value = 0 end
+			if type(value) ~= "number" then
+				local fallback = data.totalAmount
+				if type(fallback) ~= "number" then fallback = data.amount end
+				if type(fallback) == "number" then
+					value = fallback
+				else
+					value = (win.metadata.is_modelist or win.metadata.is_setlist) and maxvalue or 0
+				end
+			end
 			local ratio = max(0, min(1, value / maxvalue))
 			local inset = p.barinset or 0
 			local usable = max(0, frame:GetWidth() - inset * 2)
