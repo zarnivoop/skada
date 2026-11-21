@@ -482,19 +482,13 @@ end
 function Skada:PrepareDisplayDefaults(win, key)
 	local db = win.db
 	if key == "inline" then
-		if not db.height or db.height < 16 then db.height = 23 end
+		db.height = 23
 		db.width = nil
-		db.scale = 1
-		db.x, db.y, db.point = nil, nil, nil
 	elseif key == "bar" then
-		-- Let LibWindow center the bar window the first time it is used.
-		db.x, db.y, db.point = nil, nil, nil
-		db.scale = db.scale or 1
+		-- Bar geometry lives in barwidth/background.height.
 	elseif key == "ledger" then
 		db.width = 840
 		db.height = 420
-		db.scale = 1
-		db.x, db.y, db.point = nil, nil, nil
 	end
 end
 
@@ -506,6 +500,7 @@ function Window:SwitchDisplay(name)
 	local wasShown = self:IsShown()
 	local priorMode = self.selectedmode
 	local priorSet = self.selectedset or self.db.set
+	local keepX, keepY, keepPoint, keepScale = self.db.x, self.db.y, self.db.point, self.db.scale or 1
 	Skada:SaveDisplayState(self, self.db.display)
 
 	self._switching = true
@@ -522,6 +517,9 @@ function Window:SwitchDisplay(name)
 	if not hadState then
 		Skada:PrepareDisplayDefaults(self, name)
 	end
+	-- The renderer can change, but the window keeps its anchor. Only the
+	-- display-specific size is taken from the restored state.
+	self.db.x, self.db.y, self.db.point, self.db.scale = keepX, keepY, keepPoint, keepScale
 	self.display:Create(self, not hadState)
 
 	if priorMode then

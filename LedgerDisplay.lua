@@ -543,12 +543,10 @@ function mod:Create(window, isnew)
 		end
 	end
 
+	libwindow.RegisterConfig(frame, window.db)
 	if isnew and not window.db.x and not window.db.y then
 		frame:ClearAllPoints()
 		frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
-	end
-	libwindow.RegisterConfig(frame, window.db)
-	if isnew then
 		libwindow.SavePosition(frame)
 	else
 		libwindow.RestorePosition(frame)
