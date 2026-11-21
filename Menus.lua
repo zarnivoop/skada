@@ -80,6 +80,32 @@ local function AddWindowEntries(root, window)
 	end)
 end
 
+local function AddReportEntries(root, window)
+	for _, choice in ipairs(Skada:GetChatChannelChoices()) do
+		root:CreateButton(choice.label, function()
+			Skada:ReportToChat(window, choice.key)
+		end)
+	end
+end
+
+local function AddSummaryEntries(root, window)
+	local set = window:get_selected_set()
+	root:CreateButton(L["Window"], function()
+		Skada.db.profile.combatsummaryoutput = "window"
+		Skada:ShowCombatSummary(set)
+	end)
+	local chatMenu = root:CreateButton(L["Chat"])
+	if chatMenu then
+		for _, choice in ipairs(Skada:GetChatChannelChoices()) do
+			chatMenu:CreateButton(choice.label, function()
+				Skada.db.profile.combatsummaryoutput = "chat"
+				Skada.db.profile.combatsummarychannel = choice.key
+				Skada:ShowCombatSummary(set)
+			end)
+		end
+	end
+end
+
 function Skada:DisplayMenu(window)
 	if not window then return end
 	CreateContext(UIParent, function(_, root)
@@ -131,13 +157,15 @@ function Skada:DisplayMenu(window)
 
 		root:CreateDivider()
 		if window.selectedmode then
-			root:CreateButton(L["Report"], function()
-				Skada:ReportMenu(window)
-			end)
+			local reportMenu = root:CreateButton(L["Report"])
+			if reportMenu then
+				AddReportEntries(reportMenu, window)
+			end
 		end
-		root:CreateButton(L["Combat summary"], function()
-			Skada:ShowCombatSummary(window:get_selected_set())
-		end)
+		local summaryMenu = root:CreateButton(L["Combat summary"])
+		if summaryMenu then
+			AddSummaryEntries(summaryMenu, window)
+		end
 		root:CreateButton(L["Reset"], function() Skada:Reset() end)
 		root:CreateButton(L["Configure"], function() Skada:OpenOptions(window) end)
 		root:CreateDivider()
@@ -177,11 +205,7 @@ end
 function Skada:ReportMenu(window)
 	CreateContext(UIParent, function(_, root)
 		root:CreateTitle(L["Report"])
-		for _, choice in ipairs(Skada:GetChatChannelChoices()) do
-			root:CreateButton(choice.label, function()
-				Skada:ReportToChat(window, choice.key)
-			end)
-		end
+		AddReportEntries(root, window)
 	end)
 end
 
