@@ -80,6 +80,11 @@ local function plain(value)
 	return type(value) == "string" and not issecretvalue(value) and value ~= ""
 end
 
+local function secretKey(value)
+	if issecretvalue(value) then return "secret" end
+	return tostring(value)
+end
+
 local function applyShadow(fs, enabled)
 	if not fs then return end
 	if enabled then
@@ -841,7 +846,7 @@ function mod:Update(win)
 			visibleIndex = visibleIndex + 1
 			row._visibleIndex = visibleIndex
 
-			local iconKey = tostring(data.role) .. "|" .. tostring(data.class) .. "|" .. tostring(data.icon) .. "|" .. tostring(p.roleicons) .. "|" .. tostring(p.classicons)
+			local iconKey = secretKey(data.role) .. "|" .. secretKey(data.class) .. "|" .. secretKey(data.icon) .. "|" .. tostring(p.roleicons) .. "|" .. tostring(p.classicons)
 			if row._iconKey ~= iconKey then
 				row._iconKey = iconKey
 				row._hasIcon = setIcon(row, data, win, p)
@@ -859,7 +864,7 @@ function mod:Update(win)
 				isSelf = true
 			end
 			row._isSelf = isSelf
-			local styleKey = tostring(data.class) .. "|" .. tostring(data.spellschool) .. "|" .. tostring(data.color) .. "|" .. tostring(visibleIndex % 2) .. "|" .. tostring(styleVersion) .. "|" .. tostring(win.metadata.isspelllist) .. "|" .. tostring(isSelf) .. "|" .. tostring(p.highlightself)
+			local styleKey = secretKey(data.class) .. "|" .. secretKey(data.spellschool) .. "|" .. secretKey(data.color) .. "|" .. tostring(visibleIndex % 2) .. "|" .. tostring(styleVersion) .. "|" .. tostring(win.metadata.isspelllist) .. "|" .. tostring(isSelf) .. "|" .. tostring(p.highlightself)
 			if row._styleKey ~= styleKey then
 				row._styleKey = styleKey
 				setRowStyle(row, data, win, p, row._hasIcon)
