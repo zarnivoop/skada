@@ -153,7 +153,7 @@ RegisterMetric({
 	category = "Healing",
 	style = "players",
 	columns = { Absorbs = true, Percent = true },
-	orderColumns = { "Absorbs", "AbsorbRate", "Percent" },
+	orderColumns = { "Absorbs", "Percent" },
 	rateLabel = "APS",
 	icon = "Interface\\Icons\\Spell_Holy_PowerWordShield",
 })
@@ -165,7 +165,7 @@ RegisterMetric({
 	category = "Damage taken",
 	style = "players",
 	columns = { Avoidable = true, Percent = true },
-	orderColumns = { "Avoidable", "AvoidableRate", "Percent" },
+	orderColumns = { "Avoidable", "Percent" },
 	rateLabel = "ADPS",
 	icon = "Interface\\Icons\\Ability_Defend",
 })
@@ -177,7 +177,7 @@ RegisterMetric({
 	category = "Other",
 	style = "players",
 	columns = { EnemyDamage = true, Percent = true },
-	orderColumns = { "EnemyDamage", "EnemyRate", "Percent" },
+	orderColumns = { "EnemyDamage", "Percent" },
 	rateLabel = "DPS",
 	icon = "Interface\\Icons\\Ability_DualWield",
 })
@@ -189,7 +189,7 @@ RegisterMetric({
 	category = "Other",
 	style = "players",
 	columns = { Damage = true, Percent = true },
-	orderColumns = { "Damage", "DTPS", "Percent" },
+	orderColumns = { "Damage", "Percent" },
 	rateLabel = "DTPS",
 	formatRate = function(rate) return string.format("%02.1f", rate) end,
 	icon = "Interface\\Icons\\Inv_shield_06",
