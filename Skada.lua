@@ -484,7 +484,7 @@ function Skada:PrepareDisplayDefaults(win, key)
 	if key == "inline" then
 		db.height = 23
 		db.width = nil
-	elseif key == "bar" or key == "bar2" then
+	elseif key == "bar" then
 		-- Bar geometry lives in barwidth/background.height.
 	elseif key == "ledger" then
 		db.width = 760
@@ -508,7 +508,7 @@ function Window:SwitchDisplay(name)
 	-- are inside their frames. Preserve the visible top edge, not the raw frame
 	-- top, so switching does not move the title.
 	local function titleOffset(key)
-		if key ~= "bar" and key ~= "bar2" then return 0 end
+		if key ~= "bar" then return 0 end
 		local height = (self.db.title and self.db.title.height) or 30
 		return height * (keepScale or 1)
 	end

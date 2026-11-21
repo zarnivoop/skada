@@ -59,7 +59,7 @@ Menus.lua
 Summary.lua
 Options.lua
 Settings.lua
-BarDisplay.lua
+BarOptions.lua
 BarRenderer.lua
 InlineDisplay.lua
 LedgerDisplay.lua

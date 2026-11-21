@@ -1,5 +1,5 @@
 --[[
-	Experimental bar display.
+	Custom bar display.
 
 	This renderer deliberately does not use SpecializedLibBars. It owns its
 	window shell, row pool, column layout, scrolling and title bar.
@@ -11,9 +11,9 @@ local media = LibStub("LibSharedMedia-3.0")
 local libwindow = LibStub("LibWindow-1.1")
 
 local mod = Skada:NewModule("BarRenderer")
-mod.name = L["Bar display"] .. " (experimental)"
-mod.description = L["A custom, high-performance bar renderer."]
-Skada:AddDisplaySystem("bar2", mod)
+mod.name = L["Bar display"]
+mod.description = L["Bar display is the normal bar window used by most damage meters. It can be extensively styled."]
+Skada:AddDisplaySystem("bar", mod)
 
 local pairs, ipairs, type = pairs, ipairs, type
 local table_sort = table.sort
@@ -245,6 +245,9 @@ local function createRow(frame)
 	row:SetHeight(frame.rowHeight or 22)
 	row.bg = row:CreateTexture(nil, "BACKGROUND")
 	row.bg:SetAllPoints()
+	row.selfOverlay = row:CreateTexture(nil, "ARTWORK")
+	row.selfOverlay:SetAllPoints()
+	row.selfOverlay:Hide()
 	row.fill = row:CreateTexture(nil, "ARTWORK")
 	row.fill:SetPoint("TOPLEFT", row, "TOPLEFT", 0, 0)
 	row.fill:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 0)
@@ -284,7 +287,7 @@ end
 
 local function applyTitleAndActions(win, frame, p)
 	local button = frame.button
-	local fontName = "SkadaBar2Title" .. (win.db.name or "window")
+	local fontName = "SkadaBarTitle" .. (win.db.name or "window")
 	local titleFont = _G[fontName]
 	if not titleFont then
 		titleFont = CreateFont(fontName)
@@ -299,6 +302,11 @@ local function applyTitleAndActions(win, frame, p)
 		button.skadaBackground:SetAllPoints(button)
 	end
 	button.skadaBackground:SetColorTexture(0, 0, 0, 1)
+	if not button.skadaTint then
+		button.skadaTint = button:CreateTexture(nil, "ARTWORK")
+		button.skadaTint:SetAllPoints(button)
+	end
+	button.skadaTint:SetColorTexture(p.title.color.r, p.title.color.g, p.title.color.b, 0.30)
 	Skada:ApplyBorder(button, p.title.bordertexture, p.title.bordercolor, p.title.borderthickness)
 
 	local fs = button:GetFontString()
@@ -330,7 +338,7 @@ local function applyTitleAndActions(win, frame, p)
 end
 
 local function createShell(win)
-	local frameName = "SkadaBar2Window" .. (win.db.name or "window")
+	local frameName = "SkadaBarWindow" .. (win.db.name or "window")
 	local frame = _G[frameName]
 	if frame then return frame end
 
@@ -346,6 +354,10 @@ local function createShell(win)
 	frame:SetResizable(true)
 	if frame.SetResizeBounds then frame:SetResizeBounds(120, 80, 1600, 1200) end
 	frame:EnableMouse(true)
+	frame:EnableMouseWheel(true)
+	frame:SetScript("OnMouseWheel", function(self, direction)
+		if self.win then mod:OnMouseWheel(self.win, nil, direction) end
+	end)
 	frame:SetScript("OnMouseDown", function(self, button)
 		local w = self.win
 		if not w then return end
@@ -503,6 +515,14 @@ local function setRowStyle(row, data, win, p, hasIcon)
 		row.bg:SetColorTexture(bg.r, bg.g, bg.b, bgAlpha)
 	end
 
+	if p.highlightself and row._isSelf then
+		local sc = p.selfhighlightcolor or { r = 1, g = 1, b = 1, a = 0.12 }
+		row.selfOverlay:SetColorTexture(sc.r, sc.g, sc.b, sc.a or 0.12)
+		row.selfOverlay:Show()
+	else
+		row.selfOverlay:Hide()
+	end
+
 	if p.showrowseparators then
 		local c = p.rowseparatorcolor or { r = 0.3, g = 0.45, b = 0.6, a = 0.25 }
 		row.separator:SetColorTexture(c.r, c.g, c.b, c.a or 0.25)
@@ -641,7 +661,9 @@ end
 local function setIcon(row, data, win, p)
 	local icon, coord
 	local role, class, dataIcon = data.role, data.class, data.icon
-	if not issecretvalue(role) and role and role ~= "NONE" and p.roleicons then
+	if not issecretvalue(data.id) and data.id == "total" and p.totalicon then
+		icon = p.totalicon
+	elseif not issecretvalue(role) and role and role ~= "NONE" and p.roleicons then
 		icon = "Interface\\LFGFrame\\UI-LFG-ICON-PORTRAITROLES"
 		coord = roleIconCoords[role]
 	elseif not issecretvalue(class) and class and p.classicons and classIconCoords[class] then
@@ -830,7 +852,14 @@ function mod:Update(win)
 				layoutRowText(row, frame, spec, p, row._hasIcon)
 			end
 
-			local styleKey = tostring(data.class) .. "|" .. tostring(data.spellschool) .. "|" .. tostring(data.color) .. "|" .. tostring(visibleIndex % 2) .. "|" .. tostring(styleVersion) .. "|" .. tostring(win.metadata.isspelllist)
+			local isSelf = data.isSelf == true
+			local playerGUID = UnitGUID("player")
+			if not isSelf and not issecretvalue(data.id) and type(playerGUID) == "string"
+				and not issecretvalue(playerGUID) and data.id == playerGUID then
+				isSelf = true
+			end
+			row._isSelf = isSelf
+			local styleKey = tostring(data.class) .. "|" .. tostring(data.spellschool) .. "|" .. tostring(data.color) .. "|" .. tostring(visibleIndex % 2) .. "|" .. tostring(styleVersion) .. "|" .. tostring(win.metadata.isspelllist) .. "|" .. tostring(isSelf) .. "|" .. tostring(p.highlightself)
 			if row._styleKey ~= styleKey then
 				row._styleKey = styleKey
 				setRowStyle(row, data, win, p, row._hasIcon)
@@ -967,9 +996,8 @@ function mod:OnMouseWheel(win, frame, direction)
 end
 
 function mod:AddDisplayOptions(win, options)
-	local bar = Skada.displays and Skada.displays.bar
-	if bar and bar.AddDisplayOptions then
-		bar:AddDisplayOptions(win, options)
+	if Skada.AddBarDisplayOptions then
+		Skada.AddBarDisplayOptions(win, options)
 	else
 		options.frameoptions = Skada:FrameSettings(win.db, true)
 	end

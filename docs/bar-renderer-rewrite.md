@@ -2,28 +2,40 @@
 
 Status: exploration on `bar-renderer-explore`. Nothing here is merged or released.
 
-## Prototype status
+## Current state on this branch
 
-A first integrated prototype is on this branch as the `bar2` display. It owns the
-window shell, row pool, columns, scrolling, title bar and click/tooltip paths without
-using `SpecializedLibBars`.
+The library is gone from the package. `bar` is now rendered by `BarRenderer.lua`; the
+old `BarDisplay.lua` and `lib/SpecializedLibBars-1.0` were removed. The options schema
+was extracted to `BarOptions.lua` so it no longer pulls the library back in.
 
-It is deliberately still an experiment:
+Implemented:
 
-- title-bar colour is currently a flat dark surface rather than the full theme gradient
-- row animation, smoothing, spark and some theme-specific niceties are not implemented
-- existing `bar` display still uses the library; `bar2` exists for side-by-side testing
-- options are still delegated to `BarDisplay`'s option schema
+- custom window shell, title bar, action buttons, headers, resize grip
+- pooled rows with direct fill textures
+- unified column layout shared by headers and values; names use the first visible column
+- visible-row scrolling, class/spell colours, icons, total crest, tooltips and clicks
+- cached layout/style/fill work: unchanged rows skip geometry, colours and textures
+- no `SpecializedLibBars` calls or legacy column/color/row repair code
 
-The prototype already passes a 40-visible-row update benchmark at **0.222 ms** in the
-simulator (library: 6.638 ms), and a 13-row window at **0.082 ms**. Screenshots show
-correct columns, class colours, icons, total/self rows and narrow-window name layout.
+Measured in the simulator with the custom `bar` display:
+
+| Case | Library | Custom |
+|---|---:|---:|
+| 13 visible rows | — | 0.082 ms |
+| 40 visible rows | 6.638 ms | 0.222 ms |
+
+Remaining parity work before this can be called production-ready:
+
+- title bar currently uses a dark base with a light theme tint rather than the full
+  themed backdrop/gradient treatment
+- row animation, smoothing, spark and self-highlight are not yet reimplemented
+- client-side benchmark and the full in-game parity matrix are still required
 
 ## Recommendation
 
-Rewrite the bar display, but do it as a second renderer first (`bar2`), prove parity and
-performance, then switch the `bar` key and remove the embedded library. Do not swap the
-live renderer in one step.
+The branch has completed the renderer swap and dependency removal as a prototype. Do
+not merge or release it until the remaining parity items above are implemented and the
+in-game matrix is checked.
 
 The current renderer is not slow enough to be a user-visible problem at normal raid
 sizes, but a large part of its update cost is spent working around `SpecializedLibBars`
@@ -226,7 +238,7 @@ silently reinterpreted need a mapping table.
 
 ### Phase 1: prototype
 
-- Add `BarRenderer.lua` and register a separate `bar2` display.
+- Add `BarRenderer.lua` as the `bar` renderer.
 - Reuse the existing options schema and database keys; support one-column, two-column
   and three-column layouts.
 - No removal of the library yet.
@@ -243,7 +255,7 @@ silently reinterpreted need a mapping table.
 
 - Point the `bar` key at the new renderer.
 - Remove `SpecializedLibBars-1.0` from `embeds.xml`, its `lib.xml`, and the
-  `NewModule("BarDisplay", "SpecializedLibBars-1.0")` dependency.
+  `BarDisplay` files. Extract the option schema to `BarOptions.lua` first.
 - Delete `applyColumnGeometry`, `snapBarRows`, `_skadaColor`, the width-sync hook and
   the empty-group guards that only exist for the library.
 - Keep a one-release fallback display if practical.
@@ -256,8 +268,8 @@ densities, and the other capabilities that motivated the rewrite.
 ## Open questions
 
 1. Is `LibWindow` also retired in phase 3, or left for a separate change?
-2. Should `bar2` be user-visible in the Display menu during phase 1, or only available
-   through `/skada display bar2`?
+2. Should the custom renderer stay behind a temporary fallback flag until the in-game
+   parity matrix passes?
 3. Is a variable row height worth supporting, or should all rows stay on one pixel grid?
 4. Which new row feature is the first product requirement: overkill/absorb segments,
    benchmark deltas, or grouped rows?
