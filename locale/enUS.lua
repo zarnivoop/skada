@@ -617,6 +617,7 @@ L["Bar"] = "Bar"
 
 -- Window overview.
 L["Create a window with one of the display types below."] = "Create a window with one of the display types below."
+L["Create a new bar window. You can switch its display type later."] = "Create a new bar window. You can switch its display type later."
 
 
 -- Window duplication.

@@ -184,11 +184,11 @@ _G.StaticPopupDialogs["SKADA_NEW_WINDOW"] = {
 	hideOnEscape = true,
 }
 
-function Skada:PromptNewWindow(displayKey)
-	local display = Skada.displays and Skada.displays[displayKey]
-	local name = display and display.name or displayKey or L["Bar"]
-	pendingWindowDisplay = displayKey or "bar"
-	StaticPopup_Show("SKADA_NEW_WINDOW", name)
+function Skada:PromptNewWindow()
+	-- A window is no longer tied to a display type. New windows always start as
+	-- bars; the display can be changed from the window menu or settings.
+	pendingWindowDisplay = "bar"
+	StaticPopup_Show("SKADA_NEW_WINDOW")
 end
 
 local function CreateRow(page, height)
@@ -906,24 +906,21 @@ end
 
 function UI:BuildWindowsOverview(page)
 	AddSection(page, L["Windows"], L["Windows are independent damage meter displays."])
-	AddDescription(page, L["Create a window with one of the display types below."])
+	AddDescription(page, L["Create a new bar window. You can switch its display type later."])
 	AddSection(page, L["Create window"])
-	for key, display in pairs(Skada.displays or {}) do
-		local row = CreateRow(page, 52)
-		local name = display.name or key
-		local fs = MakeText(row, "GameFontHighlight", 12, name)
-		fs:SetPoint("TOPLEFT", row, "TOPLEFT", 10, -9)
-		local desc = MakeText(row, "GameFontNormalSmall", 10, display.description or "", MUTED)
-		desc:SetPoint("TOPLEFT", fs, "BOTTOMLEFT", 0, -2)
-		desc:SetWidth(300)
-		local create = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-		create:SetSize(110, 24)
-		create:SetPoint("RIGHT", row, "RIGHT", -8, 0)
-		create:SetText(_G.CREATE or "Create")
-		create:SetScript("OnClick", function()
-			Skada:PromptNewWindow(key)
-		end)
-	end
+	local row = CreateRow(page, 52)
+	local fs = MakeText(row, "GameFontHighlight", 12, L["New window"])
+	fs:SetPoint("TOPLEFT", row, "TOPLEFT", 10, -9)
+	local desc = MakeText(row, "GameFontNormalSmall", 10, L["Create a new bar window. You can switch its display type later."], MUTED)
+	desc:SetPoint("TOPLEFT", fs, "BOTTOMLEFT", 0, -2)
+	desc:SetWidth(300)
+	local create = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+	create:SetSize(110, 24)
+	create:SetPoint("RIGHT", row, "RIGHT", -8, 0)
+	create:SetText(_G.CREATE or "Create")
+	create:SetScript("OnClick", function()
+		Skada:PromptNewWindow()
+	end)
 end
 
 function UI:BuildWindowsPage(page)

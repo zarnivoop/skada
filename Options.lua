@@ -715,14 +715,15 @@ Skada.options = {
 	}
 }
 
-local function create_window_button(display_key)
+local function create_window_button()
 	return {
 		type = "input",
 		name = L["Enter the name for the window."],
+		desc = L["Create a new bar window. You can switch its display type later."],
 		width = "double",
 		set = function(self, val)
 			if val and val ~= "" then
-				Skada:CreateWindow(val, nil, display_key)
+				Skada:CreateWindow(val, nil, "bar")
 			end
 		end,
 		order = 2,
@@ -732,35 +733,14 @@ end
 local function update_create_windows()
 	local args = Skada.options.args.windows.args
 
-	-- Remove any existing window creation buttons
+	-- A window is a container now; there is only one create action regardless of
+	-- how many display renderers are registered.
 	for k in pairs(args) do
 		if k:match("^create_") or k == "display_types" then
 			args[k] = nil
 		end
 	end
-
-	for name, display in pairs(Skada.displays) do
-		-- Create a group for each display type
-		local display_group = {
-			type = "group",
-			name = display.name,
-			order = 0.5,
-			inline = true,
-			args = {
-				-- Add description for this display type
-				desc = {
-					type = "description",
-					name = display.description,
-					width = "full",
-					order = 1,
-				},
-				create = create_window_button(name)
-			}
-		}
-
-		-- Add the group to the options
-		args["create_" .. name] = display_group
-	end
+	args.create_window = create_window_button()
 end
 
 -- Hook into AddDisplaySystem to update window creation buttons when displays are registered

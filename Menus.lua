@@ -179,7 +179,7 @@ function Skada:DisplayMenu(window)
 		end
 		root:CreateButton(L["Configure"], function() Skada:OpenOptions(window) end)
 		root:CreateDivider()
-		root:CreateButton(L["New window"], function() Skada:PromptNewWindow("bar") end)
+		root:CreateButton(L["New window"], function() Skada:PromptNewWindow() end)
 	end)
 end
 
@@ -232,7 +232,7 @@ function Skada:OpenMenu(window)
 			end)
 		end
 		root:CreateButton(L["New window"], function()
-			Skada:PromptNewWindow("bar")
+			Skada:PromptNewWindow()
 		end)
 		root:CreateDivider()
 		if not window or (window and window.selectedmode) then
