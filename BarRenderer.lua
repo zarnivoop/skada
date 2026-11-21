@@ -348,6 +348,38 @@ local function createRow(frame)
 	return row
 end
 
+local applyHeaderVisibility
+
+applyHeaderVisibility = function(frame)
+	local header = frame.header
+	if not header then return end
+	local p = frame.win and frame.win.db
+	local hide = frame._titleHover or (p and p.hoverbuttons == false)
+	header:SetShown((frame._headerShown and not hide) and true or false)
+end
+
+local function updateTitleHover(frame)
+	local over = frame.button and frame.button:IsMouseOver()
+	if not over and frame.header and frame.header:IsShown() and frame.header:IsMouseOver() then
+		over = true
+	end
+	if not over then
+		for _, b in ipairs(frame.buttons or {}) do
+			if b:IsShown() and b:IsMouseOver() then
+				over = true
+				break
+			end
+		end
+	end
+	if not over and frame.displayToggle and frame.displayToggle:IsMouseOver() then
+		over = true
+	end
+	frame._titleHover = over and true or false
+	local p = frame.win and frame.win.db
+	frame:SetButtonsOpacity((p and p.hoverbuttons ~= false) and (over and 1 or 0) or 0.25)
+	applyHeaderVisibility(frame)
+end
+
 local function createActionButton(frame, title, key, texture, onClick)
 	local b = CreateFrame("Button", nil, frame.button)
 	b:SetSize(15, 15)
@@ -359,14 +391,6 @@ local function createActionButton(frame, title, key, texture, onClick)
 	b.title = title
 	b.key = key
 	return b
-end
-
-local function applyHeaderVisibility(frame)
-	local header = frame.header
-	if not header then return end
-	local p = frame.win and frame.win.db
-	local hide = frame._titleHover or (p and p.hoverbuttons == false)
-	header:SetShown((frame._headerShown and not hide) and true or false)
 end
 
 local function applyTitleAndActions(win, frame, p)
@@ -422,7 +446,7 @@ local function applyTitleAndActions(win, frame, p)
 	end
 	local alpha = (p.hoverbuttons ~= false) and (frame._titleHover and 1 or 0) or 0.25
 	frame:SetButtonsOpacity(alpha)
-	applyHeaderVisibility(frame)
+	updateTitleHover(frame)
 end
 
 local function createShell(win)
@@ -437,6 +461,14 @@ local function createShell(win)
 	frame.rowById = {}
 	frame.buttons = {}
 	frame.offset = 0
+	local hoverTicker = CreateFrame("Frame", nil, frame)
+	hoverTicker:SetScript("OnUpdate", function(self, elapsed)
+		self._elapsed = (self._elapsed or 0) + elapsed
+		if self._elapsed < 0.05 then return end
+		self._elapsed = 0
+		if frame:IsShown() then updateTitleHover(frame) end
+	end)
+	frame.hoverTicker = hoverTicker
 	frame:SetMovable(true)
 	frame:SetClampedToScreen(true)
 	frame:SetResizable(true)
@@ -489,9 +521,6 @@ local function createShell(win)
 		end
 	end)
 	frame.button:SetScript("OnEnter", function(self)
-		frame._titleHover = true
-		self:GetParent():SetButtonsOpacity((self:GetParent().win.db.hoverbuttons ~= false) and 1 or 0.25)
-		applyHeaderVisibility(frame)
 		GameTooltip:SetOwner(self, "ANCHOR_TOP")
 		GameTooltip:ClearLines()
 		GameTooltip:AddLine(L["Left click: mode"])
@@ -499,9 +528,6 @@ local function createShell(win)
 		GameTooltip:Show()
 	end)
 	frame.button:SetScript("OnLeave", function(self)
-		frame._titleHover = false
-		self:GetParent():SetButtonsOpacity((self:GetParent().win.db.hoverbuttons ~= false) and 0 or 0.25)
-		applyHeaderVisibility(frame)
 		GameTooltip:Hide()
 	end)
 
