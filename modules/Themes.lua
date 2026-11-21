@@ -783,24 +783,7 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 		-- renderer and the user's ledger summary preference.
 		Skada:tcopy(win.db, theme, {"name", "modeincombat", "display", "set", "mode", "wipemode", "returnaftercombat", "ledgersummary", "ledgertransparent"})
 		local themeBg = theme.background and theme.background.color
-		local transparentTheme = themeBg and themeBg.a and themeBg.a <= 0.01
-		local ledgerBg = theme.ledgerbgcolor
-		if ledgerBg then
-			if ledgerBg.a and ledgerBg.a <= 0.01 then
-				transparentTheme = true
-			end
-		else
-			-- The bar list background is barbgcolor, not the title. Use the same
-			-- base for the ledger, raised to a readable alpha.
-			local base = theme.barbgcolor or themeBg
-			if base then
-				ledgerBg = { r = base.r, g = base.g, b = base.b, a = 0.62 }
-			end
-		end
-		win.db.ledgertransparent = transparentTheme and true or false
-		if ledgerBg then
-			win.db.ledgerbgcolor = { r = ledgerBg.r, g = ledgerBg.g, b = ledgerBg.b, a = ledgerBg.a or 0.62 }
-		end
+		win.db.ledgertransparent = (themeBg and themeBg.a and themeBg.a <= 0.01) and true or false
 		-- Bars cache their colors; rebuild them so the new palette is visible.
 		win:Wipe()
 		Skada:ApplySettings()

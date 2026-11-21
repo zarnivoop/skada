@@ -49,22 +49,6 @@ local function savePosition(win)
 	win.db.scale = scale
 end
 
-local DEFAULT_LEDGER_BACKGROUND = { r = 0.025, g = 0.035, b = 0.045, a = 0.62 }
-
-local function ledgerBackground(db)
-	local bg = db.ledgerbgcolor
-	if not bg then
-		local shared = db.background and db.background.color
-		bg = {
-			r = shared and shared.r or DEFAULT_LEDGER_BACKGROUND.r,
-			g = shared and shared.g or DEFAULT_LEDGER_BACKGROUND.g,
-			b = shared and shared.b or DEFAULT_LEDGER_BACKGROUND.b,
-			a = DEFAULT_LEDGER_BACKGROUND.a,
-		}
-	end
-	return bg
-end
-
 local function plainString(value)
 	if type(value) == "string" and not issecretvalue(value) and value ~= "" then
 		return value
@@ -930,8 +914,8 @@ function mod:ApplySettings(win)
 			tile = background.tile,
 			tileSize = background.tilesize,
 		})
-		local bg = ledgerBackground(db)
-		local bgAlpha = db.ledgertransparent and 0 or (bg.a or DEFAULT_LEDGER_BACKGROUND.a)
+		local bg = background.color
+		local bgAlpha = db.ledgertransparent and 0 or (bg.a or 0.1)
 		frame:SetBackdropColor(bg.r, bg.g, bg.b, bgAlpha)
 		Skada:ApplyBorder(frame, background.bordertexture, background.bordercolor, background.borderthickness)
 	end
@@ -1124,21 +1108,6 @@ function mod:AddDisplayOptions(win, options)
 					Skada:ApplySettings()
 				end,
 				order = 5,
-			},
-			ledgerbgcolor = {
-				type = "color",
-				name = L["Background color"],
-				desc = L["The color of the ledger background."],
-				hasAlpha = true,
-				get = function()
-					local c = ledgerBackground(db)
-					return c.r, c.g, c.b, c.a
-				end,
-				set = function(_, r, g, b, a)
-					db.ledgerbgcolor = { r = r, g = g, b = b, a = a or DEFAULT_LEDGER_BACKGROUND.a }
-					Skada:ApplySettings()
-				end,
-				order = 6,
 			},
 			transparentbackground = {
 				type = "toggle",
