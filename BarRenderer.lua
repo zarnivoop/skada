@@ -23,6 +23,8 @@ local stopAnimator
 local COLUMN_WIDTH = 64
 local COLUMN_GAP = 6
 local COLUMN_RIGHT_PAD = 4
+local SMOOTH_TAU = 0.10
+local SPARK_PERIOD = 1.8
 
 local SCHOOL_COLORS = {
 	[1] = { r = 1.00, g = 0.82, b = 0.17 },
@@ -725,6 +727,7 @@ function mod:Wipe(win)
 	local frame = win.bargroup
 	if not frame then return end
 	stopAnimator(frame)
+	frame._sparkRow = nil
 	frame.offset = 0
 	for _, row in ipairs(frame.rows) do
 		row:Hide()
@@ -782,6 +785,7 @@ function mod:Layout(win)
 	if not frame then return end
 	frame._styleVersion = (frame._styleVersion or 0) + 1
 	stopAnimator(frame)
+	frame._sparkRow = nil
 	for _, row in ipairs(frame.rows) do
 		row._anim = nil
 		row._targetWidth = nil
@@ -1040,6 +1044,8 @@ end
 
 local function stepAnimations(frame, elapsed)
 	local active = false
+	local dt = min(elapsed or 0, 0.10)
+	local decay = math.exp(-dt / SMOOTH_TAU)
 	for _, row in ipairs(frame.rows) do
 		local target = row._targetWidth
 		if target then
@@ -1050,7 +1056,7 @@ local function stepAnimations(frame, elapsed)
 				row._targetWidth = nil
 				row.fill:SetWidth(target)
 			else
-				current = current + diff * 0.25
+				current = target + (current - target) * decay
 				row._currentWidth = current
 				row.fill:SetWidth(current)
 				active = true
@@ -1058,9 +1064,9 @@ local function stepAnimations(frame, elapsed)
 		end
 		local anim = row._anim
 		if anim then
-			anim.elapsed = (anim.elapsed or 0) + elapsed
+			anim.elapsed = (anim.elapsed or 0) + dt
 			local t = min(1, anim.elapsed / 0.16)
-			local eased = 1 - (1 - t) * (1 - t)
+			local eased = t * t * (3 - 2 * t)
 			local y = anim.fromY + (anim.toY - anim.fromY) * eased
 			row._currentY = y
 			anchorRow(row, frame, y, row._growup)
@@ -1071,6 +1077,14 @@ local function stepAnimations(frame, elapsed)
 				active = true
 			end
 		end
+	end
+	local spark = frame._sparkRow and frame._sparkRow.spark
+	if spark and frame.win and frame.win.db.spark then
+		local phase = (GetTime() % SPARK_PERIOD) / SPARK_PERIOD
+		local pulse = 0.84 + 0.16 * math.sin(phase * 6.283185307)
+		spark:SetAlpha(pulse)
+		spark:SetWidth((frame.rowHeight or 22) * 0.62 * pulse)
+		active = true
 	end
 	if not active then
 		frame:SetScript("OnUpdate", nil)
@@ -1087,6 +1101,7 @@ end
 stopAnimator = function(frame)
 	frame:SetScript("OnUpdate", nil)
 	frame._animating = false
+	frame._sparkRow = nil
 	for _, row in ipairs(frame.rows or {}) do
 		row._anim = nil
 		row._targetY = nil
@@ -1128,6 +1143,8 @@ function mod:Update(win)
 		frame._skipAnimation = true
 	end
 
+	frame._sparkRow = nil
+	local sparkPlaced = false
 	local kept = {}
 	local nr = 1
 	local visibleIndex = 0
@@ -1290,17 +1307,22 @@ function mod:Update(win)
 			end
 			if row:GetHeight() ~= frame.rowHeight then row:SetHeight(frame.rowHeight) end
 			if not row:IsShown() then row:Show() end
-			if p.spark and visibleIndex == 1 and not (win.metadata and (win.metadata.is_modelist or win.metadata.is_setlist)) then
+			local showSpark = p.spark and not data.ignore and not sparkPlaced
+				and not (win.metadata and (win.metadata.is_modelist or win.metadata.is_setlist))
+			if showSpark then
 				if not row.spark then
 					row.spark = row:CreateTexture(nil, "OVERLAY")
 					row.spark:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark")
 					row.spark:SetBlendMode("ADD")
-					row.spark:SetWidth(12)
 				end
 				row.spark:SetHeight((frame.rowHeight or 22) * 2.2)
+				row.spark:SetWidth((frame.rowHeight or 22) * 0.62)
+				row.spark:SetAlpha(1)
 				row.spark:ClearAllPoints()
 				row.spark:SetPoint("CENTER", row.fill, "RIGHT", 0, 0)
 				row.spark:Show()
+				frame._sparkRow = row
+				sparkPlaced = true
 			elseif row.spark then
 				row.spark:Hide()
 			end
@@ -1318,6 +1340,7 @@ function mod:Update(win)
 	for row in pairs(kept) do active[#active + 1] = row end
 	frame.rows = active
 	frame._skipAnimation = nil
+	if frame._sparkRow then ensureAnimator(frame) end
 end
 
 function mod:Dump(win)
