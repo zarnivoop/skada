@@ -449,25 +449,12 @@ local function createShell(win)
 	createActionButton(frame, L["Mode"], "mode", "Interface\\GROUPFRAME\\UI-GROUP-MAINASSISTICON", function() Skada:ModeMenu(frame.win) end)
 	createActionButton(frame, L["Report"], "report", "Interface\\Buttons\\UI-GuildButton-MOTD-Up", function() Skada:ReportMenu(frame.win) end)
 
-	local resize = CreateFrame("Button", nil, frame)
-	resize:SetSize(16, 16)
-	resize:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -2, 2)
-	resize:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
-	resize:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
-	resize:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
-	resize:SetAlpha(0.45)
-	resize:SetScript("OnEnter", function(self) self:SetAlpha(0.85) end)
-	resize:SetScript("OnLeave", function(self) self:SetAlpha(0.45) end)
-	resize:SetScript("OnMouseDown", function(_, button)
-		if button ~= "LeftButton" then return end
-		frame._resizing = true
-		if frame.resizeTicker then frame.resizeTicker:Show() end
-		frame:StartSizing("BOTTOMRIGHT")
-	end)
-	resize:SetScript("OnMouseUp", function()
-		frame:StopMovingOrSizing()
+	local resizeTicker
+	local function finishResize()
+		if not frame._resizing then return end
 		frame._resizing = false
-		if frame.resizeTicker then frame.resizeTicker:Hide() end
+		frame._resizeStart = nil
+		if resizeTicker then resizeTicker:Hide() end
 		local step = (frame.rowHeight or 22) + (frame.rowSpacing or 1)
 		local spacing = frame.rowSpacing or 1
 		local height = frame:GetHeight()
@@ -483,22 +470,59 @@ local function createShell(win)
 			mod:Layout(frame.win)
 			mod:Update(frame.win)
 		end
+	end
+
+	local resize = CreateFrame("Button", nil, frame)
+	resize:SetSize(16, 16)
+	resize:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -2, 2)
+	resize:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+	resize:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+	resize:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+	resize:SetAlpha(0.45)
+	resize:SetScript("OnEnter", function(self) self:SetAlpha(0.85) end)
+	resize:SetScript("OnLeave", function(self) self:SetAlpha(0.45) end)
+	resize:SetScript("OnMouseDown", function(_, button)
+		if button ~= "LeftButton" then return end
+		local x, y = GetCursorPosition()
+		local scale = frame:GetEffectiveScale() or 1
+		frame._resizeStart = {
+			x = x,
+			y = y,
+			w = frame:GetWidth(),
+			h = frame:GetHeight(),
+			scale = scale,
+		}
+		frame._resizing = true
+		if resizeTicker then resizeTicker:Show() end
 	end)
+	resize:SetScript("OnMouseUp", finishResize)
 	frame.resizeButton = resize
 
-	local resizeTicker = CreateFrame("Frame", nil, frame)
+	resizeTicker = CreateFrame("Frame", nil, frame)
 	resizeTicker:Hide()
 	resizeTicker:SetScript("OnUpdate", function(self)
 		if not frame._resizing then
 			self:Hide()
 			return
 		end
-		local width, height = frame:GetWidth(), frame:GetHeight()
-		local db = frame.win and frame.win.db
-		if not db or not width or not height or width <= 1 or height <= 1 then return end
-		if db.barwidth ~= width or db.background.height ~= height then
-			db.barwidth = width
-			db.background.height = height
+		if not (_G.IsMouseButtonDown and _G.IsMouseButtonDown("LeftButton")) then
+			finishResize()
+			return
+		end
+		local start = frame._resizeStart
+		if not start then
+			finishResize()
+			return
+		end
+		local x, y = GetCursorPosition()
+		local scale = start.scale or 1
+		if scale <= 0 then scale = 1 end
+		local width = max(160, min(1600, start.w + (x - start.x) / scale))
+		local height = max(80, min(1200, start.h + (start.y - y) / scale))
+		frame:SetSize(width, height)
+		if frame.win then
+			frame.win.db.barwidth = width
+			frame.win.db.background.height = height
 			mod:Layout(frame.win)
 			mod:Update(frame.win)
 		end
@@ -506,7 +530,7 @@ local function createShell(win)
 	frame.resizeTicker = resizeTicker
 
 	frame:SetScript("OnSizeChanged", function(self)
-		if self._sizingGuard then return end
+		if self._sizingGuard or self._resizing then return end
 		self._sizingGuard = true
 		local width, height = self:GetWidth(), self:GetHeight()
 		if self.win and width and height and width > 1 and height > 1 then
