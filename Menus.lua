@@ -154,6 +154,16 @@ function Skada:DisplayMenu(window)
 				window:Show()
 			end
 		end)
+		if type(Skada.ApplyThemeToWindow) == "function" and Skada.themePresets and #Skada.themePresets > 0 then
+			local themeMenu = root:CreateButton(L["Theme"])
+			if themeMenu then
+				for _, theme in ipairs(Skada.themePresets) do
+					themeMenu:CreateButton(theme.name, function()
+						Skada:ApplyThemeToWindow(window, theme)
+					end)
+				end
+			end
+		end
 
 		root:CreateDivider()
 		root:CreateTitle(L["Output"])
