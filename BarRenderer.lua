@@ -935,7 +935,8 @@ local function setIcon(row, data, win, p)
 	end
 	local icon, coord
 	local role, class, dataIcon = data.role, data.class, data.icon
-	if win.metadata and win.metadata.isspelllist and not issecretvalue(dataIcon) and dataIcon then
+	local dataIconSecret = issecretvalue(dataIcon)
+	if win.metadata and win.metadata.isspelllist and (dataIconSecret or dataIcon) then
 		icon = dataIcon
 	elseif not issecretvalue(data.id) and data.id == "total" and p.totalicon then
 		icon = p.totalicon
@@ -945,15 +946,20 @@ local function setIcon(row, data, win, p)
 	elseif not issecretvalue(class) and class and p.classicons and classIconCoords[class] then
 		icon = "Interface\\Glues\\CharacterCreate\\UI-CharacterCreate-Classes"
 		coord = classIconCoords[class]
-	elseif not issecretvalue(dataIcon) and dataIcon then
+	elseif dataIconSecret or dataIcon then
 		icon = dataIcon
 	end
-	if not icon then
+	if not issecretvalue(icon) and icon == nil then
 		row.icon:Hide()
 		row.iconFrame:EnableMouse(false)
 		return false
 	end
-	row.icon:SetTexture(icon)
+	local ok = pcall(row.icon.SetTexture, row.icon, icon)
+	if not ok then
+		row.icon:Hide()
+		row.iconFrame:EnableMouse(false)
+		return false
+	end
 	if coord then
 		row.icon:SetTexCoord(coord[1], coord[2], coord[3], coord[4])
 	else
@@ -1254,7 +1260,7 @@ function mod:Update(win)
 			end
 
 			local iconKey = secretKey(data.role) .. "|" .. secretKey(data.class) .. "|" .. secretKey(data.icon) .. "|" .. tostring(p.roleicons) .. "|" .. tostring(p.classicons) .. "|" .. tostring(p.compact)
-			if row._iconKey ~= iconKey then
+			if row._iconKey ~= iconKey or issecretvalue(data.icon) then
 				row._iconKey = iconKey
 				row._hasIcon = setIcon(row, data, win, p)
 			end

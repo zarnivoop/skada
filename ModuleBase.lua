@@ -465,8 +465,15 @@ end
 
 local function spellIconFor(spellID, spell)
 	local icon = Skada:GetSpellIcon(spellID)
-	if icon == nil and type(spell) == "table" and not issecretvalue(spell) then
-		icon = spell.icon or spell.iconID or spell.texture
+	if not issecretvalue(icon) and icon == nil and type(spell) == "table" and not issecretvalue(spell) then
+		for _, key in ipairs({ "icon", "iconID", "texture" }) do
+			local candidate = spell[key]
+			if issecretvalue(candidate) then
+				return candidate
+			elseif candidate ~= nil then
+				return candidate
+			end
+		end
 	end
 	return icon
 end

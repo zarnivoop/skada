@@ -354,9 +354,13 @@ function SecretHelper:GetSpellIcon(spellID)
 		-- Combat spell IDs are secret. Do not use them as cache keys or compare
 		-- them; pass them through pcall and use only the returned plain icon.
 		local okInfo, info = pcall(function() return C_Spell.GetSpellInfo(spellID) end)
-		if okInfo and type(info) == "table" then return info.iconID end
+		if okInfo and type(info) == "table" then
+			local icon = info.iconID
+			if issecretvalue(icon) then return icon end
+			if icon ~= nil then return icon end
+		end
 		local okTex, tex = pcall(function() return C_Spell.GetSpellTexture(spellID) end)
-		if okTex and tex ~= nil then return tex end
+		if okTex and (issecretvalue(tex) or tex ~= nil) then return tex end
 		return nil
 	end
 	if type(spellID) ~= "number" or spellID == 0 then return nil end
