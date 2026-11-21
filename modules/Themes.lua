@@ -442,6 +442,85 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 		},
 	}
 
+	-- Curated Forever variants share Skyborne's layout and typography but use
+	-- distinct palettes. They are inserted right after Skyborne in the picker.
+	local baseTheme = Skada.themePresets[1]
+	local function addForeverVariant(index, name, palette)
+		local theme = {}
+		Skada:tcopy(theme, baseTheme)
+		theme.name = name
+		theme.barcolor = palette.barcolor
+		theme.barbgcolor = palette.barbgcolor
+		theme.labelcolor = palette.labelcolor
+		theme.valuetextcolor = palette.valuetextcolor
+		theme.classcolormix = palette.classcolormix
+		theme.classcolormixamount = palette.classcolormixamount
+		theme.selfhighlightcolor = palette.selfhighlight
+		theme.rowseparatorcolor = palette.separator
+		theme.columnheadertextcolor = palette.header
+		theme.title.textcolor = palette.titleText
+		theme.title.color = palette.titleColor
+		theme.title.color2 = palette.titleColor2
+		theme.title.bordercolor = palette.titleBorder
+		theme.background.color = palette.background
+		theme.background.bordercolor = palette.backgroundBorder
+		table.insert(Skada.themePresets, index, theme)
+	end
+
+	addForeverVariant(2, "Forever: Ember", {
+		barcolor = { r = 0.72, g = 0.36, b = 0.18, a = 1 },
+		barbgcolor = { r = 0.035, g = 0.020, b = 0.012, a = 0.35 },
+		labelcolor = { r = 1.00, g = 0.95, b = 0.88, a = 1 },
+		valuetextcolor = { r = 1.00, g = 0.90, b = 0.72, a = 1 },
+		classcolormix = { r = 0.18, g = 0.06, b = 0.02, a = 1 },
+		classcolormixamount = 0.55,
+		selfhighlight = { r = 1.00, g = 0.55, b = 0.25, a = 0.12 },
+		separator = { r = 0.95, g = 0.55, b = 0.28, a = 0.25 },
+		header = { r = 1.00, g = 0.90, b = 0.78, a = 1 },
+		titleText = { r = 1.00, g = 0.92, b = 0.80, a = 1 },
+		titleColor = { r = 0.13, g = 0.050, b = 0.020, a = 0.72 },
+		titleColor2 = { r = 0.035, g = 0.012, b = 0.006, a = 0.72 },
+		titleBorder = { r = 0.95, g = 0.48, b = 0.20, a = 0.20 },
+		background = { r = 0.022, g = 0.010, b = 0.006, a = 0.10 },
+		backgroundBorder = { r = 0.85, g = 0.40, b = 0.18, a = 0.22 },
+	})
+
+	addForeverVariant(3, "Forever: Verdant", {
+		barcolor = { r = 0.28, g = 0.68, b = 0.42, a = 1 },
+		barbgcolor = { r = 0.012, g = 0.032, b = 0.022, a = 0.35 },
+		labelcolor = { r = 0.90, g = 1.00, b = 0.93, a = 1 },
+		valuetextcolor = { r = 0.82, g = 1.00, b = 0.88, a = 1 },
+		classcolormix = { r = 0.02, g = 0.10, b = 0.05, a = 1 },
+		classcolormixamount = 0.50,
+		selfhighlight = { r = 0.40, g = 1.00, b = 0.60, a = 0.12 },
+		separator = { r = 0.50, g = 0.90, b = 0.65, a = 0.25 },
+		header = { r = 0.80, g = 1.00, b = 0.88, a = 1 },
+		titleText = { r = 0.88, g = 1.00, b = 0.92, a = 1 },
+		titleColor = { r = 0.025, g = 0.090, b = 0.055, a = 0.72 },
+		titleColor2 = { r = 0.008, g = 0.030, b = 0.018, a = 0.72 },
+		titleBorder = { r = 0.30, g = 0.85, b = 0.55, a = 0.20 },
+		background = { r = 0.006, g = 0.020, b = 0.012, a = 0.10 },
+		backgroundBorder = { r = 0.25, g = 0.65, b = 0.42, a = 0.22 },
+	})
+
+	addForeverVariant(4, "Forever: Void", {
+		barcolor = { r = 0.58, g = 0.30, b = 0.90, a = 1 },
+		barbgcolor = { r = 0.020, g = 0.010, b = 0.040, a = 0.40 },
+		labelcolor = { r = 0.93, g = 0.88, b = 1.00, a = 1 },
+		valuetextcolor = { r = 0.88, g = 0.80, b = 1.00, a = 1 },
+		classcolormix = { r = 0.10, g = 0.03, b = 0.18, a = 1 },
+		classcolormixamount = 0.55,
+		selfhighlight = { r = 0.75, g = 0.45, b = 1.00, a = 0.12 },
+		separator = { r = 0.70, g = 0.50, b = 1.00, a = 0.25 },
+		header = { r = 0.86, g = 0.78, b = 1.00, a = 1 },
+		titleText = { r = 0.92, g = 0.86, b = 1.00, a = 1 },
+		titleColor = { r = 0.060, g = 0.025, b = 0.120, a = 0.75 },
+		titleColor2 = { r = 0.015, g = 0.005, b = 0.040, a = 0.75 },
+		titleBorder = { r = 0.70, g = 0.40, b = 1.00, a = 0.20 },
+		background = { r = 0.012, g = 0.006, b = 0.028, a = 0.10 },
+		backgroundBorder = { r = 0.55, g = 0.30, b = 0.85, a = 0.22 },
+	})
+
 	-- Base64 encoding/decoding for compact theme strings
 	local b64chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 	local b64lookup = {}
