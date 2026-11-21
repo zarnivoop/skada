@@ -138,8 +138,6 @@ function Skada:DisplayMenu(window)
 		if segmentMenu then
 			AddSetEntries(segmentMenu, window)
 		end
-
-		root:CreateDivider()
 		root:CreateCheckbox(L["Lock window"], function() return window.db.barslocked end, function()
 			window.db.barslocked = not window.db.barslocked
 			Skada:ApplySettings()
