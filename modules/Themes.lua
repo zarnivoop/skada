@@ -375,7 +375,7 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 			color2 = { r = 0.010, g = 0.005, b = 0.030, a = 0.75 },
 			bordercolor = { r = 0.60, g = 0.35, b = 0.95, a = 0.35 },
 			textcolor = { r = 0.92, g = 0.85, b = 1.00, a = 1 },
-			textalign = "CENTER",
+			textalign = "LEFT",
 		},
 		background = {
 			texture = "Skada Glass",
