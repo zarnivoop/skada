@@ -178,11 +178,11 @@ function mod:Create(window)
 	window.bargroup:HideIcon()
 
 	window.bargroup.button:GetFontString():SetWordWrap(false)
-	window.bargroup.button:GetFontString():SetPoint("LEFT", window.bargroup.button, "LEFT", 30, 1)
+	window.bargroup.button:GetFontString():SetPoint("LEFT", window.bargroup.button, "LEFT", 24, 1)
 	window.bargroup.button:GetFontString():SetJustifyH("LEFT")
 	window.bargroup.button:SetHeight(window.db.title.height or 15)
 
-	local displayButton = Skada:CreateDisplayButton(window.bargroup.button, window, 14)
+	local displayButton = Skada:CreateDisplayButton(window.bargroup.button, window, 16)
 	displayButton:SetPoint("LEFT", window.bargroup.button, "LEFT", 4, 0)
 	window.bargroup.displayToggle = displayButton
 
@@ -1342,7 +1342,7 @@ function mod:ApplySettings(win)
 		fs:SetJustifyH(p.title.textalign or "LEFT")
 		fs:SetJustifyV("MIDDLE")
 		fs:ClearAllPoints()
-		fs:SetPoint("LEFT", g.button, "LEFT", (p.title.paddingleft or 10) + 20, TITLE_TEXT_Y)
+		fs:SetPoint("LEFT", g.button, "LEFT", math.max((p.title.paddingleft or 10) + 12, 22), TITLE_TEXT_Y)
 		applyFontShadow(fs, p.textshadow)
 	end
 

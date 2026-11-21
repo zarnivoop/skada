@@ -9,7 +9,7 @@ local barlibrary = {
 	bars = {},
 	nextuuid = 1
 }
-local leftmargin = 40
+local leftmargin = 26
 
 local libwindow = LibStub("LibWindow-1.1")
 local media = LibStub("LibSharedMedia-3.0")
@@ -202,7 +202,7 @@ function mod:Create(window, isnew)
 		window.frame.barsHolder:SetPoint("BOTTOMRIGHT", window.frame, "BOTTOMRIGHT", 0, 0)
 	end
 
-	local displayButton = Skada:CreateDisplayButton(window.frame, window, 14)
+	local displayButton = Skada:CreateDisplayButton(window.frame, window, 16)
 	displayButton:SetPoint("BOTTOMLEFT", window.frame, "BOTTOMLEFT", 6, (window.db.height or 30) / 2 - 8)
 	window.frame.displayButton = displayButton
 
