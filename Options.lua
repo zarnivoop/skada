@@ -93,7 +93,7 @@ Skada.windowdefaults = {
 	scale = 1,
 
 	reversegrowth = false,
-	modeincombat = "auto",
+	modeincombat = "",
 	returnaftercombat = false,
 	wipemode = "",
 

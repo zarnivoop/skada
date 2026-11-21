@@ -2225,10 +2225,17 @@ function Skada:ApplyModeConsolidation()
 		elseif win.db.wipemode == L["HPS"] then
 			win.db.wipemode = L["Healing"]
 		end
-		-- Existing profiles that never opted into a specific combat mode get
-		-- the new contextual default once.
-		if win.db.modeincombat == "" then
-			win.db.modeincombat = "auto"
+	end
+end
+
+-- Combat mode switching is opt-in. Existing profiles created under the old
+-- contextual default are moved to None once; Auto remains selectable.
+function Skada:ApplyCombatModeDefaultMigration()
+	if self.db.profile.modeincombatDefaultNone then return end
+	self.db.profile.modeincombatDefaultNone = true
+	for _, win in ipairs(self:GetWindows()) do
+		if win.db.modeincombat == "auto" then
+			win.db.modeincombat = ""
 		end
 	end
 end
@@ -3755,6 +3762,7 @@ function Skada:OnEnable()
 
 	self:ApplyThemeMigration()
 	self:ApplyTitleFontMigration()
+	self:ApplyCombatModeDefaultMigration()
 	self:ApplyModeConsolidation()
 
 	-- Register for native damage meter events (just flag data as changed)
