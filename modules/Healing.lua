@@ -61,7 +61,7 @@ Skada:AddLoadableModule("Healing", nil, function(Skada, L)
 	local target_tooltip = ModuleBase:CreateTargetTooltip()
 
 	function mod:OnEnable()
-		playermod.metadata = {tooltip = hps_tooltip, post_tooltip = spell_tooltip}
+		playermod.metadata = {tooltip = hps_tooltip, post_tooltip = spell_tooltip, columns = {Healing = true, Percent = true}}
 		targetsmod.metadata = {tooltip = target_tooltip}
 		mod.metadata = {click1 = playermod, click2 = targetsmod, showspots = true, columns = {Healing = true, HPS = true, Percent = true}, icon = "Interface\\Icons\\spell_nature_healingtouch"}
 

@@ -132,7 +132,7 @@ local function buildColumnSpec(win)
 		for i = 1, #custom do
 			local entry = custom[i]
 			if type(entry) == "table" and entry.label and entry.value then
-				spec[#spec + 1] = { label = entry.label, value = entry.value }
+				spec[#spec + 1] = { label = entry.label, value = entry.value, slot = entry.slot or i }
 			end
 		end
 		return spec
@@ -143,33 +143,33 @@ local function buildColumnSpec(win)
 	if not width or width < 1 then width = win.db.barwidth or 470 end
 	local spec = {}
 	if columns.Damage then
-		spec[#spec + 1] = { label = "DMG", value = "valueText1" }
+		spec[#spec + 1] = { label = "DMG", value = "valueText1", slot = 1 }
 	elseif columns.Healing then
-		spec[#spec + 1] = { label = "HEAL", value = "valueText1" }
+		spec[#spec + 1] = { label = "HEAL", value = "valueText1", slot = 1 }
 	elseif columns.Absorbs then
-		spec[#spec + 1] = { label = "ABS", value = "valueText1" }
+		spec[#spec + 1] = { label = "ABS", value = "valueText1", slot = 1 }
 	elseif columns.Avoidable then
-		spec[#spec + 1] = { label = "AVOID", value = "valueText1" }
+		spec[#spec + 1] = { label = "AVOID", value = "valueText1", slot = 1 }
 	elseif columns.EnemyDamage then
-		spec[#spec + 1] = { label = "ENEMY", value = "valueText1" }
+		spec[#spec + 1] = { label = "ENEMY", value = "valueText1", slot = 1 }
 	end
 	if width >= 300 then
 		if columns.DPS then
-			spec[#spec + 1] = { label = "DPS", value = "valueText2" }
+			spec[#spec + 1] = { label = "DPS", value = "valueText2", slot = 2 }
 		elseif columns.HPS then
-			spec[#spec + 1] = { label = "HPS", value = "valueText2" }
+			spec[#spec + 1] = { label = "HPS", value = "valueText2", slot = 2 }
 		elseif columns.DTPS then
-			spec[#spec + 1] = { label = "DTPS", value = "valueText2" }
+			spec[#spec + 1] = { label = "DTPS", value = "valueText2", slot = 2 }
 		elseif columns.AbsorbRate then
-			spec[#spec + 1] = { label = "APS", value = "valueText2" }
+			spec[#spec + 1] = { label = "APS", value = "valueText2", slot = 2 }
 		elseif columns.AvoidableRate then
-			spec[#spec + 1] = { label = "ADPS", value = "valueText2" }
+			spec[#spec + 1] = { label = "ADPS", value = "valueText2", slot = 2 }
 		elseif columns.EnemyRate then
-			spec[#spec + 1] = { label = "DPS", value = "valueText2" }
+			spec[#spec + 1] = { label = "DPS", value = "valueText2", slot = 2 }
 		end
 	end
 	if width >= 400 and not secret and columns.Percent then
-		spec[#spec + 1] = { label = "%", value = "valueText3" }
+		spec[#spec + 1] = { label = "%", value = "valueText3", slot = 3 }
 	end
 	return spec
 end
@@ -254,9 +254,12 @@ local function layoutRowText(row, frame, spec, p, hasIcon)
 		local fs = row.columns[i]
 		if fs then fs:SetFont(font, size, flags) end
 	end
-	local firstSlot = 4 - #spec
+	local firstSlot = 4
+	local used = {}
 	for i = 1, #spec do
-		local slot = firstSlot + i - 1
+		local slot = spec[i].slot or (4 - #spec + i - 1)
+		used[slot] = true
+		if slot < firstSlot then firstSlot = slot end
 		local fs = ensureColumn(row, slot)
 		fs:SetFont(font, size, flags)
 		fs:ClearAllPoints()
@@ -267,7 +270,7 @@ local function layoutRowText(row, frame, spec, p, hasIcon)
 	end
 	for i = 1, 3 do
 		local fs = row.columns[i]
-		if fs and not (i >= firstSlot and i < firstSlot + #spec) then
+		if fs and not used[i] then
 			fs:Hide()
 		end
 	end
@@ -733,11 +736,10 @@ local function updateColumnHeader(frame, win, spec)
 	header:SetShown(show and true or false)
 	for i = 1, 3 do header.labels[i]:Hide() end
 	if not show then return end
-	local first = 4 - #spec
 	local font = fontPath(p.columnheaderfont or p.barfont, "Marcellus")
 	local c = p.columnheadertextcolor or p.title.textcolor
 	for i = 1, #spec do
-		local slot = first + i - 1
+		local slot = spec[i].slot or (4 - #spec + i - 1)
 		local fs = header.labels[slot]
 		fs:SetFont(font, p.columnheaderfontsize or 8, p.columnheaderfontflags or "")
 		fs:SetTextColor(c.r, c.g, c.b, (c.a or 1) * 0.8)
@@ -1146,7 +1148,7 @@ function mod:Update(win)
 
 			local valuetext = data.valuetext
 			local valuetextSecret = issecretvalue(valuetext)
-			if valuetextSecret or valuetext ~= nil then
+			if #spec == 0 and (valuetextSecret or valuetext ~= nil) then
 				local valueColumn = ensureColumn(row, 3)
 				valueColumn:SetFont(frame._fontPath or "Fonts\\FRIZQT__.TTF", frame._fontSize or 13, frame._fontFlags or "")
 				valueColumn:ClearAllPoints()
@@ -1178,9 +1180,8 @@ function mod:Update(win)
 					layoutRowText(row, frame, spec, p, row._hasIcon)
 					row._specKey = specKey
 				end
-				local firstSlot = 4 - #spec
 				for si = 1, #spec do
-					local slot = firstSlot + si - 1
+					local slot = spec[si].slot or (4 - #spec + si - 1)
 					local fs = row.columns[slot]
 					if fs then
 						local key = spec[si].value

@@ -73,7 +73,7 @@ Skada:AddLoadableModule("Damage", nil, function(Skada, L)
 	local target_tooltip = ModuleBase:CreateTargetTooltip()
 
 	function mod:OnEnable()
-		playermod.metadata = {tooltip = dps_tooltip, post_tooltip = spell_tooltip}
+		playermod.metadata = {tooltip = dps_tooltip, post_tooltip = spell_tooltip, columns = {Damage = true, Percent = true}}
 		targetsmod.metadata = {tooltip = target_tooltip}
 		mod.metadata = {click1 = playermod, click2 = targetsmod, post_tooltip = damage_tooltip, showspots = true, columns = {Damage = true, DPS = true, Percent = true}, icon = "Interface\\Icons\\Inv_throwingaxe_01"}
 

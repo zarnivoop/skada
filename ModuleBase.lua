@@ -915,6 +915,9 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 
 					d.value = SecretHelper:GetDisplayValue(rawValue, nr, #spells)
 					d.valuetext = Skada:FormatNumberSecret(rawValue)
+					d.valueText1 = d.valuetext
+					d.valueText2 = nil
+					d.valueText3 = nil
 					local icon = spellIconFor(rawSpellID, spell)
 					if icon ~= nil and not issecretvalue(icon) then d.icon = icon end
 					nr = nr + 1
@@ -972,10 +975,13 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 					d.value = value
 					if value > max then max = value end
 
+					d.valueText1 = Skada:FormatNumber(value)
+					d.valueText2 = nil
+					d.valueText3 = totalValue > 0 and string.format("%02.1f%%", (value / totalValue) * 100) or nil
 					if totalValue > 0 then
-						d.valuetext = Skada:FormatNumber(value) .. string.format(" (%02.1f%%)", (value / totalValue) * 100)
+						d.valuetext = d.valueText1 .. " (" .. d.valueText3 .. ")"
 					else
-						d.valuetext = Skada:FormatNumber(value)
+						d.valuetext = d.valueText1
 					end
 					d.icon = spellIconFor(spellID, spell)
 					nr = nr + 1
