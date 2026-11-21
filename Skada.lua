@@ -2808,9 +2808,11 @@ function Skada:GetSets()
 		local sessions = self.NativeAPI:GetAvailableSessions() or {}
 		local newest = {}
 		-- The API returns sessions oldest first. Reverse a copy so every
-		-- segment list shows the most recent fight first. Reversing avoids
-		-- comparing fields that can be secret.
-		for i = #sessions, 1, -1 do
+		-- segment list shows the most recent fight first, and keep the list
+		-- short enough to scan. Reversing avoids comparing secret fields.
+		local count = #sessions
+		local last = math.max(1, count - 19)
+		for i = count, last, -1 do
 			newest[#newest + 1] = sessions[i]
 		end
 		return newest
