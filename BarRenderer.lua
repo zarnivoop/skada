@@ -451,35 +451,70 @@ local function createShell(win)
 
 	local resize = CreateFrame("Button", nil, frame)
 	resize:SetSize(16, 16)
-	resize:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
-	resize:SetNormalTexture("Interface\\Buttons\\UI-RefreshButton")
-	resize:SetAlpha(0.35)
-	resize:SetScript("OnMouseDown", function()
+	resize:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -2, 2)
+	resize:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+	resize:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+	resize:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+	resize:SetAlpha(0.45)
+	resize:SetScript("OnEnter", function(self) self:SetAlpha(0.85) end)
+	resize:SetScript("OnLeave", function(self) self:SetAlpha(0.45) end)
+	resize:SetScript("OnMouseDown", function(_, button)
+		if button ~= "LeftButton" then return end
+		frame._resizing = true
+		if frame.resizeTicker then frame.resizeTicker:Show() end
 		frame:StartSizing("BOTTOMRIGHT")
 	end)
 	resize:SetScript("OnMouseUp", function()
 		frame:StopMovingOrSizing()
+		frame._resizing = false
+		if frame.resizeTicker then frame.resizeTicker:Hide() end
 		local step = (frame.rowHeight or 22) + (frame.rowSpacing or 1)
+		local spacing = frame.rowSpacing or 1
 		local height = frame:GetHeight()
-		local rows = max(1, floor((height + frame.rowSpacing) / step + 0.5))
-		frame:SetHeight(rows * step - (frame.rowSpacing or 0))
+		local width = frame:GetWidth()
+		if height and height > 1 then
+			local rows = max(1, floor((height + spacing) / step + 0.5))
+			frame:SetHeight(rows * step - spacing)
+		end
 		if frame.win then
-			frame.win.db.barwidth = frame:GetWidth()
-			frame.win.db.background.height = frame:GetHeight()
+			if width and width > 1 then frame.win.db.barwidth = width end
+			if frame:GetHeight() > 1 then frame.win.db.background.height = frame:GetHeight() end
 			savePosition(frame)
+			mod:Layout(frame.win)
 			mod:Update(frame.win)
 		end
 	end)
 	frame.resizeButton = resize
 
+	local resizeTicker = CreateFrame("Frame", nil, frame)
+	resizeTicker:Hide()
+	resizeTicker:SetScript("OnUpdate", function(self)
+		if not frame._resizing then
+			self:Hide()
+			return
+		end
+		local width, height = frame:GetWidth(), frame:GetHeight()
+		local db = frame.win and frame.win.db
+		if not db or not width or not height or width <= 1 or height <= 1 then return end
+		if db.barwidth ~= width or db.background.height ~= height then
+			db.barwidth = width
+			db.background.height = height
+			mod:Layout(frame.win)
+			mod:Update(frame.win)
+		end
+	end)
+	frame.resizeTicker = resizeTicker
+
 	frame:SetScript("OnSizeChanged", function(self)
 		if self._sizingGuard then return end
 		self._sizingGuard = true
-		if self.win then
-			self.win.db.barwidth = self:GetWidth()
-			self.win.db.background.height = self:GetHeight()
+		local width, height = self:GetWidth(), self:GetHeight()
+		if self.win and width and height and width > 1 and height > 1 then
+			self.win.db.barwidth = width
+			self.win.db.background.height = height
 			if self.display == mod then
 				mod:Layout(self.win)
+				mod:Update(self.win)
 			end
 		end
 		self._sizingGuard = nil
@@ -600,6 +635,12 @@ function mod:Wipe(win)
 	for _, row in ipairs(frame.rows) do
 		row:Hide()
 		row.id = nil
+		row._anim = nil
+		row._targetWidth = nil
+		row._currentWidth = nil
+		row._targetY = nil
+		row._currentY = nil
+		if row.spark then row.spark:Hide() end
 		frame.rowPool[#frame.rowPool + 1] = row
 	end
 	frame.rows = {}
@@ -625,6 +666,8 @@ function mod:Layout(win)
 		row._anim = nil
 		row._targetWidth = nil
 		row._currentWidth = nil
+		row._targetY = nil
+		row._currentY = nil
 	end
 	local p = win.db
 	local scale = frame:GetEffectiveScale() or 1
@@ -1029,7 +1072,7 @@ function mod:Update(win)
 				end
 			end
 			local targetWidth = max(1, usable * ratio)
-			if p.smoothing and row._currentWidth then
+			if p.smoothing and not frame._resizing and row._currentWidth then
 				if math.abs(row._currentWidth - targetWidth) > 0.5 then
 					row._targetWidth = targetWidth
 					ensureAnimator(frame)
@@ -1048,7 +1091,7 @@ function mod:Update(win)
 				local grew = p.reversegrowth and true or false
 				row._targetY = y
 				row._growup = grew
-				if p.animaterows == false or not row._currentY or not row:IsShown() then
+				if p.animaterows == false or frame._resizing or not row._currentY or not row:IsShown() then
 					row._currentY = y
 					row._anim = nil
 					anchorRow(row, frame, y, grew)
