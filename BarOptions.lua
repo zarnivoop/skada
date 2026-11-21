@@ -399,6 +399,42 @@ local function AddDisplayOptions(win, options)
 				end,
 			},
 
+			stickytotal = {
+				type="toggle",
+				name=L["Sticky total row"],
+				desc=L["Keep the total row pinned to the top while scrolling."],
+				order=42.2,
+				get=function() return db.stickytotal ~= false end,
+				set=function()
+					db.stickytotal = (db.stickytotal == false)
+					Skada:ApplySettings()
+				end,
+			},
+
+			stickyself = {
+				type="toggle",
+				name=L["Sticky self row"],
+				desc=L["Keep your own bar pinned below the total while scrolling."],
+				order=42.3,
+				get=function() return db.stickyself ~= false end,
+				set=function()
+					db.stickyself = (db.stickyself == false)
+					Skada:ApplySettings()
+				end,
+			},
+
+			compact = {
+				type="toggle",
+				name=L["Compact rows"],
+				desc=L["Use tighter rows and hide icons to fit more players."],
+				order=42.4,
+				get=function() return db.compact == true end,
+				set=function()
+					db.compact = not db.compact
+					Skada:ApplySettings()
+				end,
+			},
+
 			showrowseparators = {
 				type="toggle",
 				name=L["Row separators"],

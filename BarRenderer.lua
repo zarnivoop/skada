@@ -75,6 +75,49 @@ local function visibleRowCount(frame)
 	return max(1, floor(((frame:GetHeight() or 0) + spacing + 0.5) / step))
 end
 
+local function splitStickyRows(win, dataset)
+	local sticky, scroll = {}, {}
+	local metadata = win.metadata
+	if metadata and (metadata.is_modelist or metadata.is_setlist) then
+		for i = 1, #dataset do
+			local data = dataset[i]
+			if type(data) == "table" and data.id then scroll[#scroll + 1] = data end
+		end
+		return sticky, scroll
+	end
+	local stickyTotal = win.db.stickytotal ~= false
+	local stickySelf = win.db.stickyself ~= false
+	local playerGUID = _G.UnitGUID and _G.UnitGUID("player")
+	local totalRow, selfRow
+	for i = 1, #dataset do
+		local data = dataset[i]
+		if type(data) == "table" and data.id then
+			local id = data.id
+			local isTotal = stickyTotal and not issecretvalue(id) and id == "total"
+			local isSelf = false
+			if stickySelf then
+				local localFlag = data.isLocalPlayer
+				if not issecretvalue(localFlag) and localFlag == true then
+					isSelf = true
+				elseif type(playerGUID) == "string" and not issecretvalue(playerGUID)
+					and type(id) == "string" and not issecretvalue(id) and id == playerGUID then
+					isSelf = true
+				end
+			end
+			if isTotal then
+				totalRow = data
+			elseif isSelf then
+				selfRow = data
+			else
+				scroll[#scroll + 1] = data
+			end
+		end
+	end
+	if totalRow then sticky[#sticky + 1] = totalRow end
+	if selfRow then sticky[#sticky + 1] = selfRow end
+	return sticky, scroll
+end
+
 local function lastValidDatasetIndex(dataset)
 	for i = #dataset, 1, -1 do
 		local data = dataset[i]
@@ -765,8 +808,16 @@ function mod:Layout(win)
 	end
 	local p = win.db
 	local scale = frame:GetEffectiveScale() or 1
-	frame.rowHeight = snapPixels(p.barheight or 22, scale)
-	frame.rowSpacing = snapPixels(p.barspacing or 1, scale)
+	local barHeight = p.barheight or 22
+	local barSpacing = p.barspacing or 1
+	local fontSize = p.barfontsize or 13
+	if p.compact then
+		barHeight = min(barHeight, 16)
+		barSpacing = 0
+		fontSize = min(fontSize, 12)
+	end
+	frame.rowHeight = snapPixels(barHeight, scale)
+	frame.rowSpacing = snapPixels(barSpacing, scale)
 	frame:SetWidth(p.barwidth or 470)
 	frame:SetHeight(p.background.height or 300)
 	if frame.button then frame.button:SetHeight(p.title.height or 30) end
@@ -781,7 +832,7 @@ function mod:Layout(win)
 	local font = fontPath(p.barfont, "ABF")
 	frame._barTexture = texture
 	frame._fontPath = font
-	frame._fontSize = p.barfontsize or 13
+	frame._fontSize = fontSize
 	frame._fontFlags = p.barfontflags or ""
 	for _, row in ipairs(frame.rows) do
 		row:SetHeight(frame.rowHeight)
@@ -791,10 +842,10 @@ function mod:Layout(win)
 		row:EnableMouseWheel(not p.clickthrough)
 		if row.iconFrame then row.iconFrame:EnableMouse(not p.clickthrough) end
 		row.fill:SetTexture(texture)
-		row.label:SetFont(font, p.barfontsize or 13, p.barfontflags or "")
+		row.label:SetFont(font, fontSize, p.barfontflags or "")
 		for i = 1, 3 do
 			local fs = row.columns[i]
-			if fs then fs:SetFont(font, p.barfontsize or 13, p.barfontflags or "") end
+			if fs then fs:SetFont(font, fontSize, p.barfontflags or "") end
 		end
 	end
 
@@ -815,6 +866,12 @@ function mod:Layout(win)
 end
 
 local function setIcon(row, data, win, p)
+	if p.compact then
+		if row.icon:IsShown() then row.icon:Hide() end
+		if row.iconFrame:IsShown() then row.iconFrame:Hide() end
+		row._hasIcon = false
+		return false
+	end
 	local icon, coord
 	local role, class, dataIcon = data.role, data.class, data.icon
 	if win.metadata and win.metadata.isspelllist and not issecretvalue(dataIcon) and dataIcon then
@@ -1066,11 +1123,15 @@ function mod:Update(win)
 	if type(maxvalue) ~= "number" or maxvalue <= 0 then maxvalue = 1 end
 	local step = (frame.rowHeight or 22) + (frame.rowSpacing or 1)
 	local visibleRows = visibleRowCount(frame)
-	local lastValid = lastValidDatasetIndex(dataset)
-	local maxOffset = max(0, lastValid - visibleRows)
+	local sticky, scroll = splitStickyRows(win, dataset)
+	local scrollVisible = max(0, visibleRows - #sticky)
+	local maxOffset = max(0, #scroll - scrollVisible)
 	if (frame.offset or 0) > maxOffset then frame.offset = maxOffset end
-	local startIndex = min((frame.offset or 0) + 1, max(lastValid, 1))
-	local endIndex = min(lastValid, startIndex + visibleRows - 1)
+	local startIndex = min((frame.offset or 0) + 1, max(#scroll, 1))
+	local endIndex = min(#scroll, startIndex + scrollVisible - 1)
+	local render = {}
+	for i = 1, #sticky do render[#render + 1] = sticky[i] end
+	for i = startIndex, endIndex do render[#render + 1] = scroll[i] end
 	local specKey = table.concat({ tostring(frame:GetWidth()), tostring(#spec), tostring(p.iconscale), tostring(p.classicons), tostring(p.roleicons) }, ":")
 	local fillVersion = tostring(p.barorientation or 1) .. ":" .. tostring(p.barinset or 0)
 	local styleVersion = frame._styleVersion or 0
@@ -1087,9 +1148,9 @@ function mod:Update(win)
 	local kept = {}
 	local nr = 1
 	local visibleIndex = 0
-	for i = 1, #dataset do
-		local data = dataset[i]
-		if data.id and i >= startIndex and i <= endIndex then
+	for i = 1, #render do
+		local data = render[i]
+		if data.id then
 			local row = frame.rowById[data.id]
 			if not row then
 				row = acquireRow(frame)
@@ -1115,7 +1176,7 @@ function mod:Update(win)
 				row.fill:SetTexture(frame._barTexture or "Interface\\Buttons\\WHITE8X8")
 			end
 
-			local iconKey = secretKey(data.role) .. "|" .. secretKey(data.class) .. "|" .. secretKey(data.icon) .. "|" .. tostring(p.roleicons) .. "|" .. tostring(p.classicons)
+			local iconKey = secretKey(data.role) .. "|" .. secretKey(data.class) .. "|" .. secretKey(data.icon) .. "|" .. tostring(p.roleicons) .. "|" .. tostring(p.classicons) .. "|" .. tostring(p.compact)
 			if row._iconKey ~= iconKey then
 				row._iconKey = iconKey
 				row._hasIcon = setIcon(row, data, win, p)
@@ -1336,9 +1397,10 @@ end
 function mod:OnMouseWheel(win, frame, direction)
 	local g = win.bargroup
 	if not g then return end
-	local step = (g.rowHeight or 22) + (g.rowSpacing or 1)
 	local visible = visibleRowCount(g)
-	local maxOffset = max(0, lastValidDatasetIndex(win.dataset or {}) - visible)
+	local sticky, scroll = splitStickyRows(win, win.dataset or {})
+	local scrollVisible = max(0, visible - #sticky)
+	local maxOffset = max(0, #scroll - scrollVisible)
 	if direction == 1 then
 		g.offset = max(0, (g.offset or 0) - 1)
 	elseif direction == -1 then
