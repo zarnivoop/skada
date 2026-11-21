@@ -1600,6 +1600,33 @@ function Skada:Debug(...)
 	print("|cFF33FF99Skada Debug|r: " .. msg)
 end
 
+function Skada:DumpPercentDiagnostic()
+	local win = self._lastActiveWindow or self:GetWindows()[1]
+	if not win then self:Print("No window"); return end
+	local set = win:get_selected_set()
+	local view = set and self.NativeAPI:GetSessionView(set, 0)
+	local sources = type(view) == "table" and not issecretvalue(view) and view.combatSources
+	local source = type(sources) == "table" and not issecretvalue(sources) and sources[1]
+	if type(source) ~= "table" or issecretvalue(source) then
+		self:Print("Percent diagnostic: no readable damage source")
+		return
+	end
+	self:Print("Percent diagnostic: secret=" .. tostring(win.metadata and win.metadata.wasSecretValues)
+		.. " available=" .. tostring(win.metadata and win.metadata.percentAvailable))
+	local keys = {}
+	for key in pairs(source) do keys[#keys + 1] = tostring(key) end
+	table.sort(keys)
+	for i = 1, math.min(#keys, 30) do
+		local key = keys[i]
+		local value = source[key]
+		local kind = type(value)
+		if issecretvalue(value) then kind = "secret" end
+		local text = ""
+		if kind ~= "secret" and (type(value) == "string" or type(value) == "number") then text = tostring(value) end
+		self:Print("  " .. key .. " = " .. kind .. (text ~= "" and (" (" .. text .. ")") or ""))
+	end
+end
+
 function Skada:DumpSpellIcons()
 	local win = self._lastActiveWindow or self:GetWindows()[1]
 	if not win then
@@ -1650,6 +1677,10 @@ local function slashHandler(param)
 		else
 			Skada:Print("Bar display not loaded")
 		end
+		return
+	end
+	if param == "percent" then
+		Skada:DumpPercentDiagnostic()
 		return
 	end
 	if param == "icons" then

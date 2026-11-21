@@ -32,6 +32,15 @@ local ipairs = ipairs
 		- formatRate: Function to format rate value (optional, default is FormatNumber)
 		- includePercent: Whether to include percentage column (default true)
 ]]
+local function nativePercent(player)
+	for _, key in ipairs({ "percent", "percentage", "share", "damagePercent", "healingPercent" }) do
+		local value = player[key]
+		if issecretvalue(value) then return value end
+		if type(value) == "number" then return value end
+	end
+	return nil
+end
+
 function ModuleBase:UpdatePlayerList(win, set, options)
 	if type(set) ~= "table" then return end
 
@@ -43,6 +52,7 @@ function ModuleBase:UpdatePlayerList(win, set, options)
 
 	local valueKey = options.valueKey or "totalAmount"
 	local rateKey = options.rateKey or "amountPerSecond"
+	win.metadata.percentAvailable = false
 
 	-- Detect secrets and calculate total (using cached detection)
 	local cacheKey = "playerlist_" .. tostring(set.sessionType or 0) .. "_" .. tostring(options.damageType)
@@ -106,10 +116,19 @@ function ModuleBase:UpdatePlayerList(win, set, options)
 
 					local valueText = Skada:FormatNumberSecret(rawValue)
 					local rateText = Skada:FormatNumberSecret(rawRate)
+					local percent = nativePercent(player)
+					local percentText = ""
+					if percent ~= nil then
+						local ok, text = pcall(string.format, "%.1f%%", percent)
+						if ok then
+							percentText = text
+							win.metadata.percentAvailable = true
+						end
+					end
 
 					if options.columns then
 						d.valuetext = nil
-						Skada:FormatValueText(d, valueText, options.columns[1], rateText, options.columns[2], "", options.columns[3])
+						Skada:FormatValueText(d, valueText, options.columns[1], rateText, options.columns[2], percentText, options.columns[3])
 					else
 						d.valuetext = valueText
 					end

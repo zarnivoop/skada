@@ -199,7 +199,7 @@ local function buildColumnSpec(win, force)
 			spec[#spec + 1] = { label = "DPS", value = "valueText2", slot = 2 }
 		end
 	end
-	if (force or width >= 400) and not secret and columns.Percent then
+	if (force or width >= 400) and (not secret or (win.metadata and win.metadata.percentAvailable)) and columns.Percent then
 		spec[#spec + 1] = { label = "%", value = "valueText3", slot = 3 }
 	end
 	return spec
