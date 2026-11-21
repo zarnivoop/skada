@@ -432,7 +432,7 @@ local function layout(win)
 		end
 	end
 	if frame.titleText then
-		frame.titleText:SetPoint("LEFT", frame, "TOPLEFT", PADDING + 18, -(TITLE_HEIGHT / 2))
+		frame.titleText:SetPoint("LEFT", frame, "TOPLEFT", PADDING + 20, -(TITLE_HEIGHT / 2))
 	end
 	if frame.subtitle then
 		frame.subtitle:SetPoint("LEFT", frame.titleText, "RIGHT", 8, 0)
@@ -559,7 +559,7 @@ function mod:Create(window, isnew)
 		frame.titleBg = bg
 
 		local title = titleBar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-		title:SetPoint("LEFT", titleBar, "LEFT", PADDING + 18, 0)
+		title:SetPoint("LEFT", titleBar, "LEFT", PADDING + 20, 0)
 		title:SetText(L["Ledger"])
 		frame.titleText = title
 

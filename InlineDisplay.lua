@@ -9,7 +9,7 @@ local barlibrary = {
 	bars = {},
 	nextuuid = 1
 }
-local leftmargin = 26
+local leftmargin = 28
 
 local libwindow = LibStub("LibWindow-1.1")
 local media = LibStub("LibSharedMedia-3.0")
