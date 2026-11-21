@@ -614,8 +614,15 @@ function mod:ApplySettings(win)
 		frame.subtitle:SetFont(fontPath, 11, "")
 	end
 	if frame.header and frame.header.cols then
-		for i, fs in ipairs(frame.header.cols) do
-			fs:SetFont(fontPath, 10, "")
+		for _, fs in ipairs(frame.header.cols) do
+			if fs.SetFont then
+				fs:SetFont(fontPath, 10, "")
+			elseif fs.GetFontString then
+				local buttonFont = fs:GetFontString()
+				if buttonFont and buttonFont.SetFont then
+					buttonFont:SetFont(fontPath, 10, "")
+				end
+			end
 		end
 	end
 	if frame.summary and frame.summary.stats then
