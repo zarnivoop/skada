@@ -446,6 +446,23 @@ local function spellSchoolName(school)
 	return SCHOOL_NAMES[school]
 end
 
+local function spellIDFromEntry(spell)
+	if type(spell) ~= "table" or issecretvalue(spell) then return nil end
+	local spellID = spell.spellID
+	if type(spellID) ~= "number" then
+		spellID = spell.abilityID
+	end
+	return spellID
+end
+
+local function spellIconFor(spellID, spell)
+	local icon = Skada:GetSpellIcon(spellID)
+	if icon == nil and type(spell) == "table" and not issecretvalue(spell) then
+		icon = spell.icon or spell.iconID or spell.texture
+	end
+	return icon
+end
+
 local function spellTargetDetails(spell)
 	if type(spell) ~= "table" or issecretvalue(spell) then return nil end
 	local details = spell.combatSpellDetails
@@ -850,7 +867,7 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 				end
 
 				if isSecret or isNonZeroNumber then
-					local rawSpellID = spell.spellID
+					local rawSpellID = spellIDFromEntry(spell)
 					local secretSpellID = issecretvalue(rawSpellID)
 					local plainSpellID
 					if not secretSpellID and type(rawSpellID) == "number" then
@@ -859,6 +876,10 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 
 					local d = self:ReuseDatasetEntry(win.dataset, nr)
 					d._is_nodata = nil
+					d.class = nil
+					d.role = nil
+					d.isSelf = nil
+					d.color = nil
 					-- A secret value cannot be a table key. Use a stable synthetic
 					-- id and keep the real id only when it is safe to read.
 					d.id = "spell_" .. nr
@@ -894,7 +915,7 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 
 					d.value = SecretHelper:GetDisplayValue(rawValue, nr, #spells)
 					d.valuetext = Skada:FormatNumberSecret(rawValue)
-					local icon = Skada:GetSpellIcon(rawSpellID)
+					local icon = spellIconFor(rawSpellID, spell)
 					if icon ~= nil and not issecretvalue(icon) then d.icon = icon end
 					nr = nr + 1
 				end
@@ -907,18 +928,23 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 			if type(spell) == "table" then
 				local value = tonumber(spell[valueKey]) or 0
 				if value ~= 0 then
+					local rawSpellID = spellIDFromEntry(spell)
 					local spellID = 0
 					local spellIDIsSecret = false
-					if type(spell.spellID) == "number" then
-						if issecretvalue(spell.spellID) then
+					if type(rawSpellID) == "number" then
+						if issecretvalue(rawSpellID) then
 							spellIDIsSecret = true
 						else
-							spellID = spell.spellID
+							spellID = rawSpellID
 						end
 					end
 
 					local d = self:ReuseDatasetEntry(win.dataset, nr)
 					d._is_nodata = nil
+					d.class = nil
+					d.role = nil
+					d.isSelf = nil
+					d.color = nil
 					d.id = spellID
 
 					local baseName = spellNameFromID(spellID)
@@ -951,7 +977,7 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 					else
 						d.valuetext = Skada:FormatNumber(value)
 					end
-					d.icon = Skada:GetSpellIcon(spellID)
+					d.icon = spellIconFor(spellID, spell)
 					nr = nr + 1
 				end
 			end

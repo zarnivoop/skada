@@ -804,7 +804,9 @@ end
 local function setIcon(row, data, win, p)
 	local icon, coord
 	local role, class, dataIcon = data.role, data.class, data.icon
-	if not issecretvalue(data.id) and data.id == "total" and p.totalicon then
+	if win.metadata and win.metadata.isspelllist and not issecretvalue(dataIcon) and dataIcon then
+		icon = dataIcon
+	elseif not issecretvalue(data.id) and data.id == "total" and p.totalicon then
 		icon = p.totalicon
 	elseif not issecretvalue(role) and role and role ~= "NONE" and p.roleicons then
 		icon = "Interface\\LFGFrame\\UI-LFG-ICON-PORTRAITROLES"
