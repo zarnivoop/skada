@@ -165,11 +165,10 @@ local function savePosition(frame)
 	local parentHeight = parent:GetHeight()
 	local left, top = frame:GetLeft(), frame:GetTop()
 	if not parentHeight or parentHeight <= 0 or not left or not top then return end
-	local scale = frame:GetEffectiveScale() or 1
+	local scale = frame:GetScale() or 1
 	db.x = left * scale
 	db.y = top * scale - parentHeight
 	db.point = "TOPLEFT"
-	db.scale = scale
 end
 
 local function getBarColor(data, win, p)
@@ -867,6 +866,29 @@ local function rowWheel(row, direction)
 	mod:OnMouseWheel(win, nil, direction)
 end
 
+local function resetRowForUse(row)
+	row.label._skadaText = nil
+	row.label:SetText("")
+	for i = 1, 3 do
+		local fs = row.columns[i]
+		if fs then
+			fs._skadaText = nil
+			fs:SetText("")
+			fs:Hide()
+		end
+	end
+	row._specKey = nil
+	row._singleText = nil
+	row._iconKey = nil
+	row._styleKey = nil
+	row._hasIcon = false
+	row._anim = nil
+	row._targetWidth = nil
+	row._currentWidth = nil
+	row._targetY = nil
+	row._currentY = nil
+end
+
 local function acquireRow(frame)
 	local row = table.remove(frame.rowPool)
 	if not row then
@@ -886,6 +908,7 @@ local function acquireRow(frame)
 		end)
 	end
 	row.win = frame.win
+	resetRowForUse(row)
 	row:Show()
 	return row
 end
