@@ -151,8 +151,9 @@ local function columnRightOffset(slot)
 	return COLUMN_RIGHT_PAD + (3 - slot) * (COLUMN_WIDTH + COLUMN_GAP)
 end
 
-local function buildColumnSpec(win)
-	if Skada.db and Skada.db.profile and Skada.db.profile.disablecolumns then return {} end
+local function buildColumnSpec(win, force)
+	local disabled = Skada.db and Skada.db.profile and Skada.db.profile.disablecolumns
+	if disabled and not force then return {} end
 	local mode = win.selectedmode
 	local columns = mode and mode.metadata and mode.metadata.columns
 	local custom = mode and mode.metadata and mode.metadata.columnSpec
@@ -183,7 +184,7 @@ local function buildColumnSpec(win)
 	elseif columns.EnemyDamage then
 		spec[#spec + 1] = { label = "ENEMY", value = "valueText1", slot = 1 }
 	end
-	if width >= 300 then
+	if (force or width >= 300) then
 		if columns.DPS then
 			spec[#spec + 1] = { label = "DPS", value = "valueText2", slot = 2 }
 		elseif columns.HPS then
@@ -198,7 +199,7 @@ local function buildColumnSpec(win)
 			spec[#spec + 1] = { label = "DPS", value = "valueText2", slot = 2 }
 		end
 	end
-	if width >= 400 and not secret and columns.Percent then
+	if (force or width >= 400) and not secret and columns.Percent then
 		spec[#spec + 1] = { label = "%", value = "valueText3", slot = 3 }
 	end
 	return spec
@@ -275,16 +276,33 @@ local function ensureColumn(row, index)
 	return fs
 end
 
-local function singleValueText(data)
-	local value = data.valuetext
-	if value ~= nil then return value end
-	local primary = data.valueText1
-	if primary == nil then return nil end
-	local percent = data.valueText3
-	if percent ~= nil and not issecretvalue(primary) and not issecretvalue(percent) then
-		return primary .. " (" .. percent .. ")"
+local function singleValueText(data, spec)
+	if not spec or #spec == 0 then
+		if data.valuetext ~= nil then return data.valuetext end
+		local primary = data.valueText1
+		if primary == nil then return nil end
+		if issecretvalue(primary) then return primary end
+		local parts = {}
+		for i = 2, 3 do
+			local value = data["valueText" .. i]
+			if value ~= nil and not issecretvalue(value) then
+				parts[#parts + 1] = tostring(value)
+			end
+		end
+		if #parts == 0 then return primary end
+		return tostring(primary) .. " (" .. table.concat(parts, ", ") .. ")"
 	end
-	return primary
+	local primary = data[spec[1].value]
+	if primary == nil or issecretvalue(primary) then return primary end
+	local parts = {}
+	for i = 2, #spec do
+		local value = data[spec[i].value]
+		if value ~= nil and not issecretvalue(value) then
+			parts[#parts + 1] = tostring(value)
+		end
+	end
+	if #parts == 0 then return primary end
+	return tostring(primary) .. " (" .. table.concat(parts, ", ") .. ")"
 end
 
 local function layoutRowText(row, frame, spec, p, hasIcon)
@@ -1172,6 +1190,7 @@ function mod:Update(win)
 	local dataset = win.dataset or {}
 	if win.metadata.showspots then table_sort(dataset, Skada.value_sort) end
 	local spec = buildColumnSpec(win)
+	local singleSpec = (Skada.db.profile.disablecolumns and buildColumnSpec(win, true)) or nil
 	updateColumnHeader(frame, win, spec)
 	local maxvalue = win.metadata.maxvalue or 1
 	if type(maxvalue) ~= "number" or maxvalue <= 0 then maxvalue = 1 end
@@ -1264,7 +1283,7 @@ function mod:Update(win)
 			end
 			setTextIfChanged(row.label, label, issecretvalue(label))
 
-			local valuetext = singleValueText(data)
+			local valuetext = singleValueText(data, singleSpec)
 			local valuetextSecret = issecretvalue(valuetext)
 			if #spec == 0 then
 				local valueColumn = ensureColumn(row, 3)
