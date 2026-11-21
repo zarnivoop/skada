@@ -314,12 +314,9 @@ local function layoutRowText(row, frame, spec, p, hasIcon)
 		local fs = row.columns[i]
 		if fs then fs:SetFont(font, size, flags) end
 	end
-	local firstSlot = 4
-	local used = {}
+	local firstSlot = 4 - #spec
 	for i = 1, #spec do
-		local slot = spec[i].slot or (4 - #spec + i - 1)
-		used[slot] = true
-		if slot < firstSlot then firstSlot = slot end
+		local slot = firstSlot + i - 1
 		local fs = ensureColumn(row, slot)
 		fs:SetFont(font, size, flags)
 		fs:ClearAllPoints()
@@ -330,7 +327,7 @@ local function layoutRowText(row, frame, spec, p, hasIcon)
 	end
 	for i = 1, 3 do
 		local fs = row.columns[i]
-		if fs and not used[i] then
+		if fs and not (i >= firstSlot and i < firstSlot + #spec) then
 			fs:Hide()
 		end
 	end
@@ -840,10 +837,11 @@ local function updateColumnHeader(frame, win, spec)
 	applyHeaderVisibility(frame)
 	for i = 1, 3 do header.labels[i]:Hide() end
 	if not show then return end
+	local first = 4 - #spec
 	local font = fontPath(p.columnheaderfont or p.barfont, "Marcellus")
 	local c = p.columnheadertextcolor or p.title.textcolor
 	for i = 1, #spec do
-		local slot = spec[i].slot or (4 - #spec + i - 1)
+		local slot = first + i - 1
 		local fs = header.labels[slot]
 		fs:SetFont(font, p.columnheaderfontsize or 8, p.columnheaderfontflags or "")
 		fs:SetTextColor(c.r, c.g, c.b, (c.a or 1) * 0.8)
@@ -1325,8 +1323,9 @@ function mod:Update(win)
 					layoutRowText(row, frame, spec, p, row._hasIcon)
 					row._specKey = specKey
 				end
+				local firstSlot = 4 - #spec
 				for si = 1, #spec do
-					local slot = spec[si].slot or (4 - #spec + si - 1)
+					local slot = firstSlot + si - 1
 					local fs = row.columns[slot]
 					if fs then
 						local key = spec[si].value
