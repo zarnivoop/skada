@@ -564,8 +564,16 @@ local function createShell(win)
 end
 
 local function setRowStyle(row, data, win, p, hasIcon)
+	local isList = win.metadata and (win.metadata.is_modelist or win.metadata.is_setlist)
 	local r, g, b, a = getBarColor(data, win, p)
-	row.fill:SetVertexColor(r, g, b, a)
+	if isList then
+		-- Lists use full-width bars whose length carries no meaning. Hide the
+		-- fill and let alternating row bands do the visual separation.
+		row.fill:Hide()
+	else
+		row.fill:Show()
+		row.fill:SetVertexColor(r, g, b, a)
+	end
 
 	local class = data.class
 	if not issecretvalue(class) and class and p.classcolortext then
@@ -594,7 +602,12 @@ local function setRowStyle(row, data, win, p, hasIcon)
 
 	local bg = p.barbgcolor
 	local bgAlpha = p.transparentbackground and 0 or (bg.a or 0.6)
-	if p.alternaterows and row._visibleIndex and row._visibleIndex % 2 == 0 then
+	local alternate = row._visibleIndex and row._visibleIndex % 2 == 0
+	if isList then
+		local tint = 0.040
+		local alpha = p.transparentbackground and 0 or (alternate and 0.22 or 0.10)
+		row.bg:SetColorTexture(bg.r + tint, bg.g + tint * 1.15, bg.b + tint * 1.55, alpha)
+	elseif p.alternaterows and alternate then
 		local d = 0.04
 		row.bg:SetColorTexture(max(0, bg.r - d), max(0, bg.g - d), max(0, bg.b - d), min(1, bgAlpha + d))
 	else
@@ -1070,7 +1083,8 @@ function mod:Update(win)
 				isSelf = true
 			end
 			row._isSelf = isSelf
-			local styleKey = secretKey(data.class) .. "|" .. secretKey(data.spellschool) .. "|" .. secretKey(data.color) .. "|" .. tostring(visibleIndex % 2) .. "|" .. tostring(styleVersion) .. "|" .. tostring(win.metadata.isspelllist) .. "|" .. tostring(isSelf) .. "|" .. tostring(p.highlightself)
+			local isList = win.metadata and (win.metadata.is_modelist or win.metadata.is_setlist)
+			local styleKey = secretKey(data.class) .. "|" .. secretKey(data.spellschool) .. "|" .. secretKey(data.color) .. "|" .. tostring(visibleIndex % 2) .. "|" .. tostring(styleVersion) .. "|" .. tostring(win.metadata.isspelllist) .. "|" .. tostring(isSelf) .. "|" .. tostring(p.highlightself) .. "|" .. tostring(isList)
 			if row._styleKey ~= styleKey then
 				row._styleKey = styleKey
 				setRowStyle(row, data, win, p, row._hasIcon)
@@ -1175,7 +1189,7 @@ function mod:Update(win)
 			end
 			if row:GetHeight() ~= frame.rowHeight then row:SetHeight(frame.rowHeight) end
 			if not row:IsShown() then row:Show() end
-			if p.spark and visibleIndex == 1 then
+			if p.spark and visibleIndex == 1 and not (win.metadata and (win.metadata.is_modelist or win.metadata.is_setlist)) then
 				if not row.spark then
 					row.spark = row:CreateTexture(nil, "OVERLAY")
 					row.spark:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark")

@@ -877,6 +877,7 @@ function Window:DisplayModes(settime)
 	self.metadata = wipe(self.metadata or {})
 
 	self.metadata.title = L["Skada: Modes"]
+	self.metadata.is_modelist = true
 
 	-- Find the selected set
 	-- With Native API, we only have "current" and "total" sessions
@@ -934,6 +935,7 @@ function Window:DisplaySets()
 	self.selectedset = nil
 
 	self.metadata.title = L["Skada: Fights"]
+	self.metadata.is_setlist = true
 	if self.display and self.display.SetTitle then
 		self.display:SetTitle(self, self.metadata.title)
 	end
