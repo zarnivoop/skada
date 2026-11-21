@@ -453,6 +453,26 @@ function mod:Create(window, isnew)
 		displayButton:SetPoint("TOPLEFT", titleBar, "TOPLEFT", 6, -7)
 		frame.displayButton = displayButton
 
+		local summaryButton = CreateFrame("Button", nil, titleBar)
+		summaryButton:SetSize(64, 20)
+		summaryButton:SetPoint("RIGHT", menu, "LEFT", -6, 0)
+		summaryButton:SetNormalFontObject(_G.GameFontNormalSmall)
+		summaryButton:SetText(L["Summary"])
+		summaryButton:SetScript("OnClick", function()
+			local win = frame.win
+			if not win then return end
+			win.db.ledgersummary = win.db.ledgersummary == false
+			mod:ApplySettings(win)
+		end)
+		summaryButton:SetScript("OnEnter", function(self)
+			GameTooltip:SetOwner(self, "ANCHOR_TOP")
+			GameTooltip:SetText(L["Show summary"])
+			GameTooltip:AddLine(L["Show the summary strip at the top of the ledger."], 0.7, 0.7, 0.7, true)
+			GameTooltip:Show()
+		end)
+		summaryButton:SetScript("OnLeave", function() GameTooltip:Hide() end)
+		frame.summaryButton = summaryButton
+
 		local summary = CreateFrame("Frame", nil, frame)
 		summary:SetPoint("TOPLEFT", titleBar, "BOTTOMLEFT", PADDING, -6)
 		summary:SetPoint("TOPRIGHT", titleBar, "BOTTOMRIGHT", -PADDING, -6)
@@ -690,6 +710,23 @@ function mod:ApplySettings(win)
 	local titleSize = db.title and (db.title.fontsize or 13) or 13
 
 	frame:SetSize(db.width or 760, db.height or 360)
+	local showSummary = db.ledgersummary ~= false
+	if frame.summary then
+		frame.summary:SetShown(showSummary)
+	end
+	if frame.summaryButton then
+		frame.summaryButton:SetAlpha(showSummary and 1 or 0.45)
+	end
+	if frame.header then
+		frame.header:ClearAllPoints()
+		if showSummary and frame.summary then
+			frame.header:SetPoint("TOPLEFT", frame.summary, "BOTTOMLEFT", 0, -4)
+			frame.header:SetPoint("TOPRIGHT", frame.summary, "BOTTOMRIGHT", 0, -4)
+		else
+			frame.header:SetPoint("TOPLEFT", frame.titleBar, "BOTTOMLEFT", PADDING, -6)
+			frame.header:SetPoint("TOPRIGHT", frame.titleBar, "BOTTOMRIGHT", -PADDING, -6)
+		end
+	end
 	if frame.titleText then
 		frame.titleText:SetFont(titlePath, titleSize, "")
 	end
@@ -783,5 +820,23 @@ function mod:Update(win)
 end
 
 function mod:AddDisplayOptions(win, options)
-	-- The ledger has no mode-specific columns; keep the shared window options.
+	local db = win.db
+	options.ledgeroptions = {
+		type = "group",
+		name = L["Ledger"],
+		order = 2,
+		args = {
+			ledgersummary = {
+				type = "toggle",
+				name = L["Show summary"],
+				desc = L["Show the summary strip at the top of the ledger."],
+				get = function() return db.ledgersummary ~= false end,
+				set = function(_, value)
+					db.ledgersummary = value
+					Skada:ApplySettings()
+				end,
+				order = 1,
+			},
+		},
+	}
 end

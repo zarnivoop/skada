@@ -103,6 +103,7 @@ Skada.windowdefaults = {
 	display = "bar",
 	displayincombat = "",
 	displayoutofcombat = "",
+	ledgersummary = true,
 	snapto = true,
 	version = 1,
 	smoothing = true,
