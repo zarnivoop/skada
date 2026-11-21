@@ -905,6 +905,33 @@ function mod:Dump(win)
 			end
 		end
 	end
+
+	local rows, _, maps = buildRows(win, set)
+	Skada:Print("  rows=" .. tostring(#rows))
+	if type(maps) == "table" then
+		for _, key in ipairs({"healing", "taken", "avoidable", "interrupts", "dispels", "deaths"}) do
+			local map = maps[key]
+			local keys, names = 0, 0
+			if type(map) == "table" then
+				for k in pairs(map) do
+					if k ~= "names" then keys = keys + 1 end
+				end
+				if type(map.names) == "table" then
+					for _ in pairs(map.names) do names = names + 1 end
+				end
+			end
+			Skada:Print("  map " .. key .. " keys=" .. keys .. " names=" .. names)
+		end
+		local shown = 0
+		if type(maps.healing) == "table" and type(maps.healing.names) == "table" then
+			for name, value in pairs(maps.healing.names) do
+				local kind = issecretvalue(value) and "secret" or type(value)
+				Skada:Print("    heal map " .. tostring(name) .. " = " .. kind)
+				shown = shown + 1
+				if shown >= 5 then break end
+			end
+		end
+	end
 end
 
 function mod:AddDisplayOptions(win, options)
