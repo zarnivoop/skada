@@ -848,7 +848,11 @@ function mod:ApplySettings(win)
 	local titlePath = db.title and (db.title.fontpath or media:Fetch("font", db.title.font)) or fontPath
 	local titleSize = db.title and (db.title.fontsize or 13) or 13
 
-	frame:SetSize(db.width or 760, db.height or 360)
+	frame:SetSize(math.max(600, db.width or 760), math.max(260, db.height or 360))
+	frame:SetScale(db.scale or 1)
+	if db.strata then
+		frame:SetFrameStrata(db.strata)
+	end
 	local showSummary = db.ledgersummary ~= false
 	if frame.summary then
 		frame.summary:SetShown(showSummary)
@@ -867,7 +871,11 @@ function mod:ApplySettings(win)
 		end
 	end
 	if frame.titleText then
-		frame.titleText:SetFont(titlePath, titleSize, "")
+		frame.titleText:SetFont(titlePath, titleSize, (db.title and db.title.fontflags) or "")
+		local tc = db.title and db.title.textcolor
+		if tc then
+			frame.titleText:SetTextColor(tc.r, tc.g, tc.b, tc.a or 1)
+		end
 	end
 	if frame.subtitle then
 		frame.subtitle:SetFont(fontPath, 11, "")
@@ -898,9 +906,19 @@ function mod:ApplySettings(win)
 			end
 		end
 	end
-	local bg = db.background and db.background.color
-	if bg then
-		frame:SetBackdropColor(bg.r, bg.g, bg.b, bg.a or 0.94)
+	local background = db.background
+	if background then
+		local bgFile = media:Fetch("background", background.texture) or "Interface\\Buttons\\WHITE8X8"
+		frame:SetBackdrop({
+			bgFile = bgFile,
+			tile = background.tile,
+			tileSize = background.tilesize,
+		})
+		local bg = background.color
+		if bg then
+			frame:SetBackdropColor(bg.r, bg.g, bg.b, bg.a or 0.94)
+		end
+		Skada:ApplyBorder(frame, background.bordertexture, background.bordercolor, background.borderthickness)
 	end
 	layout(win)
 end
@@ -1025,7 +1043,7 @@ function mod:AddDisplayOptions(win, options)
 	options.ledgeroptions = {
 		type = "group",
 		name = L["Ledger"],
-		order = 2,
+		order = 3,
 		args = {
 			ledgersummary = {
 				type = "toggle",
@@ -1038,6 +1056,61 @@ function mod:AddDisplayOptions(win, options)
 				end,
 				order = 1,
 			},
+			barfont = {
+				type = "select",
+				dialogControl = "LSM30_Font",
+				name = L["Bar font"],
+				desc = L["The font used by all bars."],
+				values = AceGUIWidgetLSMlists.font,
+				get = function() return db.barfont end,
+				set = function(_, key)
+					db.barfont = key
+					Skada:ApplySettings()
+				end,
+				order = 2,
+			},
+			barfontsize = {
+				type = "range",
+				name = L["Bar font size"],
+				desc = L["The font size of all bars."],
+				min = 7,
+				max = 40,
+				step = 1,
+				get = function() return db.barfontsize end,
+				set = function(_, size)
+					db.barfontsize = size
+					Skada:ApplySettings()
+				end,
+				order = 3,
+			},
+			barfontflags = {
+				type = "select",
+				name = L["Font flags"],
+				desc = L["Sets the font flags."],
+				values = {[""] = L["None"], ["OUTLINE"] = L["Outline"], ["THICKOUTLINE"] = L["Thick outline"], ["MONOCHROME"] = L["Monochrome"], ["OUTLINEMONOCHROME"] = L["Outlined monochrome"]},
+				get = function() return db.barfontflags end,
+				set = function(_, key)
+					db.barfontflags = key
+					Skada:ApplySettings()
+				end,
+				order = 4,
+			},
+			titlecolor = {
+				type = "color",
+				name = L["Title color"],
+				desc = L["The color of the title text."],
+				hasAlpha = true,
+				get = function()
+					local c = db.title.textcolor
+					return c.r, c.g, c.b, c.a
+				end,
+				set = function(_, r, g, b, a)
+					db.title.textcolor = { r = r, g = g, b = b, a = a or 1 }
+					Skada:ApplySettings()
+				end,
+				order = 5,
+			},
 		},
 	}
+	options.frameoptions = Skada:FrameSettings(db, true)
 end
