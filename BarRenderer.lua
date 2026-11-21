@@ -987,6 +987,11 @@ end
 stopAnimator = function(frame)
 	frame:SetScript("OnUpdate", nil)
 	frame._animating = false
+	for _, row in ipairs(frame.rows or {}) do
+		row._anim = nil
+		row._targetY = nil
+		row._currentY = nil
+	end
 end
 
 function mod:Update(win)
@@ -1184,7 +1189,11 @@ function mod:ApplySettings(win)
 end
 
 function mod:Show(win)
-	if win.bargroup then win.bargroup:Show() end
+	if win.bargroup then
+		win.bargroup:Show()
+		mod:Layout(win)
+		mod:Update(win)
+	end
 end
 
 function mod:Hide(win)
