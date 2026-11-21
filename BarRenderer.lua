@@ -152,7 +152,7 @@ local function columnRightOffset(slot)
 end
 
 local function buildColumnSpec(win)
-	if win.db.disablecolumns then return {} end
+	if Skada.db and Skada.db.profile and Skada.db.profile.disablecolumns then return {} end
 	local mode = win.selectedmode
 	local columns = mode and mode.metadata and mode.metadata.columns
 	local custom = mode and mode.metadata and mode.metadata.columnSpec
@@ -534,6 +534,7 @@ local function createShell(win)
 		end
 	end)
 	frame.button:SetScript("OnEnter", function(self)
+		updateTitleHover(frame)
 		GameTooltip:SetOwner(self, "ANCHOR_TOP")
 		GameTooltip:ClearLines()
 		GameTooltip:AddLine(L["Left click: mode"])

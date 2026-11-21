@@ -387,17 +387,7 @@ local function AddDisplayOptions(win, options)
 				end,
 			},
 
-			disablecolumns = {
-				type="toggle",
-				name=L["Disable columns"],
-				desc=L["Show one combined value instead of separate value, rate and percent columns."],
-				order=42.15,
-				get=function() return db.disablecolumns == true end,
-				set=function()
-					db.disablecolumns = not db.disablecolumns
-					Skada:ApplySettings()
-				end,
-			},
+
 
 
 

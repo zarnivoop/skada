@@ -63,7 +63,6 @@ Skada.windowdefaults = {
 	buttonpaddingright = 10,
 	totalicon = [[Interface\AddOns\Skada\media\icons\ForeverCrest]],
 	showcolumnheaders = true,
-	disablecolumns = false,
 	stickytotal = true,
 	compact = false,
 	columnheadersheight = 8,
@@ -149,6 +148,7 @@ Skada.defaults = {
 		feed = "",
 		ldb = true,
 		showtotals = false,
+		disablecolumns = false,
 		showcombatsummary = false,
 		combatsummaryscope = "boss",
 		combatsummaryoutput = "window",
@@ -677,7 +677,19 @@ Skada.options = {
 			type = "group",
 			name = L["Columns"],
 			order = 5,
-			args = {},
+			args = {
+				disablecolumns = {
+					type = "toggle",
+					name = L["Disable columns"],
+					desc = L["Show one combined value instead of separate value, rate and percent columns."],
+					order = -1,
+					get = function() return Skada.db.profile.disablecolumns == true end,
+					set = function()
+						Skada.db.profile.disablecolumns = not Skada.db.profile.disablecolumns
+						Skada:ApplySettings()
+					end,
+				},
+			},
 		},
 		modules = {
 			type = "group",
