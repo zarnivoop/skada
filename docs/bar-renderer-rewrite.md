@@ -49,7 +49,8 @@ renderer would not need.
 ## Measured baseline
 
 Headless simulator, 470px bars, 22px rows, three columns, mock eight-player session,
-500 iterations of `win.display:Update(win)` after warm-up. Timings are simulator
+warmed iterations of `win.display:Update(win)` (300 iterations for the library cases,
+500 for the raw-row case). Timings are simulator
 numbers and are useful for relative comparison, not as absolute client promises.
 
 | Case | Cost per renderer update |
