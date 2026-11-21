@@ -75,6 +75,17 @@ local function visibleRowCount(frame)
 	return max(1, floor(((frame:GetHeight() or 0) + spacing + 0.5) / step))
 end
 
+local function lastValidDatasetIndex(dataset)
+	for i = #dataset, 1, -1 do
+		local data = dataset[i]
+		if type(data) == "table" then
+			local id = data.id
+			if issecretvalue(id) or id then return i end
+		end
+	end
+	return 0
+end
+
 local function mediaStatusbar(key)
 	if not key or key == "None" then return "Interface\\Buttons\\WHITE8X8" end
 	return media:Fetch("statusbar", key) or "Interface\\Buttons\\WHITE8X8"
@@ -1039,8 +1050,11 @@ function mod:Update(win)
 	if type(maxvalue) ~= "number" or maxvalue <= 0 then maxvalue = 1 end
 	local step = (frame.rowHeight or 22) + (frame.rowSpacing or 1)
 	local visibleRows = visibleRowCount(frame)
-	local startIndex = min((frame.offset or 0) + 1, #dataset)
-	local endIndex = min(#dataset, startIndex + visibleRows - 1)
+	local lastValid = lastValidDatasetIndex(dataset)
+	local maxOffset = max(0, lastValid - visibleRows)
+	if (frame.offset or 0) > maxOffset then frame.offset = maxOffset end
+	local startIndex = min((frame.offset or 0) + 1, max(lastValid, 1))
+	local endIndex = min(lastValid, startIndex + visibleRows - 1)
 	local specKey = table.concat({ tostring(frame:GetWidth()), tostring(#spec), tostring(p.iconscale), tostring(p.classicons), tostring(p.roleicons) }, ":")
 	local fillVersion = tostring(p.barorientation or 1) .. ":" .. tostring(p.barinset or 0)
 	local styleVersion = frame._styleVersion or 0
@@ -1309,12 +1323,22 @@ function mod:OnMouseWheel(win, frame, direction)
 	if not g then return end
 	local step = (g.rowHeight or 22) + (g.rowSpacing or 1)
 	local visible = visibleRowCount(g)
-	local maxOffset = max(0, #(win.dataset or {}) - visible)
+	local maxOffset = max(0, lastValidDatasetIndex(win.dataset or {}) - visible)
 	if direction == 1 then
 		g.offset = max(0, (g.offset or 0) - 1)
 	elseif direction == -1 then
 		g.offset = min(maxOffset, (g.offset or 0) + 1)
 	end
+	-- Scrolling changes the dataset slice under each row. Recycle the visible
+	-- rows so no stale anchors or text survive the offset change.
+	for _, row in ipairs(g.rows or {}) do
+		row:Hide()
+		row.id = nil
+		row._anim = nil
+		g.rowPool[#g.rowPool + 1] = row
+	end
+	g.rows = {}
+	g.rowById = {}
 	mod:Update(win)
 end
 
