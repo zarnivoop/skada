@@ -63,7 +63,6 @@ Skada.windowdefaults = {
 	buttonpaddingright = 10,
 	totalicon = [[Interface\AddOns\Skada\media\icons\ForeverCrest]],
 	showcolumnheaders = true,
-	showratecolumn = false,
 	disablecolumns = false,
 	stickytotal = true,
 	compact = false,

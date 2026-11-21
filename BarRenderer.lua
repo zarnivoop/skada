@@ -183,7 +183,7 @@ local function buildColumnSpec(win)
 	elseif columns.EnemyDamage then
 		spec[#spec + 1] = { label = "ENEMY", value = "valueText1", slot = 1 }
 	end
-	if width >= 300 and p.showratecolumn then
+	if width >= 300 then
 		if columns.DPS then
 			spec[#spec + 1] = { label = "DPS", value = "valueText2", slot = 2 }
 		elseif columns.HPS then

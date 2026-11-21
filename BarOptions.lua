@@ -399,17 +399,7 @@ local function AddDisplayOptions(win, options)
 				end,
 			},
 
-			showratecolumn = {
-				type="toggle",
-				name=L["Show DPS/HPS column"],
-				desc=L["Show the per-second rate column in Damage and Healing. Off by default."],
-				order=42.1,
-				get=function() return db.showratecolumn == true end,
-				set=function()
-					db.showratecolumn = not db.showratecolumn
-					Skada:ApplySettings()
-				end,
-			},
+
 
 			stickytotal = {
 				type="toggle",
