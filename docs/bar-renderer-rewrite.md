@@ -26,11 +26,14 @@ Measured in the simulator with the custom `bar` display:
 | 13 visible rows | — | 0.08 ms |
 | 40 visible rows | 6.638 ms | 0.27 ms |
 
+Simulator parity checks: **252** combinations across 9 modes, 8 themes, 3 widths,
+layout flags and bar/ledger/inline transitions, with **0 failures** and no Skada
+Lua errors. A 40-row animation/smoothing step costs about **0.02 ms**.
+
 Remaining before this can be called production-ready:
 
-- client-side benchmark at raid density
-- full in-game parity matrix across modes, themes, widths, combat transitions and
-  secret values
+- real-client benchmark at raid density
+- in-game parity matrix across combat transitions and real secret values
 
 ## Recommendation
 
