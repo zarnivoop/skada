@@ -396,12 +396,12 @@ function mod:Create(window, isnew)
 		bg:SetColorTexture(0.06, 0.11, 0.16, 0.85)
 		frame.titleBg = bg
 
-		local title = titleBar:CreateFontString(nil, "OVERLAY")
+		local title = titleBar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 		title:SetPoint("LEFT", titleBar, "LEFT", PADDING + 20, 0)
 		title:SetText(L["Ledger"])
 		frame.titleText = title
 
-		local subtitle = titleBar:CreateFontString(nil, "OVERLAY")
+		local subtitle = titleBar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 		subtitle:SetPoint("LEFT", title, "RIGHT", 8, 0)
 		subtitle:SetTextColor(0.55, 0.66, 0.76)
 		frame.subtitle = subtitle
@@ -429,11 +429,11 @@ function mod:Create(window, isnew)
 			block:SetPoint("TOPLEFT", summary, "TOPLEFT", 0, 0)
 			block:SetWidth(150)
 			block:SetHeight(SUMMARY_HEIGHT - 12)
-			local label = block:CreateFontString(nil, "OVERLAY")
+			local label = block:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 			label:SetPoint("TOPLEFT", block, "TOPLEFT", 0, 0)
 			label:SetText(string.upper(entry.label))
 			label:SetTextColor(0.48, 0.58, 0.68)
-			local value = block:CreateFontString(nil, "OVERLAY")
+			local value = block:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
 			value:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -4)
 			value:SetText("-")
 			block.label = label
@@ -453,7 +453,7 @@ function mod:Create(window, isnew)
 		headerLine:SetHeight(1)
 		headerLine:SetColorTexture(0.25, 0.35, 0.45, 0.35)
 
-		local playerHead = header:CreateFontString(nil, "OVERLAY")
+		local playerHead = header:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 		playerHead:SetPoint("LEFT", header, "LEFT", 0, 0)
 		playerHead:SetText(L["Player"])
 		playerHead:SetTextColor(0.48, 0.58, 0.68)
@@ -525,7 +525,7 @@ function mod:Create(window, isnew)
 			line:SetColorTexture(1, 1, 1, 0.035)
 			row.line = line
 
-			local name = row:CreateFontString(nil, "OVERLAY")
+			local name = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 			name:SetPoint("LEFT", row, "LEFT", 0, 0)
 			name:SetJustifyH("LEFT")
 			name:SetWordWrap(false)
@@ -534,7 +534,7 @@ function mod:Create(window, isnew)
 
 			row.values = {}
 			for m = 1, #METRICS do
-				local fs = row:CreateFontString(nil, "OVERLAY")
+				local fs = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 				fs:SetJustifyH("RIGHT")
 				fs:SetHeight(ROW_HEIGHT)
 				row.values[m] = fs
