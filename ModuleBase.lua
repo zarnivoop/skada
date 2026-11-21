@@ -457,21 +457,53 @@ end
 local function spellIDFromEntry(spell)
 	if type(spell) ~= "table" or issecretvalue(spell) then return nil end
 	local spellID = spell.spellID
-	if type(spellID) ~= "number" then
-		spellID = spell.abilityID
+	if issecretvalue(spellID) then
+		-- Some combat entries expose a protected spellID but a plain alternate
+		-- identifier. Prefer the plain one so icons/names remain resolvable.
+		for _, key in ipairs({ "abilityID", "spellId", "id" }) do
+			local alt = spell[key]
+			if type(alt) == "number" and not issecretvalue(alt) and alt > 0 then
+				return alt
+			end
+		end
+		return spellID
 	end
-	return spellID
+	if type(spellID) == "number" and spellID > 0 then return spellID end
+	for _, key in ipairs({ "abilityID", "spellId", "id" }) do
+		local alt = spell[key]
+		if type(alt) == "number" and not issecretvalue(alt) then
+			return alt
+		end
+	end
+	return nil
 end
 
-local function spellIconFor(spellID, spell)
+local function spellIconFor(spellID, spell, label)
 	local icon = Skada:GetSpellIcon(spellID)
-	if not issecretvalue(icon) and icon == nil and type(spell) == "table" and not issecretvalue(spell) then
-		for _, key in ipairs({ "icon", "iconID", "texture" }) do
+	local missing = issecretvalue(icon) or icon == nil
+	if missing and type(spell) == "table" and not issecretvalue(spell) then
+		for _, key in ipairs({ "icon", "iconID", "texture", "spellIcon", "spellTexture", "textureID", "iconFileID" }) do
 			local candidate = spell[key]
 			if issecretvalue(candidate) then
 				return candidate
-			elseif candidate ~= nil then
+			elseif candidate ~= nil and candidate ~= 0 then
 				return candidate
+			end
+		end
+	end
+	if missing
+		and type(label) == "string" and not issecretvalue(label) and label ~= "" then
+		-- Some combat entries hide the spell ID but keep a readable name. The
+		-- spell-info API also accepts names, which gives us a plain icon.
+		local names = { label }
+		local base = label:match("^(.-) %- ")
+		if base and base ~= "" then names[#names + 1] = base end
+		for _, name in ipairs(names) do
+			local ok, info = pcall(C_Spell.GetSpellInfo, name)
+			if ok and type(info) == "table" then
+				local candidate = info.iconID
+				if issecretvalue(candidate) then return candidate end
+				if candidate ~= nil and candidate ~= 0 then return candidate end
 			end
 		end
 	end
@@ -943,8 +975,7 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 					d.valueText1 = d.valuetext
 					d.valueText2 = nil
 					d.valueText3 = nil
-					local icon = spellIconFor(rawSpellID, spell)
-					if icon ~= nil and not issecretvalue(icon) then d.icon = icon end
+					d.icon = spellIconFor(rawSpellID, spell, d.label)
 					nr = nr + 1
 				end
 			end
@@ -1008,7 +1039,7 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 					else
 						d.valuetext = d.valueText1
 					end
-					d.icon = spellIconFor(spellID, spell)
+					d.icon = spellIconFor(rawSpellID, spell, d.label)
 					nr = nr + 1
 				end
 			end

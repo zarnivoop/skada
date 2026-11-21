@@ -1600,6 +1600,42 @@ function Skada:Debug(...)
 	print("|cFF33FF99Skada Debug|r: " .. msg)
 end
 
+function Skada:DumpSpellIcons()
+	local win = self._lastActiveWindow or self:GetWindows()[1]
+	if not win then
+		self:Print("No window")
+		return
+	end
+	local function desc(value)
+		if issecretvalue(value) then return "<secret>" end
+		return tostring(value)
+	end
+	self:Print("Spell icon diagnostic: display=" .. tostring(win.db.display) .. " mode=" .. tostring(win.selectedmode and win.selectedmode:GetName()))
+	for i, data in ipairs(win.dataset or {}) do
+		if i > 8 then break end
+		if type(data) == "table" and data.id then
+			local row
+			for _, candidate in ipairs(win.bargroup and win.bargroup.rows or {}) do
+				if candidate.spellData == data then row = candidate; break end
+			end
+			local tex = row and row.icon:GetTexture()
+			local api = ""
+			local spellID = data.id
+			if type(spellID) == "number" and not issecretvalue(spellID) then
+				local ok, info = pcall(C_Spell.GetSpellInfo, spellID)
+				if ok and type(info) == "table" then
+					api = " info.icon=" .. desc(info.iconID)
+				else
+					api = " info.error=" .. desc(info)
+				end
+			end
+			self:Print(("icon %d id=%s name=%s spellid=%s dataIcon=%s school=%s row=%s tex=%s%s"):format(
+				i, desc(data.id), desc(data.label), desc(data.spellid), desc(data.icon),
+				desc(data.spellschool), tostring(row and row.icon:IsShown() or false), desc(tex), api))
+		end
+	end
+end
+
 local function slashHandler(param)
 	local reportusage =
 	"/skada report [raid|party|instance|guild|officer|say] [current||total|set_num] [mode] [max_lines]"
@@ -1614,6 +1650,10 @@ local function slashHandler(param)
 		else
 			Skada:Print("Bar display not loaded")
 		end
+		return
+	end
+	if param == "icons" then
+		Skada:DumpSpellIcons()
 		return
 	end
 	if param == "ledger" then
