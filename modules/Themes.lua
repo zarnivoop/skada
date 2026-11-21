@@ -783,9 +783,16 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 		-- renderer and the user's ledger summary preference.
 		Skada:tcopy(win.db, theme, {"name", "modeincombat", "display", "set", "mode", "wipemode", "returnaftercombat", "ledgersummary", "ledgertransparent"})
 		local ledgerBg = theme.ledgerbgcolor
-		if not ledgerBg and theme.background and theme.background.color then
-			local c = theme.background.color
-			ledgerBg = { r = c.r, g = c.g, b = c.b, a = 0.62 }
+		if not ledgerBg then
+			local titleColor = theme.title and theme.title.color
+			local c = titleColor or (theme.background and theme.background.color)
+			if c then
+				local alpha = 0.62
+				if titleColor and titleColor.a and titleColor.a < alpha then
+					alpha = titleColor.a
+				end
+				ledgerBg = { r = c.r, g = c.g, b = c.b, a = alpha }
+			end
 		end
 		if ledgerBg then
 			win.db.ledgerbgcolor = { r = ledgerBg.r, g = ledgerBg.g, b = ledgerBg.b, a = ledgerBg.a or 0.62 }
