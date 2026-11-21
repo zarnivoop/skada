@@ -721,6 +721,33 @@ function mod:SetTitle(win, title)
 	if fs then fs:SetText(title) else frame.button:SetText(title) end
 end
 
+local function updateColumnHeader(frame, win, spec)
+	local header = frame.header
+	if not header then return end
+	local p = win.db
+	local show = p.showcolumnheaders and #spec > 0
+	local key = tostring(show) .. ":" .. tostring(#spec)
+	for i = 1, #spec do key = key .. "|" .. tostring(spec[i].label) end
+	if frame._headerKey == key then return end
+	frame._headerKey = key
+	header:SetShown(show and true or false)
+	for i = 1, 3 do header.labels[i]:Hide() end
+	if not show then return end
+	local first = 4 - #spec
+	local font = fontPath(p.columnheaderfont or p.barfont, "Marcellus")
+	local c = p.columnheadertextcolor or p.title.textcolor
+	for i = 1, #spec do
+		local slot = first + i - 1
+		local fs = header.labels[slot]
+		fs:SetFont(font, p.columnheaderfontsize or 8, p.columnheaderfontflags or "")
+		fs:SetTextColor(c.r, c.g, c.b, (c.a or 1) * 0.8)
+		fs:SetText(spec[i].label)
+		fs:ClearAllPoints()
+		fs:SetPoint("RIGHT", header, "RIGHT", -columnRightOffset(slot), 0)
+		fs:Show()
+	end
+end
+
 function mod:Layout(win)
 	local frame = win.bargroup
 	if not frame then return end
@@ -774,25 +801,8 @@ function mod:Layout(win)
 		header:SetPoint("TOPLEFT", frame.button, "TOPLEFT", 0, 0)
 		header:SetPoint("BOTTOMRIGHT", frame.button, "BOTTOMRIGHT", 0, 0)
 		header:SetFrameLevel((frame.button:GetFrameLevel() or 1) + 2)
-		local spec = buildColumnSpec(win)
-		local show = p.showcolumnheaders and #spec > 0
-		header:SetShown(show and true or false)
-		if show then
-			for i = 1, 3 do header.labels[i]:Hide() end
-			local first = 4 - #spec
-			local font2 = fontPath(p.columnheaderfont or p.barfont, "Marcellus")
-			local c = p.columnheadertextcolor or p.title.textcolor
-			for i = 1, #spec do
-				local slot = first + i - 1
-				local fs = header.labels[slot]
-				fs:SetFont(font2, p.columnheaderfontsize or 8, p.columnheaderfontflags or "")
-				fs:SetTextColor(c.r, c.g, c.b, (c.a or 1) * 0.8)
-				fs:SetText(spec[i].label)
-				fs:ClearAllPoints()
-				fs:SetPoint("RIGHT", header, "RIGHT", -columnRightOffset(slot), 0)
-				fs:Show()
-			end
-		end
+		frame._headerKey = nil
+		updateColumnHeader(frame, win, buildColumnSpec(win))
 	end
 	applyTitleAndActions(win, frame, p)
 	frame:SetButtonsOpacity((p.hoverbuttons ~= false) and (frame._titleHover and 1 or 0) or 0.25)
@@ -1048,6 +1058,7 @@ function mod:Update(win)
 	local dataset = win.dataset or {}
 	if win.metadata.showspots then table_sort(dataset, Skada.value_sort) end
 	local spec = buildColumnSpec(win)
+	updateColumnHeader(frame, win, spec)
 	local maxvalue = win.metadata.maxvalue or 1
 	if type(maxvalue) ~= "number" or maxvalue <= 0 then maxvalue = 1 end
 	local step = (frame.rowHeight or 22) + (frame.rowSpacing or 1)
