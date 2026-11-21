@@ -669,13 +669,14 @@ local function setRowStyle(row, data, win, p, hasIcon)
 	local isList = win.metadata and (win.metadata.is_modelist or win.metadata.is_setlist)
 	local r, g, b, a = getBarColor(data, win, p)
 	if isList then
-		-- Lists use full-width bars whose length carries no meaning. Keep a low
-		-- opacity tint so rows remain colored, with alternating dark bands.
-		local alternate = row._visibleIndex and row._visibleIndex % 2 == 0
-		local shade = alternate and 0.45 or 1.00
+		-- Lists use full-width bars whose length carries no meaning. Use the
+		-- existing alternate-row setting for their bands, with enough opacity
+		-- to stay readable over dark and bright backgrounds.
+		local alternate = p.alternaterows and row._visibleIndex and row._visibleIndex % 2 == 0
+		local shade = alternate and 0.55 or 1.00
 		row.fill:Show()
 		row.fill:SetVertexColor(r * shade, g * shade, b * shade, 1)
-		row.fill:SetAlpha(alternate and 0.55 or 0.04)
+		row.fill:SetAlpha(alternate and 0.70 or 0.30)
 	else
 		row.fill:Show()
 		row.fill:SetAlpha(1)
@@ -709,10 +710,10 @@ local function setRowStyle(row, data, win, p, hasIcon)
 
 	local bg = p.barbgcolor
 	local bgAlpha = p.transparentbackground and 0 or (bg.a or 0.6)
-	local alternate = row._visibleIndex and row._visibleIndex % 2 == 0
+	local alternate = p.alternaterows and row._visibleIndex and row._visibleIndex % 2 == 0
 	if isList then
 		local tint = 0.040
-		local alpha = p.transparentbackground and 0 or (alternate and 0.20 or 0.02)
+		local alpha = p.transparentbackground and 0 or (alternate and 0.26 or 0.10)
 		row.bg:SetColorTexture(bg.r + tint, bg.g + tint * 1.15, bg.b + tint * 1.55, alpha)
 	elseif p.alternaterows and alternate then
 		local d = 0.04
