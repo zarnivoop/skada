@@ -102,16 +102,14 @@ function Skada:DisplayMenu(window)
 		end
 
 		root:CreateDivider()
-		root:CreateButton(L["Mode"], function()
-			CreateContext(UIParent, function(_, sub)
-				AddModeEntries(sub, window)
-			end)
-		end)
-		root:CreateButton(L["Segment"], function()
-			CreateContext(UIParent, function(_, sub)
-				AddSetEntries(sub, window)
-			end)
-		end)
+		local modeMenu = root:CreateButton(L["Mode"])
+		if modeMenu then
+			AddModeEntries(modeMenu, window)
+		end
+		local segmentMenu = root:CreateButton(L["Segment"])
+		if segmentMenu then
+			AddSetEntries(segmentMenu, window)
+		end
 
 		root:CreateDivider()
 		root:CreateCheckbox(L["Lock window"], function() return window.db.barslocked end, function()
@@ -142,6 +140,8 @@ function Skada:DisplayMenu(window)
 		end)
 		root:CreateButton(L["Reset"], function() Skada:Reset() end)
 		root:CreateButton(L["Configure"], function() Skada:OpenOptions(window) end)
+		root:CreateDivider()
+		root:CreateButton(L["New window"], function() Skada:PromptNewWindow("bar") end)
 	end)
 end
 
