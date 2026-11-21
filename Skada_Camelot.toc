@@ -60,6 +60,7 @@ Summary.lua
 Options.lua
 Settings.lua
 BarDisplay.lua
+BarRenderer.lua
 InlineDisplay.lua
 LedgerDisplay.lua
 BrokerDisplay.lua

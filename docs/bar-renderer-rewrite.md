@@ -2,6 +2,23 @@
 
 Status: exploration on `bar-renderer-explore`. Nothing here is merged or released.
 
+## Prototype status
+
+A first integrated prototype is on this branch as the `bar2` display. It owns the
+window shell, row pool, columns, scrolling, title bar and click/tooltip paths without
+using `SpecializedLibBars`.
+
+It is deliberately still an experiment:
+
+- title-bar colour is currently a flat dark surface rather than the full theme gradient
+- row animation, smoothing, spark and some theme-specific niceties are not implemented
+- existing `bar` display still uses the library; `bar2` exists for side-by-side testing
+- options are still delegated to `BarDisplay`'s option schema
+
+The prototype already passes a 40-visible-row update benchmark at **0.222 ms** in the
+simulator (library: 6.638 ms), and a 13-row window at **0.082 ms**. Screenshots show
+correct columns, class colours, icons, total/self rows and narrow-window name layout.
+
 ## Recommendation
 
 Rewrite the bar display, but do it as a second renderer first (`bar2`), prove parity and
