@@ -96,17 +96,19 @@ local function addMetric(map, key, value, countOnly)
 	end
 end
 
-local function sourceAmount(source)
+local function sourceAmount(source, healing)
 	local candidates = {
 		source.totalAmount,
 		source.amount,
 		source.total,
 		source.value,
-		source.healing,
-		source.healingDone,
-		source.totalHealing,
-		source.effectiveAmount,
 	}
+	if healing then
+		candidates[5] = source.healing
+		candidates[6] = source.healingDone
+		candidates[7] = source.totalHealing
+		candidates[8] = source.effectiveAmount
+	end
 	local fallback
 	for i = 1, 8 do
 		local value = candidates[i]
@@ -122,15 +124,15 @@ end
 local function metricMap(set, dtype, countOnly)
 	local map = { names = {} }
 	local view = Skada.NativeAPI:GetSessionView(set, dtype)
-	if type(view) ~= "table" or issecretvalue(view) then return map end
+	if type(view) ~= "table" or issecretvalue(view) then return map, nil end
 	local sources = view.combatSources
 	if type(sources) ~= "table" or issecretvalue(sources) then
 		sources = view.participants
 	end
-	if type(sources) ~= "table" or issecretvalue(sources) then return map end
+	if type(sources) ~= "table" or issecretvalue(sources) then return map, nil end
 	for _, source in ipairs(sources) do
 		if type(source) == "table" and not issecretvalue(source) then
-			local value = countOnly and nil or sourceAmount(source)
+			local value = countOnly and nil or sourceAmount(source, dtype == 2)
 			addMetric(map, sourceKey(source), value, countOnly)
 			local name = sourceName(source)
 			if name then
@@ -138,7 +140,7 @@ local function metricMap(set, dtype, countOnly)
 			end
 		end
 	end
-	return map
+	return map, sources
 end
 
 local function deathSources(set)
@@ -202,26 +204,54 @@ local function lookupMetric(map, key, source)
 	return value
 end
 
+local function sourceKeys(source)
+	local keys = {}
+	local key = sourceKey(source)
+	if key then keys[#keys + 1] = key end
+	local name = sourceName(source)
+	if name then keys[#keys + 1] = "name:" .. name end
+	return keys
+end
+
+local function isKnown(seen, keys)
+	for _, key in ipairs(keys) do
+		if seen[key] then return true end
+	end
+	return false
+end
+
+local function markKnown(seen, keys)
+	for _, key in ipairs(keys) do
+		seen[key] = true
+	end
+end
+
 local function buildRows(win, set)
 	local maps = {}
+	local metricSources = {}
 	local damageView = Skada.NativeAPI:GetSessionView(set, 0)
-	if type(damageView) ~= "table" or issecretvalue(damageView) then
-		return {}, damageView, maps, false
-	end
-	local sources = damageView.combatSources
-	if type(sources) ~= "table" or issecretvalue(sources) then
-		return {}, damageView, maps, false
+	local damageSources = {}
+	if type(damageView) == "table" and not issecretvalue(damageView) then
+		local sources = damageView.combatSources
+		if type(sources) ~= "table" or issecretvalue(sources) then
+			sources = damageView.participants
+		end
+		if type(sources) == "table" and not issecretvalue(sources) then
+			damageSources = sources
+		end
 	end
 
 	for _, metric in ipairs(METRICS) do
 		if metric.key ~= "damage" and metric.key ~= "deaths" then
-			maps[metric.key] = metricMap(set, metric.dtype, false)
+			local map, sources = metricMap(set, metric.dtype, false)
+			maps[metric.key] = map
+			metricSources[metric.key] = sources
 		end
 	end
-	-- Deaths can live in a different session than the current one; use the
-	-- same fallback the Deaths mode uses, then count per player.
+
+	local deathList = deathSources(set)
 	maps.deaths = { names = {} }
-	for _, source in ipairs(deathSources(set)) do
+	for _, source in ipairs(deathList) do
 		if type(source) == "table" and not issecretvalue(source) then
 			local count = source.deaths
 			if issecretvalue(count) then
@@ -241,24 +271,74 @@ local function buildRows(win, set)
 	end
 
 	local rows = {}
+	local seen = {}
 	local order = 0
-	for _, source in ipairs(sources) do
+	local function addRow(source, damageValue)
+		order = order + 1
+		local key = sourceKey(source)
+		local row = {
+			source = source,
+			key = key,
+			order = order,
+			values = {},
+		}
+		row.values.damage = damageValue
+		for _, metric in ipairs(METRICS) do
+			if metric.key ~= "damage" then
+				row.values[metric.key] = lookupMetric(maps[metric.key], key, source)
+			end
+		end
+		rows[#rows + 1] = row
+		markKnown(seen, sourceKeys(source))
+	end
+
+	-- Damage rows first: they define the default order and carry the
+	-- richest player metadata.
+	for _, source in ipairs(damageSources) do
 		if type(source) == "table" and not issecretvalue(source) then
-			order = order + 1
-			local key = sourceKey(source)
-			local row = {
-				source = source,
-				key = key,
-				order = order,
-				values = {},
-			}
-			row.values.damage = sourceAmount(source)
-			for _, metric in ipairs(METRICS) do
-				if metric.key ~= "damage" then
-					row.values[metric.key] = lookupMetric(maps[metric.key], key, source)
+			local keys = sourceKeys(source)
+			if not isKnown(seen, keys) then
+				addRow(source, sourceAmount(source, false))
+			end
+		end
+	end
+
+	-- Players who only healed, only took damage, only interrupted, or only
+	-- died have no DamageDone row. Pull them in from their own view.
+	for _, metric in ipairs(METRICS) do
+		if metric.key ~= "damage" and metric.key ~= "deaths" then
+			local map = maps[metric.key]
+			for _, source in ipairs(metricSources[metric.key] or {}) do
+				if type(source) == "table" and not issecretvalue(source) then
+					local keys = sourceKeys(source)
+					if not isKnown(seen, keys) then
+						local value = lookupMetric(map, sourceKey(source), source)
+						local include = value ~= nil
+						if type(value) == "number" and not issecretvalue(value) then
+							include = value ~= 0
+						end
+						if include then
+							addRow(source, nil)
+						end
+					end
 				end
 			end
-			rows[#rows + 1] = row
+		end
+	end
+
+	for _, source in ipairs(deathList) do
+		if type(source) == "table" and not issecretvalue(source) then
+			local keys = sourceKeys(source)
+			if not isKnown(seen, keys) then
+				local value = lookupMetric(maps.deaths, sourceKey(source), source)
+				local include = value ~= nil
+				if type(value) == "number" and not issecretvalue(value) then
+					include = value ~= 0
+				end
+				if include then
+					addRow(source, nil)
+				end
+			end
 		end
 	end
 
