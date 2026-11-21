@@ -808,6 +808,7 @@ function mod:Wipe(win)
 		row._targetY = nil
 		row._currentY = nil
 		if row.spark then row.spark:Hide() end
+		if row.sparkGlow then row.sparkGlow:Hide() end
 		frame.rowPool[#frame.rowPool + 1] = row
 	end
 	frame.rows = {}
@@ -1107,6 +1108,7 @@ local function releaseRow(frame, row)
 	row._currentY = nil
 	row._targetY = nil
 	if row.spark then row.spark:Hide() end
+	if row.sparkGlow then row.sparkGlow:Hide() end
 	if id ~= nil then frame.rowById[id] = nil end
 	frame.rowPool[#frame.rowPool + 1] = row
 end
@@ -1158,12 +1160,20 @@ local function stepAnimations(frame, elapsed)
 			end
 		end
 	end
-	local spark = frame._sparkRow and frame._sparkRow.spark
+	local sparkRow = frame._sparkRow
+	local spark = sparkRow and sparkRow.spark
 	if spark and frame.win and frame.win.db.spark then
 		local phase = (GetTime() % SPARK_PERIOD) / SPARK_PERIOD
-		local pulse = 0.84 + 0.16 * math.sin(phase * 6.283185307)
+		local wave = math.sin(phase * 6.283185307)
+		local pulse = 0.92 + 0.08 * wave
+		local height = frame.rowHeight or 22
 		spark:SetAlpha(pulse)
-		spark:SetWidth((frame.rowHeight or 22) * 0.62 * pulse)
+		spark:SetWidth(height * 1.35 * pulse)
+		local glow = sparkRow.sparkGlow
+		if glow then
+			glow:SetAlpha(0.30 + 0.10 * wave)
+			glow:SetWidth(height * 2.7 * pulse)
+		end
 		active = true
 	end
 	if not active then
@@ -1392,21 +1402,35 @@ function mod:Update(win)
 			local showSpark = p.spark and not data.ignore and not sparkPlaced
 				and not (win.metadata and (win.metadata.is_modelist or win.metadata.is_setlist))
 			if showSpark then
+				local height = frame.rowHeight or 22
+				if not row.sparkGlow then
+					row.sparkGlow = row:CreateTexture(nil, "OVERLAY")
+					row.sparkGlow:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark")
+					row.sparkGlow:SetBlendMode("ADD")
+					row.sparkGlow:SetVertexColor(0.55, 0.78, 1.0, 1)
+				end
 				if not row.spark then
 					row.spark = row:CreateTexture(nil, "OVERLAY")
 					row.spark:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark")
 					row.spark:SetBlendMode("ADD")
 				end
-				row.spark:SetHeight((frame.rowHeight or 22) * 2.2)
-				row.spark:SetWidth((frame.rowHeight or 22) * 0.62)
+				row.spark:SetHeight(height * 3.6)
+				row.spark:SetWidth(height * 1.35)
 				row.spark:SetAlpha(1)
 				row.spark:ClearAllPoints()
 				row.spark:SetPoint("CENTER", row.fill, "RIGHT", 0, 0)
 				row.spark:Show()
+				row.sparkGlow:SetHeight(height * 5.0)
+				row.sparkGlow:SetWidth(height * 2.7)
+				row.sparkGlow:SetAlpha(0.34)
+				row.sparkGlow:ClearAllPoints()
+				row.sparkGlow:SetPoint("CENTER", row.fill, "RIGHT", 0, 0)
+				row.sparkGlow:Show()
 				frame._sparkRow = row
 				sparkPlaced = true
-			elseif row.spark then
-				row.spark:Hide()
+			else
+				if row.spark then row.spark:Hide() end
+				if row.sparkGlow then row.sparkGlow:Hide() end
 			end
 
 			if not data.ignore then nr = nr + 1 end
