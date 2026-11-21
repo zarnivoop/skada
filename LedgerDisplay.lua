@@ -931,7 +931,8 @@ function mod:ApplySettings(win)
 			tileSize = background.tilesize,
 		})
 		local bg = ledgerBackground(db)
-		frame:SetBackdropColor(bg.r, bg.g, bg.b, bg.a or DEFAULT_LEDGER_BACKGROUND.a)
+		local bgAlpha = db.ledgertransparent and 0 or (bg.a or DEFAULT_LEDGER_BACKGROUND.a)
+		frame:SetBackdropColor(bg.r, bg.g, bg.b, bgAlpha)
 		Skada:ApplyBorder(frame, background.bordertexture, background.bordercolor, background.borderthickness)
 	end
 	layout(win)
@@ -1138,6 +1139,17 @@ function mod:AddDisplayOptions(win, options)
 					Skada:ApplySettings()
 				end,
 				order = 6,
+			},
+			transparentbackground = {
+				type = "toggle",
+				name = L["Transparent background"],
+				desc = L["Hides the ledger background."],
+				get = function() return db.ledgertransparent end,
+				set = function()
+					db.ledgertransparent = not db.ledgertransparent
+					Skada:ApplySettings()
+				end,
+				order = 7,
 			},
 		},
 	}

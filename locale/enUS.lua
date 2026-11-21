@@ -370,6 +370,8 @@ L["'s Buffs"] = "'s Buffs"
 
 L["Window"] = "Window"
 L["Output"] = "Output"
+L["Transparent background"] = "Transparent background"
+L["Hides the ledger background."] = "Hides the ledger background."
 L["Scale"] = "Scale"
 L["Sets the scale of the window."] = "Sets the scale of the window."
 
