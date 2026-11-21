@@ -85,36 +85,19 @@ local function splitStickyRows(win, dataset)
 		end
 		return sticky, scroll
 	end
-	local stickyTotal = win.db.stickytotal ~= false
-	local stickySelf = win.db.stickyself ~= false
-	local playerGUID = _G.UnitGUID and _G.UnitGUID("player")
-	local totalRow, selfRow
+	local totalRow
 	for i = 1, #dataset do
 		local data = dataset[i]
 		if type(data) == "table" and data.id then
 			local id = data.id
-			local isTotal = stickyTotal and not issecretvalue(id) and id == "total"
-			local isSelf = false
-			if stickySelf then
-				local localFlag = data.isLocalPlayer
-				if not issecretvalue(localFlag) and localFlag == true then
-					isSelf = true
-				elseif type(playerGUID) == "string" and not issecretvalue(playerGUID)
-					and type(id) == "string" and not issecretvalue(id) and id == playerGUID then
-					isSelf = true
-				end
-			end
-			if isTotal then
+			if win.db.stickytotal ~= false and not issecretvalue(id) and id == "total" then
 				totalRow = data
-			elseif isSelf then
-				selfRow = data
 			else
 				scroll[#scroll + 1] = data
 			end
 		end
 	end
-	if totalRow then sticky[#sticky + 1] = totalRow end
-	if selfRow then sticky[#sticky + 1] = selfRow end
+	if totalRow then sticky[1] = totalRow end
 	return sticky, scroll
 end
 

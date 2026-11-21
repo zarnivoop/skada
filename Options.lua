@@ -65,7 +65,6 @@ Skada.windowdefaults = {
 	showcolumnheaders = true,
 	showratecolumn = false,
 	stickytotal = true,
-	stickyself = true,
 	compact = false,
 	columnheadersheight = 8,
 	columnheaderfontsize = 8,

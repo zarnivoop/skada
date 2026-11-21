@@ -411,18 +411,6 @@ local function AddDisplayOptions(win, options)
 				end,
 			},
 
-			stickyself = {
-				type="toggle",
-				name=L["Sticky self row"],
-				desc=L["Keep your own bar pinned below the total while scrolling."],
-				order=42.3,
-				get=function() return db.stickyself ~= false end,
-				set=function()
-					db.stickyself = (db.stickyself == false)
-					Skada:ApplySettings()
-				end,
-			},
-
 			compact = {
 				type="toggle",
 				name=L["Compact rows"],
