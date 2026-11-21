@@ -779,7 +779,17 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 
 	-- Apply a theme table to a window, preserving identity fields
 	function Skada:ApplyThemeToWindow(win, theme)
-		Skada:tcopy(win.db, theme, {"name", "modeincombat", "display", "set", "mode", "wipemode", "returnaftercombat"})
+		-- Themes are style presets, not display choices. Keep the current
+		-- renderer and the user's ledger summary preference.
+		Skada:tcopy(win.db, theme, {"name", "modeincombat", "display", "set", "mode", "wipemode", "returnaftercombat", "ledgersummary", "ledgertransparent"})
+		local ledgerBg = theme.ledgerbgcolor
+		if not ledgerBg and theme.background and theme.background.color then
+			local c = theme.background.color
+			ledgerBg = { r = c.r, g = c.g, b = c.b, a = 0.62 }
+		end
+		if ledgerBg then
+			win.db.ledgerbgcolor = { r = ledgerBg.r, g = ledgerBg.g, b = ledgerBg.b, a = ledgerBg.a or 0.62 }
+		end
 		-- Bars cache their colors; rebuild them so the new palette is visible.
 		win:Wipe()
 		Skada:ApplySettings()
