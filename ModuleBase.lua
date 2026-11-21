@@ -872,6 +872,7 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 	options = options or {}
 	local valueKey = options.valueKey or "totalAmount"
 	win.metadata.isspelllist = true
+	win.metadata.percentAvailable = false
 	local spellColumns = ({
 		[0] = "Damage",
 		[2] = "Healing",
@@ -894,6 +895,7 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 	-- If the spells collection itself is a secret value, we cannot iterate
 	-- it with pairs() or index it.
 	if issecretvalue(spells) then
+		SecretHelper:UpdateWindowMetadata(win, true)
 		local d = self:ReuseDatasetEntry(win.dataset, 1)
 		d._is_nodata = nil
 		d.id = "secret_spells"
@@ -911,6 +913,7 @@ function ModuleBase:UpdateSpellList(win, playerid, set, damageType, options)
 	end
 	local cacheKey = "spelllist_" .. tostring(sessionType) .. "_" .. tostring(damageType)
 	local hasSecretValues = SecretHelper:DetectSecretsCached(cacheKey, spells, valueKey)
+	SecretHelper:UpdateWindowMetadata(win, hasSecretValues)
 
 	-- Calculate total (only for non-secrets)
 	local totalValue = 0
