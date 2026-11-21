@@ -827,7 +827,21 @@ function mod:SetTitle(win, title)
 	frame.titleText:SetText(L["Ledger"])
 	if frame.subtitle then
 		local set = win:get_selected_set()
-		local label = set and Skada:GetSetLabel(set) or nil
+		local label
+		if win.selectedset == "current" then
+			label = L["Current"]
+		elseif win.selectedset == "total" then
+			label = L["Total"]
+		elseif type(set) == "table" and not issecretvalue(set) then
+			label = Skada:GetSetLabel(set)
+		end
+		if label and (win.selectedset == "current" or win.selectedset == "total")
+			and type(set) == "table" and not issecretvalue(set) then
+			local encounter = set.encounterName
+			if not issecretvalue(encounter) and type(encounter) == "string" and encounter ~= "" then
+				label = label .. " (" .. encounter .. ")"
+			end
+		end
 		frame.subtitle:SetText(label or tostring(title or ""))
 	end
 end
