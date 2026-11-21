@@ -13,6 +13,7 @@ local snapBarRows
 local TITLE_TEXT_Y = 0
 local applyColumnGeometry
 local libwindow = LibStub("LibWindow-1.1")
+local barlib = LibStub("SpecializedLibBars-1.0")
 local media = LibStub("LibSharedMedia-3.0")
 
 -- Store window positions relative to the parent's top-left corner. LibWindow's
@@ -1146,6 +1147,28 @@ function applyColumnGeometry(bar)
 		c1:SetPoint("RIGHT", c2, "LEFT", -COLUMN_GAP, 0)
 		c1:SetWidth(COLUMN_WIDTH)
 		c1:SetJustifyH("RIGHT")
+	end
+
+	-- The library always anchors the name to column 1, even when only the
+	-- rightmost column is visible. Anchor it to the first visible column so it
+	-- can use the space that the hidden columns would have reserved.
+	local firstVisible
+	for i = 1, 3 do
+		local column = bar.columns[i]
+		if column and column:IsShown() then
+			firstVisible = i
+			break
+		end
+	end
+	local padding = (barlib and barlib.COLUMN_MIN_PADDING) or 2
+	local iconOffset = ((bar.showIcon and bar.icon and bar.icon:IsShown()) and bar.thickness or 0) + padding
+	bar.label:ClearAllPoints()
+	bar.label:SetPoint("LEFT", bar, "LEFT", iconOffset, 0)
+	bar.label:SetJustifyH("LEFT")
+	if firstVisible then
+		bar.label:SetPoint("RIGHT", bar.columns[firstVisible], "LEFT", -padding, 0)
+	else
+		bar.label:SetPoint("RIGHT", bar, "RIGHT", -padding, 0)
 	end
 end
 
