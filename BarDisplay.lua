@@ -1279,15 +1279,20 @@ function mod:ApplySettings(win)
 	g:SetTexture(p.bartexturepath or media:Fetch('statusbar', p.bartexture))
 
 	local bgAlpha = p.transparentbackground and 0 or (p.barbgcolor.a or 0.6)
-	g:SetBarBackgroundColor(p.barbgcolor.r, p.barbgcolor.g, p.barbgcolor.b, bgAlpha)
-	if g:GetBars() then
-		for _, bar in pairs(g:GetBars()) do
+	local bars = g:GetBars()
+	if bars then
+		g:SetBarBackgroundColor(p.barbgcolor.r, p.barbgcolor.g, p.barbgcolor.b, bgAlpha)
+		for _, bar in pairs(bars) do
 			bar._skadaColor = nil
 			stopRowAnimation(bar)
 			bar._rowY = nil
 			applyRowSeparator(bar, p)
 			applyBarShadows(bar, p.textshadow)
 		end
+	else
+		-- The library's setter iterates GetBars(), which is nil on a fresh or
+		-- emptied group. Store the color so bars created later pick it up.
+		g.barbackgroundcolor = { p.barbgcolor.r, p.barbgcolor.g, p.barbgcolor.b, bgAlpha }
 	end
 	g:SetFont(p.barfontpath or media:Fetch('font', p.barfont), p.barfontsize, p.barfontflags)
 	if g.button then
