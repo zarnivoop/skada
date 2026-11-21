@@ -369,6 +369,7 @@ L["Buff spell list"] = "Buff spell list"
 L["'s Buffs"] = "'s Buffs"
 
 L["Window"] = "Window"
+L["Output"] = "Output"
 L["Scale"] = "Scale"
 L["Sets the scale of the window."] = "Sets the scale of the window."
 

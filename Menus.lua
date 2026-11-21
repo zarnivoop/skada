@@ -110,6 +110,7 @@ function Skada:DisplayMenu(window)
 	if not window then return end
 	CreateContext(UIParent, function(_, root)
 		root:CreateTitle(window.db.name or L["Display"])
+		root:CreateTitle(L["Display"])
 
 		local keys = {}
 		for key, display in pairs(Skada.displays) do
@@ -128,6 +129,7 @@ function Skada:DisplayMenu(window)
 		end
 
 		root:CreateDivider()
+		root:CreateTitle(L["Window"])
 		local modeMenu = root:CreateButton(L["Mode"])
 		if modeMenu then
 			AddModeEntries(modeMenu, window)
@@ -156,6 +158,7 @@ function Skada:DisplayMenu(window)
 		end)
 
 		root:CreateDivider()
+		root:CreateTitle(L["Output"])
 		if window.selectedmode then
 			local reportMenu = root:CreateButton(L["Report"])
 			if reportMenu then
@@ -166,7 +169,6 @@ function Skada:DisplayMenu(window)
 		if summaryMenu then
 			AddSummaryEntries(summaryMenu, window)
 		end
-		root:CreateButton(L["Reset"], function() Skada:Reset() end)
 		root:CreateButton(L["Configure"], function() Skada:OpenOptions(window) end)
 		root:CreateDivider()
 		root:CreateButton(L["New window"], function() Skada:PromptNewWindow("bar") end)
