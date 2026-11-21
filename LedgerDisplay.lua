@@ -627,12 +627,14 @@ function mod:Create(window, isnew)
 		resize:SetScript("OnEnter", function(self) self:SetAlpha(0.85) end)
 		resize:SetScript("OnLeave", function(self) self:SetAlpha(0.45) end)
 		resize:SetScript("OnMouseDown", function(_, button)
-			if button == "LeftButton" then
+			if button == "LeftButton" and frame.StartSizing then
 				frame:StartSizing("BOTTOMRIGHT")
 			end
 		end)
 		resize:SetScript("OnMouseUp", function()
-			frame:StopMovingOrSizing()
+			if frame.StopMovingOrSizing then
+				frame:StopMovingOrSizing()
+			end
 			local width = math.max(600, frame:GetWidth() or 760)
 			local height = math.max(260, frame:GetHeight() or 360)
 			frame:SetSize(width, height)
@@ -656,8 +658,12 @@ function mod:Create(window, isnew)
 
 	frame:EnableMouse(true)
 	frame:SetMovable(true)
-	frame:SetResizable(true)
-	frame:SetMinResize(600, 260)
+	if frame.SetResizable then
+		frame:SetResizable(true)
+	end
+	if frame.SetMinResize then
+		frame:SetMinResize(600, 260)
+	end
 	frame:SetScript("OnSizeChanged", function()
 		if frame.win then layout(frame.win) end
 	end)
