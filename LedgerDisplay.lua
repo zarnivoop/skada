@@ -709,14 +709,14 @@ function mod:Create(window, isnew)
 
 			local bg = row:CreateTexture(nil, "BACKGROUND")
 			bg:SetAllPoints(row)
-			bg:SetColorTexture(0.55, 0.75, 0.95, 0.035)
+			bg:SetColorTexture(0.55, 0.75, 0.95, 0.06)
 			row.bg = bg
 
 			local line = row:CreateTexture(nil, "ARTWORK")
 			line:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 0)
 			line:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", 0, 0)
 			line:SetHeight(1)
-			line:SetColorTexture(1, 1, 1, 0.035)
+			line:SetColorTexture(1, 1, 1, 0.06)
 			row.line = line
 
 			local name = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -963,7 +963,12 @@ function mod:Update(win)
 				end
 				fs:SetTextColor(r, g, b)
 			end
-			if row.bg then row.bg:SetShown(i % 2 == 0) end
+			if row.bg then
+				row.bg:SetShown(win.db.ledgeralternaterows ~= false and i % 2 == 0)
+			end
+			if row.line then
+				row.line:SetShown(win.db.ledgerseparators == true)
+			end
 			row:Show()
 		else
 			row:Hide()
@@ -1109,6 +1114,28 @@ function mod:AddDisplayOptions(win, options)
 				end,
 				order = 5,
 			},
+			ledgeralternaterows = {
+				type = "toggle",
+				name = L["Alternate row colors"],
+				desc = L["Shows alternating row backgrounds."],
+				get = function() return db.ledgeralternaterows ~= false end,
+				set = function(_, value)
+					db.ledgeralternaterows = value
+					Skada:ApplySettings()
+				end,
+				order = 6,
+			},
+			ledgerseparators = {
+				type = "toggle",
+				name = L["Row separators"],
+				desc = L["Shows a separator line between rows."],
+				get = function() return db.ledgerseparators == true end,
+				set = function(_, value)
+					db.ledgerseparators = value
+					Skada:ApplySettings()
+				end,
+				order = 7,
+			},
 			transparentbackground = {
 				type = "toggle",
 				name = L["Transparent background"],
@@ -1118,7 +1145,7 @@ function mod:AddDisplayOptions(win, options)
 					db.ledgertransparent = not db.ledgertransparent
 					Skada:ApplySettings()
 				end,
-				order = 7,
+				order = 8,
 			},
 		},
 	}
