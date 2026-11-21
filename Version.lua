@@ -1,6 +1,23 @@
 local _, Skada = ...
 Skada.versions = {
 	{
+		id = "2.7.0",
+		title = "Skada 2.7.0",
+		message = "Window displays, ledger, and themes",
+		changes = {
+			"Windows can now switch between bar, line, and ledger displays while keeping their position and settings",
+			"Added a cross-metric Ledger display showing damage, healing, damage taken, avoidable damage, interrupts, dispels, and deaths",
+			"The ledger can be resized, its summary strip can be hidden, and rows can use alternate colors or separators",
+			"Added a unified window menu for display, mode, segment, theme, report and summary output, and window actions",
+			"Windows can switch display automatically when combat starts and ends",
+			"Added Forever: Forge, Forever: Canopy, and Forever: Eclipse themes",
+			"Removed the legacy ElvUI, Legion-era, and All glowy theme presets",
+			"Spell bars now use spell-school colors with a varied fallback, and spell tooltips show school, amount, hits, and overhealing",
+			"Fixed player names being clipped when only the damage column is shown",
+			"Segment lists now show the newest fight first and keep the latest 20",
+		}
+	},
+	{
 		id = "2.6.8",
 		title = "Skada 2.6.8",
 		message = "Spell details during combat",
