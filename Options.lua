@@ -121,9 +121,8 @@ Skada.windowdefaults = {
 	issolidbackdrop = false,
 	fixedbarwidth = false,
 
-	-- Broker exclusive
+	-- Window display defaults (textcolor remains for saved profiles).
 	textcolor = { r = 0.9, g = 0.9, b = 0.9 },
-	useframe = true
 }
 
 local windefaultscopy = {}
@@ -145,6 +144,7 @@ Skada.defaults = {
 		hidepvp = false,
 		hidecombat = false,
 		feed = "",
+		ldb = true,
 		showtotals = false,
 		showcombatsummary = false,
 		combatsummaryscope = "boss",
@@ -568,11 +568,24 @@ Skada.options = {
 					order = 13,
 				},
 
+				ldb = {
+					type = "toggle",
+					name = L["Enable LDB data source"],
+					desc = L["Enable the LibDataBroker data source. Disable this if you do not use an LDB display."],
+					get = function() return Skada.db.profile.ldb ~= false end,
+					set = function(_, value)
+						Skada.db.profile.ldb = value
+						Skada:ApplyLDBSupport()
+						if Skada.settingsUI then Skada.settingsUI:BuildPage() end
+					end,
+					order = 13.5,
+				},
+
 				datafeed = {
 					type = "select",
 					name = L["Data feed"],
-					desc = L
-					["Choose which data feed to show in the DataBroker view. This requires an LDB display addon, such as Titan Panel."],
+					desc = L["Choose which data feed to show in the LDB data source. This requires an LDB display addon, such as Titan Panel."],
+					disabled = function() return Skada.db.profile.ldb == false end,
 					values = function()
 						local feeds = {}
 						feeds[""] = L["None"]

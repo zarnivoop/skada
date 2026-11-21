@@ -54,7 +54,7 @@ local function AddWindowEntries(root, window)
 		CreateContext(UIParent, function(_, sub)
 			sub:CreateTitle(L["Display"])
 			for key, display in pairs(Skada.displays) do
-				if key ~= "broker" and display.name then
+				if display.name then
 					sub:CreateRadio(display.name, function() return window.db.display == key end, function()
 						Skada:SwitchWindowDisplay(window.db.name, key)
 					end)
@@ -114,7 +114,7 @@ function Skada:DisplayMenu(window)
 
 		local keys = {}
 		for key, display in pairs(Skada.displays) do
-			if key ~= "broker" and display.name then
+			if display.name then
 				keys[#keys + 1] = key
 			end
 		end

@@ -63,7 +63,6 @@ BarOptions.lua
 BarRenderer.lua
 InlineDisplay.lua
 LedgerDisplay.lua
-BrokerDisplay.lua
 Version.lua
 
 modules.xml

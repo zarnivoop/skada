@@ -269,7 +269,7 @@ local function getDisplayValues(includeNone)
 		values[""] = L["None"]
 	end
 	for key, display in pairs(Skada.displays) do
-		if key ~= "broker" and display.name then
+		if display.name then
 			values[key] = display.name
 		end
 	end
@@ -289,11 +289,7 @@ function Window:AddOptions()
 				name = L["Display"],
 				desc = L["Choose the system to be used for displaying data in this window."],
 				values = function()
-					local values = getDisplayValues(false)
-					if db.display == "broker" and values.broker == nil and Skada.displays.broker and Skada.displays.broker.name then
-						values.broker = Skada.displays.broker.name
-					end
-					return values
+					return getDisplayValues(false)
 				end,
 				get = function() return db.display end,
 				set = function(_, value) Skada:SwitchWindowDisplay(db.name, value) end,
@@ -495,7 +491,7 @@ end
 function Window:SwitchDisplay(name)
 	if not name or (name == self.db.display and self.display) then return false end
 	local display = Skada.displays[name]
-	if not display or name == "broker" then return false end
+	if not display then return false end
 
 	local wasShown = self:IsShown()
 	local priorMode = self.selectedmode
@@ -1007,6 +1003,16 @@ function Skada:CreateWindow(name, db, display)
 	end
 	if display then
 		db.display = display
+	end
+	if db.display == "broker" or (db.display and not self.displays[db.display]) then
+		-- Broker was a data feed, not a window renderer. Existing broker windows
+		-- become normal bar windows.
+		if db.display == "broker" then
+			db.barwidth = db.barwidth or db.width or 470
+			db.background = db.background or {}
+			db.background.height = db.background.height or db.height or 300
+		end
+		db.display = "bar"
 	end
 
 	-- Migrate old settings.
@@ -1620,7 +1626,7 @@ local function slashHandler(param)
 				return
 			end
 			if value == "none" then value = "" end
-			if value ~= "" and (not Skada.displays[value] or value == "broker") then
+			if value ~= "" and not Skada.displays[value] then
 				Skada:Print("Unknown display: " .. tostring(value))
 				return
 			end
@@ -2009,6 +2015,7 @@ function Skada:ReloadSettings()
 	end
 
 	self:RefreshMMButton()
+	self:ApplyLDBSupport()
 
 	self:ApplySettings()
 end
@@ -2033,6 +2040,20 @@ function Skada:ApplySettings()
 	end
 
 	self:UpdateDisplay(true)
+end
+
+function Skada:ApplyLDBSupport()
+	local enabled = not self.db or not self.db.profile or self.db.profile.ldb ~= false
+	if enabled then
+		dataobj.type = "data source"
+		dataobj.icon = "Interface\\Icons\\Spell_Lightning_LightningBolt01"
+		dataobj.text = selectedfeed and selectedfeed() or "n/a"
+	else
+		-- LibDataBroker has no unregister call. Removing the type and text lets
+		-- LDB displays ignore the object; the icon is kept for the minimap button.
+		dataobj.type = nil
+		dataobj.text = nil
+	end
 end
 
 function Skada:SetFeed(feed)
@@ -2599,7 +2620,7 @@ function Skada:UpdateDisplay(force)
 	-- Update data feed.
 	-- This is done even if our set has not changed, since for example DPS changes even though the data does not.
 	-- Does not update feed text if nil.
-	if selectedfeed ~= nil then
+	if selectedfeed ~= nil and (not self.db or not self.db.profile or self.db.profile.ldb ~= false) then
 		local feedtext = selectedfeed()
 		if feedtext then
 			dataobj.text = feedtext

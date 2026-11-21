@@ -134,7 +134,6 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 			issolidbackdrop = false,
 			classicons = true,
 			barslocked = false,
-			useframe = true,
 			clickthrough = false,
 			wipemode = "",
 			set = "current",
@@ -232,7 +231,6 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 			fixedbarwidth = false,
 
 			textcolor = {r = 0.9, g = 0.9, b = 0.9},
-			useframe = true
 		},
 
 
