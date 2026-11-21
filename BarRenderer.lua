@@ -140,6 +140,7 @@ local function buildColumnSpec(win)
 	if type(columns) ~= "table" then return {} end
 	local secret = win.metadata and win.metadata.wasSecretValues
 	local width = win.bargroup and win.bargroup:GetWidth() or 0
+	local p = win.db
 	if not width or width < 1 then width = win.db.barwidth or 470 end
 	local spec = {}
 	if columns.Damage then
@@ -153,7 +154,7 @@ local function buildColumnSpec(win)
 	elseif columns.EnemyDamage then
 		spec[#spec + 1] = { label = "ENEMY", value = "valueText1", slot = 1 }
 	end
-	if width >= 300 then
+	if width >= 300 and p.showratecolumn then
 		if columns.DPS then
 			spec[#spec + 1] = { label = "DPS", value = "valueText2", slot = 2 }
 		elseif columns.HPS then

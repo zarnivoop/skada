@@ -378,11 +378,23 @@ local function AddDisplayOptions(win, options)
 			showcolumnheaders = {
 				type="toggle",
 				name=L["Column headers"],
-				desc=L["Show a small Damage / DPS / Percent header row under the title."],
+				desc=L["Show a small value / rate / percent header row under the title."],
 				order=42,
 				get=function() return db.showcolumnheaders end,
 				set=function()
 					db.showcolumnheaders = not db.showcolumnheaders
+					Skada:ApplySettings()
+				end,
+			},
+
+			showratecolumn = {
+				type="toggle",
+				name=L["Show DPS/HPS column"],
+				desc=L["Show the per-second rate column in Damage and Healing. Off by default."],
+				order=42.1,
+				get=function() return db.showratecolumn == true end,
+				set=function()
+					db.showratecolumn = not db.showratecolumn
 					Skada:ApplySettings()
 				end,
 			},
