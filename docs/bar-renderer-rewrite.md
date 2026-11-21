@@ -22,13 +22,13 @@ Measured in the simulator with the custom `bar` display:
 | Case | Library | Custom |
 |---|---:|---:|
 | 13 visible rows | — | 0.082 ms |
-| 40 visible rows | 6.638 ms | 0.222 ms |
+| 40 visible rows | 6.638 ms | 0.233 ms |
 
 Remaining parity work before this can be called production-ready:
 
 - title bar currently uses a dark base with a light theme tint rather than the full
   themed backdrop/gradient treatment
-- row animation, smoothing, spark and self-highlight are not yet reimplemented
+- row animation, smoothing and spark are not yet reimplemented
 - client-side benchmark and the full in-game parity matrix are still required
 
 ## Recommendation
