@@ -103,6 +103,35 @@ local function splitStickyRows(win, dataset)
 	return sticky, scroll
 end
 
+local function getRenderDataset(win, applySort)
+	local dataset = win.dataset or {}
+	if applySort and win.metadata.showspots then
+		table_sort(dataset, Skada.value_sort)
+	end
+	local inline = win._inline
+	if not inline or type(inline.rows) ~= "table" or #inline.rows == 0 then
+		return dataset
+	end
+	if inline.mode and inline.mode ~= win.selectedmode then
+		win._inline = nil
+		return dataset
+	end
+	local merged = {}
+	local inserted = false
+	for _, data in ipairs(dataset) do
+		merged[#merged + 1] = data
+		if not inserted and data.id and not issecretvalue(data.id) and data.id == inline.id then
+			for _, detail in ipairs(inline.rows) do merged[#merged + 1] = detail end
+			inserted = true
+		end
+	end
+	if not inserted then
+		win._inline = nil
+		return dataset
+	end
+	return merged
+end
+
 local function lastValidDatasetIndex(dataset)
 	for i = #dataset, 1, -1 do
 		local data = dataset[i]
@@ -356,6 +385,14 @@ local function createRow(frame)
 	row.fill:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 0)
 	row.fill:SetTexture(frame._barTexture or "Interface\\Buttons\\WHITE8X8")
 	row.fill:SetVertexColor(0.3, 0.5, 0.8, 1)
+	row.overfill = row:CreateTexture(nil, "ARTWORK")
+	row.overfill:SetTexture(frame._barTexture or "Interface\\Buttons\\WHITE8X8")
+	row.overfill:SetVertexColor(0.9, 0.2, 0.15, 0.65)
+	row.overfill:Hide()
+	row.hover = row:CreateTexture(nil, "ARTWORK")
+	row.hover:SetAllPoints()
+	row.hover:SetColorTexture(1, 1, 1, 0.075)
+	row.hover:Hide()
 	row.icon = row:CreateTexture(nil, "OVERLAY")
 	row.icon:SetSize(22, 22)
 	row.icon:Hide()
@@ -809,6 +846,8 @@ function mod:Wipe(win)
 		row._currentY = nil
 		if row.spark then row.spark:Hide() end
 		if row.sparkGlow then row.sparkGlow:Hide() end
+		if row.overfill then row.overfill:Hide() end
+		if row.hover then row.hover:Hide() end
 		frame.rowPool[#frame.rowPool + 1] = row
 	end
 	frame.rows = {}
@@ -898,6 +937,7 @@ function mod:Layout(win)
 		row:SetHeight(frame.rowHeight)
 		row._barTexture = texture
 		row.fill:SetTexture(texture)
+		row.overfill:SetTexture(texture)
 		row:EnableMouse(not p.clickthrough)
 		row:EnableMouseWheel(not p.clickthrough)
 		if row.iconFrame then row.iconFrame:EnableMouse(not p.clickthrough) end
@@ -995,12 +1035,84 @@ local function showMode(win, id, label, mode)
 	win:DisplayMode(mode)
 end
 
+local function buildInlineRows(win, row)
+	local metadata = win.metadata
+	local playermod = metadata and metadata.click1
+	if not playermod or not playermod.Update or metadata.isspelllist
+		or metadata.is_modelist or metadata.is_setlist then
+		return nil
+	end
+	local parentID = row.id
+	if issecretvalue(parentID) then return nil end
+	local set = win:get_selected_set()
+	if type(set) ~= "table" then return nil end
+	local oldPlayer, oldTitle = playermod.playerid, playermod.title
+	local spellTooltip = playermod.metadata and playermod.metadata.post_tooltip
+	local tooltipWin = setmetatable({ metadata = { post_tooltip = spellTooltip } }, { __index = win })
+	local proxy = setmetatable({
+		dataset = {},
+		metadata = {},
+		db = win.db,
+		changed = false,
+		Wipe = function() end,
+		_drillSource = row.source,
+		_drillIsLocalPlayer = row.isLocalPlayer,
+		_drillSourceGUID = row.sourceGUID,
+		_drillSourceCreatureID = row.sourceCreatureID,
+	}, { __index = win })
+	local ok = pcall(function()
+		playermod:Enter(win, parentID, row.text)
+		playermod:Update(proxy, set)
+	end)
+	playermod.playerid, playermod.title = oldPlayer, oldTitle
+	if not ok then return nil end
+	local serial = (win._inlineSerial or 0) + 1
+	win._inlineSerial = serial
+	local rows = {}
+	for i, detail in ipairs(proxy.dataset or {}) do
+		if type(detail) == "table" and detail.id then
+			local copy = {}
+			for key, value in pairs(detail) do copy[key] = value end
+			copy.id = "inline_" .. serial .. "_" .. i
+			copy.isInlineDetail = true
+			copy.ignore = true
+			copy._inlineParent = parentID
+			if issecretvalue(detail.label) or detail.label ~= nil then
+				copy.label = string.format("    %s", detail.label)
+			else
+				copy.label = "    ?"
+			end
+			rows[#rows + 1] = copy
+		end
+	end
+	if #rows == 0 then return nil end
+	return { id = parentID, rows = rows, mode = win.selectedmode, tooltipWin = tooltipWin }
+end
+
+local function toggleInline(win, row)
+	local frame = win.bargroup
+	if frame then frame._skipAnimation = true end
+	if win._inline and win._inline.id == row.id then
+		win._inline = nil
+		win.display:Update(win)
+		return true
+	end
+	local inline = buildInlineRows(win, row)
+	if not inline then return false end
+	win._inline = inline
+	win.display:Update(win)
+	return true
+end
+
 local function rowClick(row, button)
 	local win = row.win
 	if not win then return end
 	local data = row.spellData
 	if data and not issecretvalue(data.ignore) and data.ignore then return end
 	Skada._lastActiveWindow = win
+	if button == "LeftButton" and not IsShiftKeyDown() and not IsControlKeyDown() then
+		if toggleInline(win, row) then return end
+	end
 	local click1, click2, click3 = win.metadata.click1, win.metadata.click2, win.metadata.click3
 	win._drillSource = row.source
 	win._drillIsLocalPlayer = row.isLocalPlayer
@@ -1022,25 +1134,29 @@ local function rowClick(row, button)
 end
 
 local function rowEnter(row)
+	if row.hover then row.hover:Show() end
 	local win = row.win
 	if not win then return end
-	win._hoverSource = row.source
-	win._hoverIsLocalPlayer = row.isLocalPlayer
-	win._hoverSourceGUID = row.sourceGUID
-	win._hoverSourceCreatureID = row.sourceCreatureID
-	win._hoverSpell = row.spellData
+	local tooltipWin = row._tooltipWin or win
+	tooltipWin._hoverSource = row.source
+	tooltipWin._hoverIsLocalPlayer = row.isLocalPlayer
+	tooltipWin._hoverSourceGUID = row.sourceGUID
+	tooltipWin._hoverSourceCreatureID = row.sourceCreatureID
+	tooltipWin._hoverSpell = row.spellData
 	Skada:SetTooltipPosition(GameTooltip, win.bargroup)
-	Skada:ShowTooltip(win, row.id, row.text)
+	Skada:ShowTooltip(tooltipWin, row.id, row.text)
 end
 
 local function rowLeave(row)
+	if row.hover then row.hover:Hide() end
 	local win = row.win
 	if not win then return end
-	win._hoverSource = nil
-	win._hoverIsLocalPlayer = nil
-	win._hoverSourceGUID = nil
-	win._hoverSourceCreatureID = nil
-	win._hoverSpell = nil
+	local tooltipWin = row._tooltipWin or win
+	tooltipWin._hoverSource = nil
+	tooltipWin._hoverIsLocalPlayer = nil
+	tooltipWin._hoverSourceGUID = nil
+	tooltipWin._hoverSourceCreatureID = nil
+	tooltipWin._hoverSpell = nil
 	GameTooltip:Hide()
 end
 
@@ -1067,11 +1183,14 @@ local function resetRowForUse(row)
 	row._styleKey = nil
 	row._hasIcon = false
 	row._barTexture = nil
+	row._tooltipWin = nil
 	row._anim = nil
 	row._targetWidth = nil
 	row._currentWidth = nil
 	row._targetY = nil
 	row._currentY = nil
+	if row.overfill then row.overfill:Hide() end
+	if row.hover then row.hover:Hide() end
 end
 
 local function acquireRow(frame)
@@ -1109,6 +1228,8 @@ local function releaseRow(frame, row)
 	row._targetY = nil
 	if row.spark then row.spark:Hide() end
 	if row.sparkGlow then row.sparkGlow:Hide() end
+	if row.overfill then row.overfill:Hide() end
+	if row.hover then row.hover:Hide() end
 	if id ~= nil then frame.rowById[id] = nil end
 	frame.rowPool[#frame.rowPool + 1] = row
 end
@@ -1203,8 +1324,7 @@ function mod:Update(win)
 	local frame = win.bargroup
 	if not frame then return end
 	local p = win.db
-	local dataset = win.dataset or {}
-	if win.metadata.showspots then table_sort(dataset, Skada.value_sort) end
+	local dataset = getRenderDataset(win, true)
 	local spec = buildColumnSpec(win)
 	local singleSpec = (Skada.db.profile.disablecolumns and buildColumnSpec(win, true)) or nil
 	updateColumnHeader(frame, win, spec)
@@ -1254,6 +1374,7 @@ function mod:Update(win)
 			row.text = data.label
 			row.spellData = data
 			row.spellid = data.spellid
+			row._tooltipWin = data.isInlineDetail and win._inline and win._inline.tooltipWin or nil
 			row.link = data.hyperlink
 			row.source = data.source or win._drillSource
 			row.isLocalPlayer = data.isLocalPlayer
@@ -1293,8 +1414,12 @@ function mod:Update(win)
 			end
 
 			local label = data.label
+			if win._inline and not data.isInlineDetail and not issecretvalue(data.id)
+				and data.id == win._inline.id and (issecretvalue(label) or label ~= nil) then
+				label = string.format("\226\150\190 %s", label)
+			end
 			if win.metadata.showspots and Skada.db.profile.showranks and not data.ignore
-				and not issecretvalue(label) then
+				and not data.isInlineDetail and not issecretvalue(label) then
 				label = ("%2u. %s"):format(nr, label)
 			end
 			setTextIfChanged(row.label, label, issecretvalue(label))
@@ -1345,16 +1470,28 @@ function mod:Update(win)
 			end
 
 			local value = data.value
-			if type(value) ~= "number" then
+			if type(value) ~= "number" or issecretvalue(value) then
 				local fallback = data.totalAmount
-				if type(fallback) ~= "number" then fallback = data.amount end
-				if type(fallback) == "number" then
+				if type(fallback) ~= "number" or issecretvalue(fallback) then fallback = data.amount end
+				if type(fallback) == "number" and not issecretvalue(fallback) then
 					value = fallback
 				else
 					value = (win.metadata.is_modelist or win.metadata.is_setlist) and maxvalue or 0
 				end
 			end
-			local ratio = max(0, min(1, value / maxvalue))
+			local overkill = data.overkill
+			local overhealing = data.overhealing
+			local over, overColor = 0
+			if type(overkill) == "number" and not issecretvalue(overkill) and overkill > 0 then
+				over = overkill
+				overColor = { 0.90, 0.20, 0.15, 0.68 }
+			elseif type(overhealing) == "number" and not issecretvalue(overhealing) and overhealing > 0 then
+				over = overhealing
+				overColor = { 0.25, 0.62, 1.00, 0.58 }
+			end
+			if over > value then over = value end
+			local effective = max(0, value - over)
+			local ratio = max(0, min(1, effective / maxvalue))
 			local inset = p.barinset or 0
 			local usable = max(0, frame:GetWidth() - inset * 2)
 			if row._fillVersion ~= fillVersion then
@@ -1380,6 +1517,21 @@ function mod:Update(win)
 				row._targetWidth = nil
 				row._currentWidth = targetWidth
 				row.fill:SetWidth(targetWidth)
+			end
+			if over > 0 and not (win.metadata and (win.metadata.is_modelist or win.metadata.is_setlist)) then
+				row.overfill:ClearAllPoints()
+				if p.barorientation == 2 then
+					row.overfill:SetPoint("RIGHT", row.fill, "LEFT", 0, 0)
+				else
+					row.overfill:SetPoint("LEFT", row.fill, "RIGHT", 0, 0)
+				end
+				row.overfill:SetPoint("TOP", row, "TOP", 0, -inset)
+				row.overfill:SetPoint("BOTTOM", row, "BOTTOM", 0, inset)
+				row.overfill:SetWidth(max(1, usable * (over / maxvalue)))
+				row.overfill:SetVertexColor(overColor[1], overColor[2], overColor[3], overColor[4])
+				row.overfill:Show()
+			else
+				row.overfill:Hide()
 			end
 
 			local index = row._visibleIndex
@@ -1418,13 +1570,15 @@ function mod:Update(win)
 				row.spark:SetWidth(height * 1.35)
 				row.spark:SetAlpha(1)
 				row.spark:ClearAllPoints()
-				row.spark:SetPoint("CENTER", row.fill, "RIGHT", 0, 0)
+				local sparkEdge = (row.overfill:IsShown() and row.overfill or row.fill)
+				row.spark:SetPoint("CENTER", sparkEdge, p.barorientation == 2 and "LEFT" or "RIGHT", 0, 0)
 				row.spark:Show()
 				row.sparkGlow:SetHeight(height * 5.0)
 				row.sparkGlow:SetWidth(height * 2.7)
 				row.sparkGlow:SetAlpha(0.34)
 				row.sparkGlow:ClearAllPoints()
-				row.sparkGlow:SetPoint("CENTER", row.fill, "RIGHT", 0, 0)
+				local glowEdge = (row.overfill:IsShown() and row.overfill or row.fill)
+				row.sparkGlow:SetPoint("CENTER", glowEdge, p.barorientation == 2 and "LEFT" or "RIGHT", 0, 0)
 				row.sparkGlow:Show()
 				frame._sparkRow = row
 				sparkPlaced = true
@@ -1510,7 +1664,7 @@ function mod:OnMouseWheel(win, frame, direction)
 	local g = win.bargroup
 	if not g then return end
 	local visible = visibleRowCount(g)
-	local sticky, scroll = splitStickyRows(win, win.dataset or {})
+	local sticky, scroll = splitStickyRows(win, getRenderDataset(win, false))
 	local scrollVisible = max(0, visible - #sticky)
 	local maxOffset = max(0, #scroll - scrollVisible)
 	if direction == 1 then

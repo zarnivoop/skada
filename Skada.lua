@@ -633,6 +633,7 @@ function Window:Reset()
 end
 
 function Window:Wipe()
+	self._inline = nil
 	-- Clear dataset.
 	self:Reset()
 
@@ -2785,6 +2786,8 @@ function Skada:UpdateDisplay(force)
 						d.role = nil
 						d.color = nil
 						d.spellschool = nil
+						d.overkill = nil
+						d.overhealing = nil
 						d.source = nil
 						d.sourceGUID = nil
 						d.sourceCreatureID = nil
@@ -3463,7 +3466,7 @@ function Skada:ShowTooltip(win, id, label)
 			Skada:AddSubviewToTooltip(t, win, find_mode(id), id, label)
 
 			t:Show()
-		elseif win.metadata.click1 or win.metadata.click2 or win.metadata.click3 or win.metadata.tooltip then
+		elseif win.metadata.click1 or win.metadata.click2 or win.metadata.click3 or win.metadata.tooltip or win.metadata.post_tooltip then
 			t:ClearLines()
 
 			local hasClick = win.metadata.click1 or win.metadata.click2 or win.metadata.click3
