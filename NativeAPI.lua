@@ -305,7 +305,10 @@ function NativeAPI:GetSessionSource(sourceGUID, set, damageType, sourceCreatureI
 	-- though the equivalent type query succeeds. Historical sessions still
 	-- prefer their ID.
 	local result
-	local preferType = not sessionID or not sessionType or (not issecretvalue(sessionType) and sessionType <= 1)
+	-- A session with an ID is historical or a selected expired session: query by
+	-- ID first. Type queries only describe Current/Total and otherwise return the
+	-- wrong fight.
+	local preferType = not sessionID
 	local resolvedType = self:ResolveDamageMeterType(damageType)
 	local tryType = function()
 		local ok, value = pcall(C_DamageMeter.GetCombatSessionSourceFromType, sessionType, resolvedType, sourceGUID, sourceCreatureID)
@@ -428,7 +431,7 @@ function NativeAPI:GetSessionView(set, damageType)
 	-- Details. Session-ID queries can resolve to the wrong mode for sessions
 	-- such as EnemyDamageTaken. Historical sessions still prefer their ID.
 	local resolvedDamageType = self:ResolveDamageMeterType(damageType)
-	local preferType = not sessionID or not sessionType or (not issecretvalue(sessionType) and sessionType <= 1)
+	local preferType = not sessionID
 	local result
 	local triedTypes = {}
 	local tryType = function(candidate)
