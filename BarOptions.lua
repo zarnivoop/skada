@@ -200,6 +200,18 @@ local function AddDisplayOptions(win, options)
 				end,
 			},
 
+			showicons = {
+				type="toggle",
+				name=L["Bar icons"],
+				desc=L["Show class, role and spell icons on bars."],
+				order=31,
+				get=function() return db.showicons ~= false end,
+				set=function()
+					db.showicons = (db.showicons == false)
+					Skada:ApplySettings()
+				end,
+			},
+
 			classicons = {
 				type="toggle",
 				name=L["Class icons"],
@@ -353,6 +365,86 @@ local function AddDisplayOptions(win, options)
 					Skada:ApplySettings()
 				end,
 				order=41,
+			},
+
+			hovercolor = {
+				type="color",
+				name=L["Row hover color"],
+				desc=L["Color of the row highlight under the mouse."],
+				hasAlpha=true,
+				order=41.1,
+				get=function()
+					local c = db.hovercolor or { r = 1, g = 1, b = 1, a = 0.075 }
+					return c.r, c.g, c.b, c.a or 0.075
+				end,
+				set=function(_, r, g, b, a)
+					db.hovercolor = { r = r, g = g, b = b, a = a }
+					Skada:ApplySettings()
+				end,
+			},
+
+			overkillcolor = {
+				type="color",
+				name=L["Overkill segment color"],
+				desc=L["Color of the overkill segment on damage spell bars."],
+				hasAlpha=true,
+				order=41.2,
+				get=function()
+					local c = db.overkillcolor or { r = 0.90, g = 0.20, b = 0.15, a = 0.68 }
+					return c.r, c.g, c.b, c.a or 0.68
+				end,
+				set=function(_, r, g, b, a)
+					db.overkillcolor = { r = r, g = g, b = b, a = a }
+					Skada:ApplySettings()
+				end,
+			},
+
+			overhealingcolor = {
+				type="color",
+				name=L["Overhealing segment color"],
+				desc=L["Color of the overhealing segment on healing spell bars."],
+				hasAlpha=true,
+				order=41.3,
+				get=function()
+					local c = db.overhealingcolor or { r = 0.25, g = 0.62, b = 1.00, a = 0.58 }
+					return c.r, c.g, c.b, c.a or 0.58
+				end,
+				set=function(_, r, g, b, a)
+					db.overhealingcolor = { r = r, g = g, b = b, a = a }
+					Skada:ApplySettings()
+				end,
+			},
+
+			sparkcolor = {
+				type="color",
+				name=L["Spark color"],
+				desc=L["Color of the bright spark core."],
+				hasAlpha=true,
+				order=41.4,
+				get=function()
+					local c = db.sparkcolor or { r = 1, g = 1, b = 1, a = 1 }
+					return c.r, c.g, c.b, c.a or 1
+				end,
+				set=function(_, r, g, b, a)
+					db.sparkcolor = { r = r, g = g, b = b, a = a }
+					Skada:ApplySettings()
+				end,
+			},
+
+			sparkglowcolor = {
+				type="color",
+				name=L["Spark glow color"],
+				desc=L["Color of the soft glow behind the spark."],
+				hasAlpha=true,
+				order=41.5,
+				get=function()
+					local c = db.sparkglowcolor or { r = 0.55, g = 0.78, b = 1.00, a = 1 }
+					return c.r, c.g, c.b, c.a or 1
+				end,
+				set=function(_, r, g, b, a)
+					db.sparkglowcolor = { r = r, g = g, b = b, a = a }
+					Skada:ApplySettings()
+				end,
 			},
 
 			valuetextcolor = {

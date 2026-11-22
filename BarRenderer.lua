@@ -463,10 +463,26 @@ local function applyTitleAndActions(win, frame, p)
 
 	local fs = button:GetFontString()
 	if fs then
-		fs:SetJustifyH(p.title.textalign or "LEFT")
+		local align = p.title.textalign or "LEFT"
+		local buttonSize = p.buttonsize or 15
+		local buttonSpacing = p.buttonspacing or 6
+		local leftPad = max((p.title.paddingleft or 10) + 14, 24)
+		local rightPad = p.title.paddingright or p.buttonpaddingright or 10
+		for _, b in ipairs(frame.buttons or {}) do
+			if b:IsShown() then rightPad = rightPad + buttonSize + buttonSpacing end
+		end
+		local available = max(80, (button:GetWidth() or 300) - leftPad - rightPad)
+		fs:SetWidth(available)
+		fs:SetJustifyH(align)
 		fs:SetJustifyV("MIDDLE")
 		fs:ClearAllPoints()
-		fs:SetPoint("LEFT", button, "LEFT", max((p.title.paddingleft or 10) + 14, 24), 0)
+		if align == "CENTER" then
+			fs:SetPoint("LEFT", button, "LEFT", leftPad, 0)
+		elseif align == "RIGHT" then
+			fs:SetPoint("RIGHT", button, "RIGHT", -rightPad, 0)
+		else
+			fs:SetPoint("LEFT", button, "LEFT", leftPad, 0)
+		end
 		applyShadow(fs, p.textshadow)
 	end
 
@@ -762,6 +778,11 @@ local function setRowStyle(row, data, win, p, hasIcon)
 		row.selfOverlay:Hide()
 	end
 
+	if row.hover then
+		local hover = p.hovercolor or { r = 1, g = 1, b = 1, a = 0.075 }
+		row.hover:SetColorTexture(hover.r, hover.g, hover.b, hover.a or 0.075)
+	end
+
 	if p.showrowseparators then
 		local c = p.rowseparatorcolor or { r = 0.3, g = 0.45, b = 0.6, a = 0.25 }
 		row.separator:SetColorTexture(c.r, c.g, c.b, c.a or 0.25)
@@ -945,7 +966,7 @@ function mod:Layout(win)
 end
 
 local function setIcon(row, data, win, p)
-	if p.compact then
+	if p.compact or p.showicons == false then
 		if row.icon:IsShown() then row.icon:Hide() end
 		if row.iconFrame:IsShown() then row.iconFrame:Hide() end
 		row._hasIcon = false
@@ -1295,7 +1316,7 @@ function mod:Update(win)
 				row.fill:SetTexture(frame._barTexture or "Interface\\Buttons\\WHITE8X8")
 			end
 
-			local iconKey = secretKey(data.role) .. "|" .. secretKey(data.class) .. "|" .. secretKey(data.icon) .. "|" .. tostring(p.roleicons) .. "|" .. tostring(p.classicons) .. "|" .. tostring(p.compact)
+			local iconKey = secretKey(data.role) .. "|" .. secretKey(data.class) .. "|" .. secretKey(data.icon) .. "|" .. tostring(p.roleicons) .. "|" .. tostring(p.classicons) .. "|" .. tostring(p.compact) .. "|" .. tostring(p.showicons)
 			if row._iconKey ~= iconKey or issecretvalue(data.icon) then
 				row._iconKey = iconKey
 				row._hasIcon = setIcon(row, data, win, p)
@@ -1387,10 +1408,12 @@ function mod:Update(win)
 			local over, overColor = 0
 			if type(overkill) == "number" and not issecretvalue(overkill) and overkill > 0 then
 				over = overkill
-				overColor = { 0.90, 0.20, 0.15, 0.68 }
+				local c = p.overkillcolor or { r = 0.90, g = 0.20, b = 0.15, a = 0.68 }
+				overColor = { c.r, c.g, c.b, c.a or 0.68 }
 			elseif type(overhealing) == "number" and not issecretvalue(overhealing) and overhealing > 0 then
 				over = overhealing
-				overColor = { 0.25, 0.62, 1.00, 0.58 }
+				local c = p.overhealingcolor or { r = 0.25, g = 0.62, b = 1.00, a = 0.58 }
+				overColor = { c.r, c.g, c.b, c.a or 0.58 }
 			end
 			if over > value then over = value end
 			local effective = max(0, value - over)
@@ -1462,13 +1485,16 @@ function mod:Update(win)
 					row.sparkGlow = row:CreateTexture(nil, "OVERLAY")
 					row.sparkGlow:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark")
 					row.sparkGlow:SetBlendMode("ADD")
-					row.sparkGlow:SetVertexColor(0.55, 0.78, 1.0, 1)
 				end
 				if not row.spark then
 					row.spark = row:CreateTexture(nil, "OVERLAY")
 					row.spark:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark")
 					row.spark:SetBlendMode("ADD")
 				end
+				local sc = p.sparkcolor or { r = 1, g = 1, b = 1, a = 1 }
+				row.spark:SetVertexColor(sc.r, sc.g, sc.b, sc.a or 1)
+				local gc = p.sparkglowcolor or { r = 0.55, g = 0.78, b = 1.00, a = 1 }
+				row.sparkGlow:SetVertexColor(gc.r, gc.g, gc.b, gc.a or 1)
 				row.spark:SetHeight(height * 3.6)
 				row.spark:SetWidth(height * 1.35)
 				row.spark:SetAlpha(1)
