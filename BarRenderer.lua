@@ -360,7 +360,7 @@ local function layoutRowText(row, frame, spec, p, hasIcon)
 			fs:Hide()
 		end
 	end
-	local iconOffset = (hasIcon and row.iconSize or 0) + 2
+	local iconOffset = (row._leftIndent or 0) + (hasIcon and row.iconSize or 0) + 2
 	row.label:ClearAllPoints()
 	row.label:SetPoint("LEFT", row, "LEFT", iconOffset, 0)
 	if #spec > 0 then
@@ -389,6 +389,12 @@ local function createRow(frame)
 	row.overfill:SetTexture(frame._barTexture or "Interface\\Buttons\\WHITE8X8")
 	row.overfill:SetVertexColor(0.9, 0.2, 0.15, 0.65)
 	row.overfill:Hide()
+	row.inlineGuide = row:CreateTexture(nil, "ARTWORK")
+	row.inlineGuide:SetColorTexture(1, 1, 1, 0.18)
+	row.inlineGuide:SetWidth(1)
+	row.inlineGuide:SetPoint("TOPLEFT", row, "TOPLEFT", 9, -3)
+	row.inlineGuide:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 9, 3)
+	row.inlineGuide:Hide()
 	row.hover = row:CreateTexture(nil, "ARTWORK")
 	row.hover:SetAllPoints()
 	row.hover:SetColorTexture(1, 1, 1, 0.075)
@@ -721,6 +727,7 @@ end
 local function setRowStyle(row, data, win, p, hasIcon)
 	local isList = win.metadata and (win.metadata.is_modelist or win.metadata.is_setlist)
 	local r, g, b, a = getBarColor(data, win, p)
+	local inlineDetail = data.isInlineDetail == true
 	if isList then
 		-- Lists use full-width bars whose length carries no meaning. Use the
 		-- existing alternate-row setting for their bands, with enough opacity
@@ -732,8 +739,11 @@ local function setRowStyle(row, data, win, p, hasIcon)
 		row.fill:SetAlpha(alternate and 0.70 or 0.30)
 	else
 		row.fill:Show()
-		row.fill:SetAlpha(1)
+		row.fill:SetAlpha(inlineDetail and 0.62 or 1)
 		row.fill:SetVertexColor(r, g, b, a)
+	end
+	if row.inlineGuide then
+		if inlineDetail then row.inlineGuide:Show() else row.inlineGuide:Hide() end
 	end
 
 	local class = data.class
@@ -770,9 +780,9 @@ local function setRowStyle(row, data, win, p, hasIcon)
 		row.bg:SetColorTexture(bg.r + tint, bg.g + tint * 1.15, bg.b + tint * 1.55, alpha)
 	elseif p.alternaterows and alternate then
 		local d = 0.04
-		row.bg:SetColorTexture(max(0, bg.r - d), max(0, bg.g - d), max(0, bg.b - d), min(1, bgAlpha + d))
+		row.bg:SetColorTexture(max(0, bg.r - d), max(0, bg.g - d), max(0, bg.b - d), inlineDetail and (bgAlpha * 0.45) or min(1, bgAlpha + d))
 	else
-		row.bg:SetColorTexture(bg.r, bg.g, bg.b, bgAlpha)
+		row.bg:SetColorTexture(bg.r, bg.g, bg.b, inlineDetail and (bgAlpha * 0.45) or bgAlpha)
 	end
 
 	if p.highlightself and row._isSelf then
@@ -847,6 +857,7 @@ function mod:Wipe(win)
 		if row.spark then row.spark:Hide() end
 		if row.sparkGlow then row.sparkGlow:Hide() end
 		if row.overfill then row.overfill:Hide() end
+		if row.inlineGuide then row.inlineGuide:Hide() end
 		if row.hover then row.hover:Hide() end
 		frame.rowPool[#frame.rowPool + 1] = row
 	end
@@ -1005,10 +1016,11 @@ local function setIcon(row, data, win, p)
 		row.icon:SetTexCoord(0.1, 0.9, 0.1, 0.9)
 	end
 	row.icon:Show()
-	row.iconSize = (row:GetHeight() or 22) * ((p.iconscale or 100) / 100)
+	local detailScale = (data and data.isInlineDetail) and 0.78 or 1
+	row.iconSize = (row:GetHeight() or 22) * ((p.iconscale or 100) / 100) * detailScale
 	row.icon:SetSize(row.iconSize, row.iconSize)
 	row.icon:ClearAllPoints()
-	row.icon:SetPoint("LEFT", row, "LEFT", 0, 0)
+	row.icon:SetPoint("LEFT", row, "LEFT", row._leftIndent or 0, 0)
 	row.iconFrame:EnableMouse(not p.clickthrough)
 	row.iconFrame.bar = row
 	return true
@@ -1078,9 +1090,9 @@ local function buildInlineRows(win, row)
 			copy.ignore = true
 			copy._inlineParent = parentID
 			if issecretvalue(detail.label) or detail.label ~= nil then
-				copy.label = string.format("    %s", detail.label)
+				copy.label = detail.label
 			else
-				copy.label = "    ?"
+				copy.label = "?"
 			end
 			rows[#rows + 1] = copy
 		end
@@ -1184,6 +1196,8 @@ local function resetRowForUse(row)
 	row._hasIcon = false
 	row._barTexture = nil
 	row._tooltipWin = nil
+	row._leftIndent = 0
+	if row.inlineGuide then row.inlineGuide:Hide() end
 	row._anim = nil
 	row._targetWidth = nil
 	row._currentWidth = nil
@@ -1229,6 +1243,7 @@ local function releaseRow(frame, row)
 	if row.spark then row.spark:Hide() end
 	if row.sparkGlow then row.sparkGlow:Hide() end
 	if row.overfill then row.overfill:Hide() end
+	if row.inlineGuide then row.inlineGuide:Hide() end
 	if row.hover then row.hover:Hide() end
 	if id ~= nil then frame.rowById[id] = nil end
 	frame.rowPool[#frame.rowPool + 1] = row
@@ -1388,7 +1403,15 @@ function mod:Update(win)
 				row.fill:SetTexture(frame._barTexture or "Interface\\Buttons\\WHITE8X8")
 			end
 
-			local iconKey = secretKey(data.role) .. "|" .. secretKey(data.class) .. "|" .. secretKey(data.icon) .. "|" .. tostring(p.roleicons) .. "|" .. tostring(p.classicons) .. "|" .. tostring(p.compact)
+			local leftIndent = data.isInlineDetail and 18 or 0
+			if row._leftIndent ~= leftIndent then
+				row._leftIndent = leftIndent
+				row._specKey = nil
+				row._iconKey = nil
+				row._styleKey = nil
+				row._fillVersion = nil
+			end
+			local iconKey = secretKey(data.role) .. "|" .. secretKey(data.class) .. "|" .. secretKey(data.icon) .. "|" .. tostring(p.roleicons) .. "|" .. tostring(p.classicons) .. "|" .. tostring(p.compact) .. "|" .. tostring(leftIndent)
 			if row._iconKey ~= iconKey or issecretvalue(data.icon) then
 				row._iconKey = iconKey
 				row._hasIcon = setIcon(row, data, win, p)
@@ -1407,7 +1430,7 @@ function mod:Update(win)
 			end
 			row._isSelf = isSelf
 			local isList = win.metadata and (win.metadata.is_modelist or win.metadata.is_setlist)
-			local styleKey = secretKey(data.class) .. "|" .. secretKey(data.spellschool) .. "|" .. secretKey(data.color) .. "|" .. tostring(visibleIndex % 2) .. "|" .. tostring(styleVersion) .. "|" .. tostring(win.metadata.isspelllist) .. "|" .. tostring(isSelf) .. "|" .. tostring(p.highlightself) .. "|" .. tostring(isList)
+			local styleKey = secretKey(data.class) .. "|" .. secretKey(data.spellschool) .. "|" .. secretKey(data.color) .. "|" .. tostring(visibleIndex % 2) .. "|" .. tostring(styleVersion) .. "|" .. tostring(win.metadata.isspelllist) .. "|" .. tostring(isSelf) .. "|" .. tostring(p.highlightself) .. "|" .. tostring(isList) .. "|" .. tostring(data.isInlineDetail)
 			if row._styleKey ~= styleKey then
 				row._styleKey = styleKey
 				setRowStyle(row, data, win, p, row._hasIcon)
@@ -1493,16 +1516,18 @@ function mod:Update(win)
 			local effective = max(0, value - over)
 			local ratio = max(0, min(1, effective / maxvalue))
 			local inset = p.barinset or 0
-			local usable = max(0, frame:GetWidth() - inset * 2)
-			if row._fillVersion ~= fillVersion then
-				row._fillVersion = fillVersion
+			local leftIndent = row._leftIndent or 0
+			local rowFillVersion = fillVersion .. ":" .. tostring(leftIndent)
+			local usable = max(0, frame:GetWidth() - inset * 2 - leftIndent)
+			if row._fillVersion ~= rowFillVersion then
+				row._fillVersion = rowFillVersion
 				row.fill:ClearAllPoints()
 				if p.barorientation == 2 then
 					row.fill:SetPoint("TOPRIGHT", row, "TOPRIGHT", -inset, -inset)
 					row.fill:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", -inset, inset)
 				else
-					row.fill:SetPoint("TOPLEFT", row, "TOPLEFT", inset, -inset)
-					row.fill:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", inset, inset)
+					row.fill:SetPoint("TOPLEFT", row, "TOPLEFT", inset + leftIndent, -inset)
+					row.fill:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", inset + leftIndent, inset)
 				end
 			end
 			local targetWidth = max(1, usable * ratio)
