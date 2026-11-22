@@ -108,28 +108,7 @@ local function getRenderDataset(win, applySort)
 	if applySort and win.metadata.showspots then
 		table_sort(dataset, Skada.value_sort)
 	end
-	local inline = win._inline
-	if not inline or type(inline.rows) ~= "table" or #inline.rows == 0 then
-		return dataset
-	end
-	if inline.mode and inline.mode ~= win.selectedmode then
-		win._inline = nil
-		return dataset
-	end
-	local merged = {}
-	local inserted = false
-	for _, data in ipairs(dataset) do
-		merged[#merged + 1] = data
-		if not inserted and data.id and not issecretvalue(data.id) and data.id == inline.id then
-			for _, detail in ipairs(inline.rows) do merged[#merged + 1] = detail end
-			inserted = true
-		end
-	end
-	if not inserted then
-		win._inline = nil
-		return dataset
-	end
-	return merged
+	return dataset
 end
 
 local function lastValidDatasetIndex(dataset)
@@ -360,7 +339,7 @@ local function layoutRowText(row, frame, spec, p, hasIcon)
 			fs:Hide()
 		end
 	end
-	local iconOffset = (row._leftIndent or 0) + (hasIcon and row.iconSize or 0) + 2
+	local iconOffset = (hasIcon and row.iconSize or 0) + 2
 	row.label:ClearAllPoints()
 	row.label:SetPoint("LEFT", row, "LEFT", iconOffset, 0)
 	if #spec > 0 then
@@ -389,12 +368,6 @@ local function createRow(frame)
 	row.overfill:SetTexture(frame._barTexture or "Interface\\Buttons\\WHITE8X8")
 	row.overfill:SetVertexColor(0.9, 0.2, 0.15, 0.65)
 	row.overfill:Hide()
-	row.inlineGuide = row:CreateTexture(nil, "ARTWORK")
-	row.inlineGuide:SetColorTexture(1, 1, 1, 0.18)
-	row.inlineGuide:SetWidth(1)
-	row.inlineGuide:SetPoint("TOPLEFT", row, "TOPLEFT", 9, -3)
-	row.inlineGuide:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 9, 3)
-	row.inlineGuide:Hide()
 	row.hover = row:CreateTexture(nil, "ARTWORK")
 	row.hover:SetAllPoints()
 	row.hover:SetColorTexture(1, 1, 1, 0.075)
@@ -727,7 +700,6 @@ end
 local function setRowStyle(row, data, win, p, hasIcon)
 	local isList = win.metadata and (win.metadata.is_modelist or win.metadata.is_setlist)
 	local r, g, b, a = getBarColor(data, win, p)
-	local inlineDetail = data.isInlineDetail == true
 	if isList then
 		-- Lists use full-width bars whose length carries no meaning. Use the
 		-- existing alternate-row setting for their bands, with enough opacity
@@ -739,11 +711,8 @@ local function setRowStyle(row, data, win, p, hasIcon)
 		row.fill:SetAlpha(alternate and 0.70 or 0.30)
 	else
 		row.fill:Show()
-		row.fill:SetAlpha(inlineDetail and 0.62 or 1)
+		row.fill:SetAlpha(1)
 		row.fill:SetVertexColor(r, g, b, a)
-	end
-	if row.inlineGuide then
-		if inlineDetail then row.inlineGuide:Show() else row.inlineGuide:Hide() end
 	end
 
 	local class = data.class
@@ -780,9 +749,9 @@ local function setRowStyle(row, data, win, p, hasIcon)
 		row.bg:SetColorTexture(bg.r + tint, bg.g + tint * 1.15, bg.b + tint * 1.55, alpha)
 	elseif p.alternaterows and alternate then
 		local d = 0.04
-		row.bg:SetColorTexture(max(0, bg.r - d), max(0, bg.g - d), max(0, bg.b - d), inlineDetail and (bgAlpha * 0.45) or min(1, bgAlpha + d))
+		row.bg:SetColorTexture(max(0, bg.r - d), max(0, bg.g - d), max(0, bg.b - d), min(1, bgAlpha + d))
 	else
-		row.bg:SetColorTexture(bg.r, bg.g, bg.b, inlineDetail and (bgAlpha * 0.45) or bgAlpha)
+		row.bg:SetColorTexture(bg.r, bg.g, bg.b, bgAlpha)
 	end
 
 	if p.highlightself and row._isSelf then
@@ -857,7 +826,6 @@ function mod:Wipe(win)
 		if row.spark then row.spark:Hide() end
 		if row.sparkGlow then row.sparkGlow:Hide() end
 		if row.overfill then row.overfill:Hide() end
-		if row.inlineGuide then row.inlineGuide:Hide() end
 		if row.hover then row.hover:Hide() end
 		frame.rowPool[#frame.rowPool + 1] = row
 	end
@@ -1016,11 +984,10 @@ local function setIcon(row, data, win, p)
 		row.icon:SetTexCoord(0.1, 0.9, 0.1, 0.9)
 	end
 	row.icon:Show()
-	local detailScale = (data and data.isInlineDetail) and 0.78 or 1
-	row.iconSize = (row:GetHeight() or 22) * ((p.iconscale or 100) / 100) * detailScale
+	row.iconSize = (row:GetHeight() or 22) * ((p.iconscale or 100) / 100)
 	row.icon:SetSize(row.iconSize, row.iconSize)
 	row.icon:ClearAllPoints()
-	row.icon:SetPoint("LEFT", row, "LEFT", row._leftIndent or 0, 0)
+	row.icon:SetPoint("LEFT", row, "LEFT", 0, 0)
 	row.iconFrame:EnableMouse(not p.clickthrough)
 	row.iconFrame.bar = row
 	return true
@@ -1047,74 +1014,6 @@ local function showMode(win, id, label, mode)
 	win:DisplayMode(mode)
 end
 
-local function buildInlineRows(win, row)
-	local metadata = win.metadata
-	local playermod = metadata and metadata.click1
-	if not playermod or not playermod.Update or metadata.isspelllist
-		or metadata.is_modelist or metadata.is_setlist then
-		return nil
-	end
-	local parentID = row.id
-	if issecretvalue(parentID) then return nil end
-	local set = win:get_selected_set()
-	if type(set) ~= "table" then return nil end
-	local oldPlayer, oldTitle = playermod.playerid, playermod.title
-	local spellTooltip = playermod.metadata and playermod.metadata.post_tooltip
-	local tooltipWin = setmetatable({ metadata = { post_tooltip = spellTooltip } }, { __index = win })
-	local proxy = setmetatable({
-		dataset = {},
-		metadata = {},
-		db = win.db,
-		changed = false,
-		Wipe = function() end,
-		_drillSource = row.source,
-		_drillIsLocalPlayer = row.isLocalPlayer,
-		_drillSourceGUID = row.sourceGUID,
-		_drillSourceCreatureID = row.sourceCreatureID,
-	}, { __index = win })
-	local ok = pcall(function()
-		playermod:Enter(win, parentID, row.text)
-		playermod:Update(proxy, set)
-	end)
-	playermod.playerid, playermod.title = oldPlayer, oldTitle
-	if not ok then return nil end
-	local serial = (win._inlineSerial or 0) + 1
-	win._inlineSerial = serial
-	local rows = {}
-	for i, detail in ipairs(proxy.dataset or {}) do
-		if type(detail) == "table" and detail.id then
-			local copy = {}
-			for key, value in pairs(detail) do copy[key] = value end
-			copy.id = "inline_" .. serial .. "_" .. i
-			copy.isInlineDetail = true
-			copy.ignore = true
-			copy._inlineParent = parentID
-			if issecretvalue(detail.label) or detail.label ~= nil then
-				copy.label = detail.label
-			else
-				copy.label = "?"
-			end
-			rows[#rows + 1] = copy
-		end
-	end
-	if #rows == 0 then return nil end
-	return { id = parentID, rows = rows, mode = win.selectedmode, tooltipWin = tooltipWin }
-end
-
-local function toggleInline(win, row)
-	local frame = win.bargroup
-	if frame then frame._skipAnimation = true end
-	if win._inline and win._inline.id == row.id then
-		win._inline = nil
-		win.display:Update(win)
-		return true
-	end
-	local inline = buildInlineRows(win, row)
-	if not inline then return false end
-	win._inline = inline
-	win.display:Update(win)
-	return true
-end
 
 local function rowClick(row, button)
 	local win = row.win
@@ -1122,9 +1021,6 @@ local function rowClick(row, button)
 	local data = row.spellData
 	if data and not issecretvalue(data.ignore) and data.ignore then return end
 	Skada._lastActiveWindow = win
-	if button == "LeftButton" and not IsShiftKeyDown() and not IsControlKeyDown() then
-		if toggleInline(win, row) then return end
-	end
 	local click1, click2, click3 = win.metadata.click1, win.metadata.click2, win.metadata.click3
 	win._drillSource = row.source
 	win._drillIsLocalPlayer = row.isLocalPlayer
@@ -1149,26 +1045,24 @@ local function rowEnter(row)
 	if row.hover then row.hover:Show() end
 	local win = row.win
 	if not win then return end
-	local tooltipWin = row._tooltipWin or win
-	tooltipWin._hoverSource = row.source
-	tooltipWin._hoverIsLocalPlayer = row.isLocalPlayer
-	tooltipWin._hoverSourceGUID = row.sourceGUID
-	tooltipWin._hoverSourceCreatureID = row.sourceCreatureID
-	tooltipWin._hoverSpell = row.spellData
+	win._hoverSource = row.source
+	win._hoverIsLocalPlayer = row.isLocalPlayer
+	win._hoverSourceGUID = row.sourceGUID
+	win._hoverSourceCreatureID = row.sourceCreatureID
+	win._hoverSpell = row.spellData
 	Skada:SetTooltipPosition(GameTooltip, win.bargroup)
-	Skada:ShowTooltip(tooltipWin, row.id, row.text)
+	Skada:ShowTooltip(win, row.id, row.text)
 end
 
 local function rowLeave(row)
 	if row.hover then row.hover:Hide() end
 	local win = row.win
 	if not win then return end
-	local tooltipWin = row._tooltipWin or win
-	tooltipWin._hoverSource = nil
-	tooltipWin._hoverIsLocalPlayer = nil
-	tooltipWin._hoverSourceGUID = nil
-	tooltipWin._hoverSourceCreatureID = nil
-	tooltipWin._hoverSpell = nil
+	win._hoverSource = nil
+	win._hoverIsLocalPlayer = nil
+	win._hoverSourceGUID = nil
+	win._hoverSourceCreatureID = nil
+	win._hoverSpell = nil
 	GameTooltip:Hide()
 end
 
@@ -1195,9 +1089,6 @@ local function resetRowForUse(row)
 	row._styleKey = nil
 	row._hasIcon = false
 	row._barTexture = nil
-	row._tooltipWin = nil
-	row._leftIndent = 0
-	if row.inlineGuide then row.inlineGuide:Hide() end
 	row._anim = nil
 	row._targetWidth = nil
 	row._currentWidth = nil
@@ -1243,7 +1134,6 @@ local function releaseRow(frame, row)
 	if row.spark then row.spark:Hide() end
 	if row.sparkGlow then row.sparkGlow:Hide() end
 	if row.overfill then row.overfill:Hide() end
-	if row.inlineGuide then row.inlineGuide:Hide() end
 	if row.hover then row.hover:Hide() end
 	if id ~= nil then frame.rowById[id] = nil end
 	frame.rowPool[#frame.rowPool + 1] = row
@@ -1389,7 +1279,6 @@ function mod:Update(win)
 			row.text = data.label
 			row.spellData = data
 			row.spellid = data.spellid
-			row._tooltipWin = data.isInlineDetail and win._inline and win._inline.tooltipWin or nil
 			row.link = data.hyperlink
 			row.source = data.source or win._drillSource
 			row.isLocalPlayer = data.isLocalPlayer
@@ -1403,15 +1292,7 @@ function mod:Update(win)
 				row.fill:SetTexture(frame._barTexture or "Interface\\Buttons\\WHITE8X8")
 			end
 
-			local leftIndent = data.isInlineDetail and 18 or 0
-			if row._leftIndent ~= leftIndent then
-				row._leftIndent = leftIndent
-				row._specKey = nil
-				row._iconKey = nil
-				row._styleKey = nil
-				row._fillVersion = nil
-			end
-			local iconKey = secretKey(data.role) .. "|" .. secretKey(data.class) .. "|" .. secretKey(data.icon) .. "|" .. tostring(p.roleicons) .. "|" .. tostring(p.classicons) .. "|" .. tostring(p.compact) .. "|" .. tostring(leftIndent)
+			local iconKey = secretKey(data.role) .. "|" .. secretKey(data.class) .. "|" .. secretKey(data.icon) .. "|" .. tostring(p.roleicons) .. "|" .. tostring(p.classicons) .. "|" .. tostring(p.compact)
 			if row._iconKey ~= iconKey or issecretvalue(data.icon) then
 				row._iconKey = iconKey
 				row._hasIcon = setIcon(row, data, win, p)
@@ -1430,19 +1311,15 @@ function mod:Update(win)
 			end
 			row._isSelf = isSelf
 			local isList = win.metadata and (win.metadata.is_modelist or win.metadata.is_setlist)
-			local styleKey = secretKey(data.class) .. "|" .. secretKey(data.spellschool) .. "|" .. secretKey(data.color) .. "|" .. tostring(visibleIndex % 2) .. "|" .. tostring(styleVersion) .. "|" .. tostring(win.metadata.isspelllist) .. "|" .. tostring(isSelf) .. "|" .. tostring(p.highlightself) .. "|" .. tostring(isList) .. "|" .. tostring(data.isInlineDetail)
+			local styleKey = secretKey(data.class) .. "|" .. secretKey(data.spellschool) .. "|" .. secretKey(data.color) .. "|" .. tostring(visibleIndex % 2) .. "|" .. tostring(styleVersion) .. "|" .. tostring(win.metadata.isspelllist) .. "|" .. tostring(isSelf) .. "|" .. tostring(p.highlightself) .. "|" .. tostring(isList)
 			if row._styleKey ~= styleKey then
 				row._styleKey = styleKey
 				setRowStyle(row, data, win, p, row._hasIcon)
 			end
 
 			local label = data.label
-			if win._inline and not data.isInlineDetail and not issecretvalue(data.id)
-				and data.id == win._inline.id and (issecretvalue(label) or label ~= nil) then
-				label = string.format("\226\150\190 %s", label)
-			end
 			if win.metadata.showspots and Skada.db.profile.showranks and not data.ignore
-				and not data.isInlineDetail and not issecretvalue(label) then
+				and not issecretvalue(label) then
 				label = ("%2u. %s"):format(nr, label)
 			end
 			setTextIfChanged(row.label, label, issecretvalue(label))
@@ -1516,18 +1393,16 @@ function mod:Update(win)
 			local effective = max(0, value - over)
 			local ratio = max(0, min(1, effective / maxvalue))
 			local inset = p.barinset or 0
-			local leftIndent = row._leftIndent or 0
-			local rowFillVersion = fillVersion .. ":" .. tostring(leftIndent)
-			local usable = max(0, frame:GetWidth() - inset * 2 - leftIndent)
-			if row._fillVersion ~= rowFillVersion then
-				row._fillVersion = rowFillVersion
+			local usable = max(0, frame:GetWidth() - inset * 2)
+			if row._fillVersion ~= fillVersion then
+				row._fillVersion = fillVersion
 				row.fill:ClearAllPoints()
 				if p.barorientation == 2 then
 					row.fill:SetPoint("TOPRIGHT", row, "TOPRIGHT", -inset, -inset)
 					row.fill:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", -inset, inset)
 				else
-					row.fill:SetPoint("TOPLEFT", row, "TOPLEFT", inset + leftIndent, -inset)
-					row.fill:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", inset + leftIndent, inset)
+					row.fill:SetPoint("TOPLEFT", row, "TOPLEFT", inset, -inset)
+					row.fill:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", inset, inset)
 				end
 			end
 			local targetWidth = max(1, usable * ratio)

@@ -633,7 +633,6 @@ function Window:Reset()
 end
 
 function Window:Wipe()
-	self._inline = nil
 	-- Clear dataset.
 	self:Reset()
 
@@ -3466,7 +3465,7 @@ function Skada:ShowTooltip(win, id, label)
 			Skada:AddSubviewToTooltip(t, win, find_mode(id), id, label)
 
 			t:Show()
-		elseif win.metadata.click1 or win.metadata.click2 or win.metadata.click3 or win.metadata.tooltip or win.metadata.post_tooltip then
+		elseif win.metadata.click1 or win.metadata.click2 or win.metadata.click3 or win.metadata.tooltip then
 			t:ClearLines()
 
 			local hasClick = win.metadata.click1 or win.metadata.click2 or win.metadata.click3
