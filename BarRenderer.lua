@@ -953,6 +953,7 @@ local function setIcon(row, data, win, p)
 	end
 	local icon, coord
 	local role, class, dataIcon = data.role, data.class, data.icon
+	if not issecretvalue(dataIcon) and dataIcon == 0 then dataIcon = nil end
 	local dataIconSecret = issecretvalue(dataIcon)
 	if win.metadata and win.metadata.isspelllist and (dataIconSecret or dataIcon) then
 		icon = dataIcon
@@ -966,6 +967,8 @@ local function setIcon(row, data, win, p)
 		coord = classIconCoords[class]
 	elseif dataIconSecret or dataIcon then
 		icon = dataIcon
+	elseif win.metadata and win.metadata.istargetlist then
+		icon = "Interface\\Icons\\Ability_Hunter_SniperShot"
 	end
 	if not issecretvalue(icon) and icon == nil then
 		row.icon:Hide()

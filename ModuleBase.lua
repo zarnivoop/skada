@@ -753,6 +753,7 @@ end
 
 function ModuleBase:UpdateTargetList(win, playerid, set, damageType, options)
 	options = options or {}
+	win.metadata.istargetlist = true
 	local spells = self:GetDrillSpells(win, playerid, set, damageType)
 	local rows = {}
 	local map = {}
@@ -799,8 +800,12 @@ function ModuleBase:UpdateTargetList(win, playerid, set, damageType, options)
 						targetClass = rawClass
 					end
 					local targetIcon
-					if type(details.specIconID) == "number" and not issecretvalue(details.specIconID) then
-						targetIcon = details.specIconID
+					for _, key in ipairs({ "specIconID", "icon", "unitIcon", "iconID", "texture" }) do
+						local value = details[key]
+						if type(value) == "number" and not issecretvalue(value) and value > 0 then
+							targetIcon = value
+							break
+						end
 					end
 					if not issecretvalue(target) and not issecretvalue(amount) and type(amount) == "number" then
 						local row = map[target]
