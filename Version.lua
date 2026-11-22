@@ -1,6 +1,19 @@
 local _, Skada = ...
 Skada.versions = {
 	{
+		id = "2.9.0",
+		title = "Skada 2.9.0",
+		message = "Bar polish and segment fixes",
+		changes = {
+			"Rows now highlight subtly on hover",
+			"Spell bars show overkill and overhealing as a second segment",
+			"Fixed historical segment selection showing the current fight instead of the selected fight",
+			"Historical segment spell and source drilldowns now use the selected fight",
+			"Target rows now show class or specialization icons, with a target fallback icon for NPCs",
+			"Fixed the total row inheriting stale overkill data",
+		}
+	},
+	{
 		id = "2.8.0",
 		title = "Skada 2.8.0",
 		message = "Bar renderer and combat polish",

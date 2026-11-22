@@ -1,3 +1,12 @@
+## 2.9.0
+Bar polish and segment fixes
+- Rows now highlight subtly on hover
+- Spell bars show overkill and overhealing as a second segment
+- Fixed historical segment selection showing the current fight instead of the selected fight
+- Historical segment spell and source drilldowns now use the selected fight
+- Target rows now show class or specialization icons, with a target fallback icon for NPCs
+- Fixed the total row inheriting stale overkill data
+
 ## 2.8.0
 Bar renderer and combat polish
 - Rebuilt the bar window on an internal renderer with smoother updates, row animations and a more visible spark
