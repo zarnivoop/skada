@@ -86,7 +86,7 @@ Skada.windowdefaults = {
 	ledgeralternaterows = true,
 	ledgerseparators = false,
 	background = {
-		height = 300,
+		height = 220,
 		texture = "None",
 		bordercolor = { r = 0.30, g = 0.45, b = 0.58, a = 0.20 },
 		bordertexture = "Forever Line",

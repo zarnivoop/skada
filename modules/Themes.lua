@@ -61,7 +61,7 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 				paddingleft = 12, paddingtop = 3,
 				texture="Forever Bar", bordercolor = {r = 0.32, g = 0.48, b = 0.62, a = 0.12}, bordertexture="Forever Line",
 				borderthickness = 1, color = {r = 0.06, g = 0.11, b = 0.20, a = 0.68}, color2 = {r = 0.015, g = 0.028, b = 0.055, a = 0.68}, fontflags = "", textalign = "LEFT"},
-			background = {height = 300, texture="None", bordercolor = {r = 0.30, g = 0.45, b = 0.58, a = 0.20},
+			background = {height = 220, texture="None", bordercolor = {r = 0.30, g = 0.45, b = 0.58, a = 0.20},
 				bordertexture="Forever Line", borderthickness = 1, color = {r = 0.014, g = 0.016, b = 0.020, a = 0.10}, tile = false, tilesize = 0},
 			display = "bar",
 			version = 1,
@@ -299,7 +299,7 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 			fontflags = "",
 		},
 		background = {
-			height = 310,
+			height = 240,
 			texture = "Copper",
 			bordertexture = "Forever Line",
 			borderthickness = 2,
@@ -362,7 +362,7 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 			paddingleft = 14,
 		},
 		background = {
-			height = 300,
+			height = 230,
 			texture = "Skada Glass",
 			bordertexture = "Glow",
 			borderthickness = 1,
@@ -512,7 +512,7 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 			paddingleft = 8,
 		},
 		background = {
-			height = 280,
+			height = 160,
 			texture = "None",
 			bordertexture = "None",
 			borderthickness = 0,
@@ -570,7 +570,7 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 			paddingtop = 4,
 		},
 		background = {
-			height = 320,
+			height = 250,
 			texture = "Copper",
 			bordertexture = "Roth",
 			borderthickness = 2,
@@ -625,7 +625,7 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 			textalign = "LEFT",
 		},
 		background = {
-			height = 300,
+			height = 230,
 			texture = "None",
 			bordertexture = "Roth",
 			borderthickness = 2,
@@ -681,7 +681,7 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 			paddingleft = 14,
 		},
 		background = {
-			height = 310,
+			height = 240,
 			texture = "None",
 			bordertexture = "Glow",
 			borderthickness = 1,
