@@ -1355,7 +1355,6 @@ function mod:Update(win)
 				valueColumn:SetFont(frame._fontPath or "Fonts\\FRIZQT__.TTF", frame._fontSize or 13, frame._fontFlags or "")
 				valueColumn:ClearAllPoints()
 				valueColumn:SetPoint("RIGHT", row, "RIGHT", -COLUMN_RIGHT_PAD, 0)
-				valueColumn:SetWidth(COLUMN_WIDTH)
 				valueColumn:SetJustifyH("RIGHT")
 				for i2 = 1, 3 do
 					local fs = row.columns[i2]
@@ -1369,6 +1368,12 @@ function mod:Update(win)
 						end
 					end
 				end
+				local valueWidth = COLUMN_WIDTH
+				local okWidth, measured = pcall(valueColumn.GetStringWidth, valueColumn)
+				if okWidth and type(measured) == "number" and not issecretvalue(measured) and measured > 0 then
+					valueWidth = max(COLUMN_WIDTH, measured + 6)
+				end
+				valueColumn:SetWidth(valueWidth)
 				if not row._singleText then
 					row._singleText = true
 					row.label:ClearAllPoints()
