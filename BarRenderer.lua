@@ -922,7 +922,13 @@ function mod:Layout(win)
 	if frame.button then frame.button:SetHeight(p.title.height or 30) end
 	if p.strata then frame:SetFrameStrata(p.strata) end
 	frame:SetScale(p.scale or 1)
-	frame:SetBackdrop({ bgFile = mediaBackground(p.background.texture), edgeFile = nil, tile = false, edgeSize = 0 })
+	frame:SetBackdrop({
+		bgFile = mediaBackground(p.background.texture),
+		edgeFile = nil,
+		tile = p.background.tile and true or false,
+		tileSize = p.background.tilesize or 0,
+		edgeSize = 0,
+	})
 	local bg = p.background.color
 	frame:SetBackdropColor(bg.r, bg.g, bg.b, bg.a or 1)
 	Skada:ApplyBorder(frame, p.background.bordertexture, p.background.bordercolor, p.background.borderthickness)
