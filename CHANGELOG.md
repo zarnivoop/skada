@@ -1,3 +1,16 @@
+## 2.10.0
+A richer set of themes and bar polish
+- Reworked the theme presets with distinct bars, borders, fonts and title treatments
+- Added Bastion, Rime, Grimoire, Vanguard and Tidecaller themes
+- Added optional transparent title treatments and title-button styles to selected themes
+- Themes now cover bar textures, title alignment, icons, headers, separators, hover, spillover and spark colors
+- Added themable row hover, overkill, overhealing, spark and spark glow colors
+- Added a Bar icons toggle and theme-aware background tiling
+- Themes are sorted by name for easier browsing
+- Reduced default and preset window heights
+- Single-value text now sizes to its content when columns are disabled
+- Switching themes now resets every style field instead of leaving stale styling
+
 ## 2.9.0
 Bar polish and segment fixes
 - Rows now highlight subtly on hover

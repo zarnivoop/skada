@@ -1,6 +1,23 @@
 local _, Skada = ...
 Skada.versions = {
 	{
+		id = "2.10.0",
+		title = "Skada 2.10.0",
+		message = "A richer set of themes and bar polish",
+		changes = {
+			"Reworked the theme presets with distinct bars, borders, fonts and title treatments",
+			"Added Bastion, Rime, Grimoire, Vanguard and Tidecaller themes",
+			"Added optional transparent title treatments and title-button styles to selected themes",
+			"Themes now cover bar textures, title alignment, icons, headers, separators, hover, spillover and spark colors",
+			"Added themable row hover, overkill, overhealing, spark and spark glow colors",
+			"Added a Bar icons toggle and theme-aware background tiling",
+			"Themes are sorted by name for easier browsing",
+			"Reduced default and preset window heights",
+			"Single-value text now sizes to its content when columns are disabled",
+			"Switching themes now resets every style field instead of leaving stale styling",
+		}
+	},
+	{
 		id = "2.9.0",
 		title = "Skada 2.9.0",
 		message = "Bar polish and segment fixes",
