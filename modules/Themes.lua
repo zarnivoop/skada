@@ -176,9 +176,10 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 		showrowseparators = false,
 		columnheadertextcolor = { r = 0.82, g = 1.00, b = 0.88, a = 1 },
 		title = {
-			height = 26,
+			height = 28,
 			font = "Adventure",
-			fontsize = 14,
+			fontsize = 15,
+			fontflags = "OUTLINE",
 			texture = "Skada Glass",
 			bordertexture = "Roth",
 			borderthickness = 1,
@@ -186,7 +187,8 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 			color2 = { r = 0.005, g = 0.020, b = 0.010, a = 0.55 },
 			bordercolor = { r = 0.30, g = 0.80, b = 0.50, a = 0.25 },
 			textcolor = { r = 0.85, g = 1.00, b = 0.90, a = 1 },
-			textalign = "CENTER",
+			textalign = "LEFT",
+			paddingleft = 14,
 		},
 		background = {
 			texture = "None",
@@ -281,9 +283,9 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 		buttonsize = 16,
 		buttonpaddingright = 12,
 		title = {
-			height = 32,
+			height = 34,
 			font = "Cinzel",
-			fontsize = 15,
+			fontsize = 16,
 			texture = "Armory",
 			bordertexture = "Forever Line",
 			borderthickness = 2,
@@ -291,8 +293,8 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 			color2 = { r = 0.030, g = 0.015, b = 0.005, a = 0.90 },
 			bordercolor = { r = 0.95, g = 0.65, b = 0.20, a = 0.40 },
 			textcolor = { r = 1.00, g = 0.92, b = 0.70, a = 1 },
-			textalign = "CENTER",
-			paddingleft = 12,
+			textalign = "LEFT",
+			paddingleft = 14,
 			paddingtop = 4,
 			fontflags = "",
 		},
@@ -345,9 +347,10 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 		buttonsize = 14,
 		buttonpaddingright = 12,
 		title = {
-			height = 30,
+			height = 32,
 			font = "Marcellus",
 			fontsize = 15,
+			fontflags = "OUTLINE",
 			texture = "Skada Glass",
 			bordertexture = "Glow",
 			borderthickness = 1,
@@ -355,7 +358,8 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 			color2 = { r = 0.005, g = 0.020, b = 0.030, a = 0.75 },
 			bordercolor = { r = 0.50, g = 0.90, b = 1.00, a = 0.35 },
 			textcolor = { r = 0.85, g = 1.00, b = 1.00, a = 1 },
-			textalign = "CENTER",
+			textalign = "LEFT",
+			paddingleft = 14,
 		},
 		background = {
 			height = 300,
@@ -561,7 +565,8 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 			color2 = { r = 0.030, g = 0.015, b = 0.005, a = 0.92 },
 			bordercolor = { r = 0.82, g = 0.58, b = 0.24, a = 0.42 },
 			textcolor = { r = 1.00, g = 0.88, b = 0.62, a = 1 },
-			textalign = "CENTER",
+			textalign = "LEFT",
+			paddingleft = 16,
 			paddingtop = 4,
 		},
 		background = {
@@ -661,9 +666,10 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 		buttonsize = 15,
 		buttonpaddingright = 12,
 		title = {
-			height = 30,
+			height = 32,
 			font = "Adventure",
 			fontsize = 16,
+			fontflags = "OUTLINE",
 			texture = "Skada Glass",
 			bordertexture = "Glow",
 			borderthickness = 1,
@@ -671,7 +677,8 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 			color2 = { r = 0.002, g = 0.020, b = 0.030, a = 0.78 },
 			bordercolor = { r = 0.35, g = 0.90, b = 1.00, a = 0.35 },
 			textcolor = { r = 0.80, g = 1.00, b = 1.00, a = 1 },
-			textalign = "CENTER",
+			textalign = "LEFT",
+			paddingleft = 14,
 		},
 		background = {
 			height = 310,
@@ -682,6 +689,17 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 			bordercolor = { r = 0.25, g = 0.75, b = 0.85, a = 0.28 },
 		},
 	})
+
+	local function themeSortKey(name)
+		name = tostring(name or "")
+		name = name:gsub("^Forever:%s*", "")
+		return name:lower()
+	end
+	table.sort(Skada.themePresets, function(a, b)
+		local ak, bk = themeSortKey(a.name), themeSortKey(b.name)
+		if ak == bk then return tostring(a.name) < tostring(b.name) end
+		return ak < bk
+	end)
 
 	-- Base64 encoding/decoding for compact theme strings
 	local b64chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
