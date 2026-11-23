@@ -690,6 +690,22 @@ Skada:AddLoadableModule("Themes", "Adds a set of standard theme presets to Skada
 		},
 	})
 
+	-- Some presets keep the title bar quieter: segment selection remains
+	-- available from the title's right-click menu and the main Skada menu.
+	local hiddenSegmentThemes = {
+		["Forever: Canopy"] = true,
+		["Forever: Rime"] = true,
+		["Forever: Tidecaller"] = true,
+		["Midnight Glass"] = true,
+		["Clear Material"] = true,
+		["Minimalistic"] = true,
+	}
+	for _, theme in ipairs(Skada.themePresets) do
+		if hiddenSegmentThemes[theme.name] and theme.buttons then
+			theme.buttons.segment = false
+		end
+	end
+
 	local function themeSortKey(name)
 		name = tostring(name or "")
 		name = name:gsub("^Forever:%s*", "")
