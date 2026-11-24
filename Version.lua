@@ -1,6 +1,15 @@
 local _, Skada = ...
 Skada.versions = {
 	{
+		id = "2.10.1",
+		title = "Skada 2.10.1",
+		message = "Column toggle fixes",
+		changes = {
+			"Turning a per-mode column on or off now restores separate columns when single-value mode is enabled",
+			"Clarified the single-value column option",
+		}
+	},
+	{
 		id = "2.10.0",
 		title = "Skada 2.10.0",
 		message = "A richer set of themes and bar polish",

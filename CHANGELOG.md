@@ -1,3 +1,8 @@
+## 2.10.1
+Column toggle fixes
+- Turning a per-mode column on or off now restores separate columns when single-value mode is enabled
+- Clarified the single-value column option
+
 ## 2.10.0
 A richer set of themes and bar polish
 - Reworked the theme presets with distinct bars, borders, fonts and title treatments
