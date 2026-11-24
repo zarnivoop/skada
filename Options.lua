@@ -204,8 +204,14 @@ function Skada:AddColumnOptions(mod)
 				name = L[colname] or colname,
 				get = function() return mod.metadata.columns[colname] end,
 				set = function()
-					mod.metadata.columns[colname] = not mod.metadata.columns[colname]
-					db[c] = mod.metadata.columns[colname]
+					local enabled = not mod.metadata.columns[colname]
+					mod.metadata.columns[colname] = enabled
+					db[c] = enabled
+					-- Changing a column means the user wants separate columns
+					-- again, not the single combined value.
+					if Skada.db.profile.disablecolumns then
+						Skada.db.profile.disablecolumns = false
+					end
 					Skada:UpdateDisplay(true)
 				end,
 			}
@@ -687,7 +693,7 @@ Skada.options = {
 				disablecolumns = {
 					type = "toggle",
 					name = L["Disable columns"],
-					desc = L["Show one combined value instead of separate value, rate and percent columns."],
+					desc = L["Show one combined value instead of separate columns. Changing a column restores separate columns."],
 					order = -1,
 					get = function() return Skada.db.profile.disablecolumns == true end,
 					set = function()
